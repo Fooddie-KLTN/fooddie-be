@@ -15,6 +15,11 @@ return new class extends Migration
             $table->id();
             $table->foreignId('user_id')->constrained(); // Quản lý bởi user (admin/chủ nhà hàng)
             $table->string('name');
+            $table->string('phone');
+            $table->string('email');
+            $table->string('avatar')->nullable();
+            $table->string('cover')->nullable();
+            $table->text('description')->nullable()->default('Mô tả nhà hàng'); // Mô tả nhà hàng
             $table->text('address');
             $table->string('license_number')->unique(); // Số giấy phép kinh doanh
             $table->enum('status', ['active', 'inactive'])->default('active');

@@ -13,6 +13,12 @@ return new class extends Migration
     {
         Schema::create('promotions', function (Blueprint $table) {
             $table->id();
+            $table->string('name');
+            $table->string('image');
+            $table->text('description');
+            $table->date('start_date');
+            $table->date('end_date');
+            $table->decimal('discount', 10, 2);
             $table->timestamps();
         });
     }

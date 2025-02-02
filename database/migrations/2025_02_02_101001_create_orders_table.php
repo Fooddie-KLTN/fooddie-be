@@ -13,6 +13,13 @@ return new class extends Migration
     {
         Schema::create('orders', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('user_id')->constrained();
+            $table->foreignId('restaurant_id')->constrained();
+            $table->string('status')->default('pending');
+            $table->decimal('total', 10, 2);
+            $table->text('note')->nullable();
+            $table->date('date');
+            $table->timestamp('delivered_at')->nullable();
             $table->timestamps();
         });
     }
