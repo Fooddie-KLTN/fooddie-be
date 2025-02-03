@@ -6,6 +6,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use App\Enums\UserRole;
 
 class User extends Authenticatable
 {
@@ -27,7 +28,7 @@ class User extends Authenticatable
         'profile_photo_path',
         'status',
         'birthday',
-        
+
     ];
 
     /**
@@ -51,6 +52,16 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'birthday' => 'date',
+            'status' => 'boolean',
+            'role' => UserRole::class
         ];
+    }
+    public function restaurants() {
+        return $this->hasMany(Restaurant::class);
+    }
+    
+    public function orders() {
+        return $this->hasMany(Order::class);
     }
 }
