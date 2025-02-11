@@ -25,7 +25,7 @@ class Restaurant extends Model
         'close_time',
     ];
     protected $attributes = [
-        'status' => 'inactive', //  Đặt mặc định nếu không có giá trị
+        'status' => 'pending', //  Đặt mặc định nếu không có giá trị
         'open_time' => '07:00',
         'close_time' => '22:00',
     ];
@@ -38,9 +38,6 @@ class Restaurant extends Model
         return $this->hasMany(Food::class);
     }
     
-    public function certificates() {
-        return $this->hasMany(Certificate::class);
-    }
 
     public function orders()
     {

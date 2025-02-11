@@ -21,14 +21,16 @@ class User extends Authenticatable
     protected $fillable = [
         'name',
         'email',
-        'role',
         'address',
         'phone_number',
         'profile_photo_path',
         'status',
         'birthday',
     ];
-
+    protected $attributes = [
+        'status' => 'active',
+        
+    ];
     /**
      * The attributes that should be hidden for serialization.
      *
@@ -51,7 +53,6 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'birthday' => 'date',
-            'status' => 'boolean',
             'role' => UserRole::class
         ];
     }
@@ -61,5 +62,14 @@ class User extends Authenticatable
     
     public function orders() {
         return $this->hasMany(Order::class);
+    }
+    public function isAdmin() {
+        return $this->role === UserRole::ADMIN;
+    }
+    public function isShipper() {
+        return $this->role === UserRole::SHIPPER;
+    }
+    public function isUser() {
+        return $this->role === UserRole::USER;
     }
 }

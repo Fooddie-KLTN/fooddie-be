@@ -10,6 +10,7 @@ class Review extends Model
     protected $fillable = [
         'user_id',
         'food_id',
+        'restaurant_id',
         'rating',
         'content',
     ];
@@ -23,5 +24,10 @@ class Review extends Model
     {
         return $this->belongsTo(Food::class);
     }
-    
+
+    public function restaurant()
+    {
+        return $this->belongsTo(Restaurant::class);
+    }
+
 }
