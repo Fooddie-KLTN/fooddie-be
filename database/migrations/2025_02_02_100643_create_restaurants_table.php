@@ -22,7 +22,7 @@ return new class extends Migration
             $table->text('description')->nullable()->default('Mô tả nhà hàng'); // Mô tả nhà hàng
             $table->text('address');
             $table->string('license_number')->unique(); // Số giấy phép kinh doanh
-            $table->enum('status', ['active', 'inactive'])->default('active');
+            $table->enum('status', ['active', 'inactive'])->default('inactive');
             $table->timestamps();
         });
     }

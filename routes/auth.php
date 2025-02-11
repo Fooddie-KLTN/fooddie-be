@@ -34,6 +34,21 @@ Route::middleware('guest')->group(function () {
     Route::post('reset-password', [NewPasswordController::class, 'store'])
         ->name('password.store');
 });
+/**
+ * Define routes for authentication-related actions.
+ * 
+ * Routes within this group are only accessible to guests (unauthenticated users).
+ * 
+ * Routes:
+ * - GET 'register': Show the registration form (name: 'register')
+ * - POST 'register': Handle the registration form submission
+ * - GET 'login': Show the login form (name: 'login')
+ * - POST 'login': Handle the login form submission
+ * - GET 'forgot-password': Show the password reset request form (name: 'password.request')
+ * - POST 'forgot-password': Handle the password reset request form submission (name: 'password.email')
+ * - GET 'reset-password/{token}': Show the password reset form (name: 'password.reset')
+ * - POST 'reset-password': Handle the password reset form submission (name: 'password.store')
+ */
 
 Route::middleware('auth')->group(function () {
     Route::get('verify-email', EmailVerificationPromptController::class)

@@ -20,9 +20,16 @@ class Restaurant extends Model
         'description',
         'address',
         'license_number',
-        'status'
+        'status',
+        'open_time',
+        'close_time',
     ];
-
+    protected $attributes = [
+        'status' => 'inactive', //  Đặt mặc định nếu không có giá trị
+        'open_time' => '07:00',
+        'close_time' => '22:00',
+    ];
+    
     public function user() {
         return $this->belongsTo(User::class);
     }
