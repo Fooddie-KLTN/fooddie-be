@@ -1,0 +1,151 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 216, 32%, 14%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+    --brand: 196, 38%, 94%;
+    --brand-solid: 204, 54%, 39%;
+    --brand-solid-foreground: 0 0% 98%;
+    --primary: 204, 54%, 39%;
+    --primary-foreground: 0 0% 98%;
+    --teriary: 216, 18%, 34%;
+    --teriary-foreground: 0 0% 98%;
+    --secondary: 216, 32%, 14%;
+    --secondary-foreground: 240 5.9% 10%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 5.9% 90%;
+    --border-secondary: 218, 17%, 91%;
+    --input: 240 5.9% 90%;
+    --ring: 240 10% 3.9%;
+    --radius: 0.5rem;
+    --navigation: 216, 18%, 34%;
+  }
+  .dark {
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 240 5.9% 10%;
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 240 4.9% 83.9%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+@layer utilities {
+  /* Hide scrollbar for Chrome, Safari and Opera */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  /* Hide scrollbar for IE, Edge and Firefox */
+  .no-scrollbar {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+  }
+}
+
+.swiper-pagination-bullet {
+  @apply w-[16.5px] h-[3px] lg:h-[5px] px-0 mx-0 rounded-none border-none bg-[#D0D5DD] flex items-center justify-center
+  transition-all duration-300 !important;
+}
+
+.swiper-pagination-bullet-active {
+  @apply bg-white w-[32px] !important;
+}
+
+.swiper-pagination {
+  @apply flex gap-0.5 lg:gap-1 justify-center !important;
+}
+
+.incoming-banner:after {
+  content: "";
+  display: block;
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  opacity: 0.55;
+  @apply bg-gradient-to-t from-black via-black to-[#FFFFFF4D] aspect-[320/362] lg:aspect-[1440/1010] !important;
+}
+
+.show:after {
+  content: "";
+  display: block;
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+}
+
+.testimonial-background:before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  z-index: 1;
+  @apply rounded-md;
+}
+
+.testimonial-background > * {
+  position: relative;
+  z-index: 2;
+}
+
+.mockup-swiper .swiper-slide-prev,
+.mockup-swiper .swiper-slide-next {
+  filter: brightness(0.5);
+  transition: filter 0.3s ease;
+}
+
+.mockup-swiper .swiper-slide-active {
+  filter: brightness(1);
+}
+
+.tiktok-thumbnail {
+  transition: transform 0.3s ease;
+}
+
+.tiktok-thumbnail:hover {
+  transform: scale(1.05);
+}
+
+.active-thumbnail {
+  box-shadow: 0 0 15px rgba(255, 0, 0, 0.3);
+}
