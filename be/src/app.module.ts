@@ -8,6 +8,10 @@ import { RoleModule } from './role/role.module';
 import { AuthModule } from './auth/auth.module';
 import { DataSource } from 'typeorm';
 import { ConfigModule } from '@nestjs/config';
+import { AdminSeedService } from './migrations/admin_seeder.service';
+import { Role } from './entities/role.entity';
+import { User } from './entities/user.entity';
+
 @Module({
   imports: [
     // Import the module that contains the user entity
@@ -31,10 +35,10 @@ import { ConfigModule } from '@nestjs/config';
     UsersModule,
     RoleModule,
     AuthModule,
-
+    TypeOrmModule.forFeature([Role, User]),
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, AdminSeedService],
 })
 export class AppModule {
   constructor(private readonly dataSource: DataSource) {

@@ -14,11 +14,32 @@ export const Permission = {
       DELETE: 'delete_user',
       ALL: 'all_user',
     },
-    COURSE: {
-      WRITE: 'permission.course.write',
-      READ: 'permission.course.read',
-      DELETE: 'permission.course.delete',
-      ALL: 'permission.course.all',
+    SHOPOWNER: {
+      CREATE: 'create_product',
+      WRITE: 'write_product',
+      READ: 'read_product',
+      DELETE: 'delete_product',  
+      ALL: 'all_shopowner',
+    },
+    SHIPPER: {
+      ALL: 'all_shipper',
+    },
+    ADMIN: {
+      ALL: 'all_admin',
+      SHIPPER: 'shipper_admin',
+      SHOPOWNER: 'shopowner_admin',
+      USER: 'user_admin',
+      PRODUCT: 'product_admin',
+      ROLE: 'role_admin',
+      ORDER: 'order_admin',
+      PROMOTION: 'promotion_admin',
+      STATISTIC: 'statistic_admin',
+      COMMENT: 'comment_admin',
+      CATEGORY: 'category_admin',
+      REPORT: 'report_admin',
+      SETTING: 'setting_admin',
+
+
     },
   } as const;
   
