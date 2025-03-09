@@ -1,7 +1,13 @@
 /* eslint-disable prettier/prettier */
 // src/users/entities/user.entity.ts
-import { Entity, Column, ManyToOne, JoinColumn, PrimaryColumn } from 'typeorm';
+import { Entity, Column, ManyToOne, JoinColumn, PrimaryColumn, OneToOne } from 'typeorm';
 import { Role } from './role.entity';
+import { OneToMany } from 'typeorm';
+import { Address } from './address.entity';
+import { Message } from './message.entity';
+import { Restaurant } from './restaurant.entity';
+import { Order } from './order.entity';
+import { ShippingDetail } from './shippingDetail.entity';
 
 @Entity({ name: 'users' })
 export class User {
@@ -17,9 +23,6 @@ export class User {
     @Column({ unique: true })
     username: string;
 
-    @Column()
-    password: string; // Mã hóa bằng bcrypt
-
     @Column({ nullable: true })
     email: string;
 
@@ -29,9 +32,6 @@ export class User {
 
     @Column({ nullable: true })
     name: string;
-
-    @Column({ nullable: true })
-    address: string;
 
     @Column({ nullable: true })
     phone: string;
@@ -50,4 +50,24 @@ export class User {
 
     @Column({ nullable: false, default: 0})
     coursenumber: number;
+
+    @OneToMany(() => Address, (address) => address.user)
+    addresses: Address[];
+
+    @OneToMany(() => Message, (message) => message.user1)
+    messages1: Message[];
+
+    @OneToMany(() => Message, (message) => message.user2)
+    messages2: Message[];
+
+    @OneToOne(() => Restaurant, { eager: true })
+    @JoinColumn({ name: 'restaurant_id' })
+    restaurant: Restaurant;
+
+    @OneToMany(() => Order, (order) => order.user)
+    orders: Order[];
+
+    @OneToMany(() => ShippingDetail, (shippingDetail) => shippingDetail.shipper)
+    shippingDetails: ShippingDetail[];
+
 }
