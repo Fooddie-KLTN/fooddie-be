@@ -34,7 +34,7 @@ import { User } from './entities/user.entity';
     UsersModule,
     RoleModule,
     AuthModule,
-    TypeOrmModule.forFeature([Role, User]),
+    TypeOrmModule.forFeature([Role, User, ]),
 
   ],
   controllers: [AppController],

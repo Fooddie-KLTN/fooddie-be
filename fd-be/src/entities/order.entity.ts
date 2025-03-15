@@ -1,6 +1,6 @@
 /* eslint-disable prettier/prettier */
 // src/users/entities/user.entity.ts
-import { Entity, Column, ManyToOne, JoinColumn, PrimaryColumn, OneToMany, OneToOne } from 'typeorm';
+import { Entity, Column, ManyToOne, JoinColumn, PrimaryColumn, OneToMany, OneToOne, PrimaryGeneratedColumn } from 'typeorm';
 import { User } from './user.entity';
 import { Restaurant } from './restaurant.entity';
 import { Address } from './address.entity';
@@ -9,14 +9,9 @@ import { ShippingDetail } from './shippingDetail.entity';
 
 @Entity({ name: 'orders' })
 export class Order {
-    @PrimaryColumn({ 
-        type: 'varchar', 
-        length: 28,
-        unique: true, 
-        nullable: false,
-        comment: 'Firebase UID used as primary key'
-    })
-    id: string;
+        @PrimaryGeneratedColumn("uuid")
+        id: string;
+    
 
     @ManyToOne(() => User, { eager: true })
     @JoinColumn({ name: 'user_id' })

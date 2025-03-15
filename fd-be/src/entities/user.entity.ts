@@ -1,8 +1,9 @@
 /* eslint-disable prettier/prettier */
 // src/users/entities/user.entity.ts
-import { Entity, Column, ManyToOne, JoinColumn, PrimaryColumn, OneToMany, CreateDateColumn } from 'typeorm';
+import { Entity, Column, ManyToOne, JoinColumn, PrimaryColumn, OneToMany, CreateDateColumn, OneToOne } from 'typeorm';
 import { Role } from './role.entity';
 import { Address } from './address.entity';
+import { ShipperCertificateInfo } from './shipperCertificateInfo.entity';
 
 
 @Entity({ name: 'users' })
@@ -53,5 +54,8 @@ export class User {
   
     @Column({ nullable: true })
     lastLoginAt: Date;
+
+    @OneToOne(()=> ShipperCertificateInfo, shipperCertificateInfo=> shipperCertificateInfo.user)
+    shipperCertificateInfo: ShipperCertificateInfo;
 
 }
