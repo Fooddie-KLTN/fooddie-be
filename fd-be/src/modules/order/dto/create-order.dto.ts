@@ -1,8 +1,27 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { IsUUID, IsString, IsOptional } from 'class-validator';
+import { IsUUID, IsString, IsOptional, IsNotEmpty, IsArray, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
 
+
+export class CreateOrderDetailDto {
+  @IsNotEmpty()
+  @IsString()
+  foodId: string;
+
+  @IsNotEmpty()
+  @IsString()
+  quantity: string;
+
+  @IsNotEmpty()
+  @IsString()
+  price: string;
+
+  @IsOptional()
+  @IsString()
+  note?: string;
+}
 export class CreateOrderDto {
     @IsUUID()
     userId: string;
@@ -28,5 +47,11 @@ export class CreateOrderDto {
     @IsOptional()
     @IsString()
     date?: string;
+    
+    @IsNotEmpty()
+    @IsArray()
+    @ValidateNested({ each: true })
+    @Type(() => CreateOrderDetailDto)
+    orderDetails: CreateOrderDetailDto[];
 }
 

@@ -5,6 +5,13 @@ import { User } from './user.entity';
 import { Food } from './food.entity';
 import { Order } from './order.entity';
 
+
+export enum RestaurantStatus {
+    PENDING = 'pending',
+    APPROVED = 'approved',
+    REJECTED = 'rejected'
+}
+
 @Entity({ name: 'restaurants' })
 export class Restaurant {
     @PrimaryGeneratedColumn("uuid")
@@ -19,7 +26,7 @@ export class Restaurant {
 
     @Column({ nullable: true })
     backgroundImage: string;
-    
+
     @Column({ nullable: true })
     address: string;
 
@@ -41,6 +48,13 @@ export class Restaurant {
     @Column({ nullable: true })
     certificateImage: string;
 
+    @Column({
+        type: 'enum',
+        enum: RestaurantStatus,
+        default: RestaurantStatus.PENDING
+    })
+    status: RestaurantStatus;
+
     @OneToMany(() => Food, (food) => food.restaurant)
     foods: Food[];
 
@@ -50,5 +64,5 @@ export class Restaurant {
 
     @OneToMany(() => Order, (order) => order.restaurant)
     orders: Order[];
-    
+
 }

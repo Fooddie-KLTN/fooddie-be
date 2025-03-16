@@ -21,4 +21,13 @@ export class OrderDetail {
 
     @Column({ nullable: true })
     varity: string;
+
+    @Column({ nullable: true })
+    quantity: string;
+
+    @Column({ nullable: true })
+    price: string;
+
+    @Column({ nullable: true })
+    note: string ;
 }

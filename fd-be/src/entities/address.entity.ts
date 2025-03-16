@@ -8,6 +8,7 @@ export class Address {
     @PrimaryGeneratedColumn("uuid")
     id: string;
 
+
     @Column({ nullable: true })
     street: string;
 
