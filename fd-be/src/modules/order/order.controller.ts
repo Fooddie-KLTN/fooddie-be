@@ -1,6 +1,10 @@
-import { Controller, Post, Get, Put, Delete, Param, Body } from '@nestjs/common';
+import { Controller, Post, Get, Put, Delete, Param, Body, Query, UseGuards } from '@nestjs/common';
 import { OrderService } from './order.service';
 import { CreateOrderDto } from './dto/create-order.dto';
+import { RolesGuard } from 'src/common/guard/role.guard';
+import { Permissions } from 'src/common/decorator/permissions.decorator';
+import { Permission } from 'src/constants/permission.enum';
+import { PaymentDto } from './dto/payment.dto';
 
 @Controller('orders')
 export class OrderController {
@@ -26,6 +30,11 @@ export class OrderController {
         return this.orderService.getOrdersByUser(userId);
     }
 
+    @Get(':id/details')
+    getOrderDetails(@Param('id') id: string) {
+        return this.orderService.getOrderDetails(id);
+    }
+
     @Put(':id/status')
     updateOrderStatus(@Param('id') id: string, @Body('status') status: string) {
         return this.orderService.updateOrderStatus(id, status);
@@ -35,4 +44,12 @@ export class OrderController {
     deleteOrder(@Param('id') id: string) {
         return this.orderService.deleteOrder(id);
     }
+
+    @Post(':id/payment')
+    processPayment(
+        @Param('id') id: string, 
+        @Body() paymentData: PaymentDto
+    ) {
+        return this.orderService.processPayment(id, paymentData);
+    }   
 }

@@ -51,11 +51,21 @@ export class Order {
     @ManyToOne(() => Address, { eager: true })
     @JoinColumn({ name: 'address_id' })
     address: Address;
-    
+
     @OneToMany(() => OrderDetail, (orderDetail) => orderDetail.order)
     orderDetails: OrderDetail[];
 
     @OneToOne(() => ShippingDetail, { eager: true })
     @JoinColumn({ name: 'shippingDetail_id' })
     shippingDetail: ShippingDetail;
+
+
+    @Column({ nullable: true })
+    paymentMethod: string;
+
+    @Column({ nullable: true })
+    paymentDate: string;
+
+    @Column({ default: false })
+    isPaid: boolean;
 }

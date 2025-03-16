@@ -1,7 +1,6 @@
 /* eslint-disable prettier/prettier */
 // src/users/entities/user.entity.ts
 import { Entity, Column, ManyToOne, JoinColumn, PrimaryColumn, OneToOne, PrimaryGeneratedColumn } from 'typeorm';
-import { Entity, Column, ManyToOne, JoinColumn, PrimaryColumn, OneToOne, PrimaryGeneratedColumn } from 'typeorm';
 import { User } from './user.entity';
 import { Order } from './order.entity';
 
@@ -15,7 +14,6 @@ export enum ShippingStatus {
 
 @Entity({ name: 'shippingDetails' })
 export class ShippingDetail {
-    @PrimaryGeneratedColumn("uuid")
     @PrimaryGeneratedColumn("uuid")
     id: string;
 
