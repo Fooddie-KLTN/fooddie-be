@@ -1,19 +1,13 @@
 /* eslint-disable prettier/prettier */
 // src/users/entities/user.entity.ts
-import { Entity, Column, ManyToOne, JoinColumn, PrimaryColumn, ManyToMany, OneToMany } from 'typeorm';
+import { Entity, Column, ManyToOne, JoinColumn, PrimaryColumn, ManyToMany, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
 import { Category } from './category.entity';
 import { Restaurant } from './restaurant.entity';
 import { OrderDetail } from './orderDetail.entity';
 
 @Entity({ name: 'foods' })
 export class Food {
-    @PrimaryColumn({ 
-        type: 'varchar', 
-        length: 28,
-        unique: true, 
-        nullable: false,
-        comment: 'Firebase UID used as primary key'
-    })
+    @PrimaryGeneratedColumn("uuid")
     id: string;
 
     @Column({ nullable: true })

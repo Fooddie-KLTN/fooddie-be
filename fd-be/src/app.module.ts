@@ -11,6 +11,12 @@ import { ConfigModule } from '@nestjs/config';
 import { AdminSeedService } from './migrations/admin-seeder.service';
 import { Role } from './entities/role.entity';
 import { User } from './entities/user.entity';
+import { Review } from './entities/review.entity';
+import { ReviewModule } from './modules/review/review.module';
+import { PromotionModule } from './modules/promotion/promotion.module';
+import { AddressModule } from './modules/address/address.module';
+import { Address } from './entities/address.entity';
+import { Promotion } from './entities/promotion.entity';
 @Module({
   imports: [
     // Import the module that contains the user entity
@@ -34,7 +40,10 @@ import { User } from './entities/user.entity';
     UsersModule,
     RoleModule,
     AuthModule,
-    TypeOrmModule.forFeature([Role, User]),
+    ReviewModule,
+    PromotionModule,
+    AddressModule,
+    TypeOrmModule.forFeature([Role, User, Review, Promotion, Address]),
 
   ],
   controllers: [AppController],
