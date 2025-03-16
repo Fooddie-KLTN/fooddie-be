@@ -7,9 +7,9 @@ import { Food } from './food.entity';
 
 @Entity({ name: 'orderDetails' })
 export class OrderDetail {
-        @PrimaryGeneratedColumn("uuid")
-        id: string;
-    
+    @PrimaryGeneratedColumn("uuid")
+    id: string;
+
 
     @ManyToOne(() => Order, { eager: true })
     @JoinColumn({ name: 'order_id' })

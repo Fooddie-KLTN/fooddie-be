@@ -4,9 +4,9 @@ import { Entity, Column, PrimaryColumn, PrimaryGeneratedColumn } from 'typeorm';
 
 @Entity({ name: 'notifications' })
 export class Notification {
-        @PrimaryGeneratedColumn("uuid")
-        id: string;
-    
+    @PrimaryGeneratedColumn("uuid")
+    id: string;
+
 
     @Column({ nullable: true })
     description: string;
