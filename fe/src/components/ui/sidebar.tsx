@@ -1,6 +1,6 @@
 "use client";
 
-import { authService } from "@/app/api/auth";
+import { authService } from "@/api/auth";
 import {
   Avatar,
   AvatarFallback,
