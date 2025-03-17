@@ -12,8 +12,8 @@ import {
   YoutubeNegativeIcon,
 } from "@/components/icon";
 import Brand from "@/components/ui/brand";
-import AppleBadge from "@public/assets/store/appstore_badge.png";
-import GooglePlayBadge from "@public/assets/store/google_play_badge.png";
+import AppleBadge from "@public/assets/index/store/appstore_badge.png";
+import GooglePlayBadge from "@public/assets/index/store/google_play_badge.png";
 import Image from "next/image";
 import Link from "next/link";
 import { ReactElement } from "react";
@@ -24,7 +24,7 @@ export default function Footer() {
       label: "Về chúng tôi",
       items: [
         {
-          href: "/",
+          href: "/about",
           name: "Giới thiệu",
         },
         {
@@ -108,13 +108,7 @@ export default function Footer() {
       <div className="flex flex-col flex-wrap gap-8 items-start justify-between lg:flex-row">
         <div className="brand-information flex-1 lg:flex-1">
           <div className="max-w-xs text-white">
-            <Brand
-              className="object-cover"
-              style={{
-                filter:
-                  "invert(100%) sepia(100%) saturate(1%) hue-rotate(145deg) brightness(104%) contrast(101%)",
-              }}
-            />
+            <Brand variant="light" width={196} />
             <div className="w-full flex gap-2 items-center leading-relaxed mt-4 text-base font-light">
               <MapPinIcon className="w-5 h-5 flex-none" />
               F34 Hoa Mai, KDC Hiệp Thành, Phương Hiệp Thành, Quận 12,

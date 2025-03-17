@@ -1,0 +1,192 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 216, 32%, 14%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    --facebook: 214, 89%, 52%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+    --brand: 196, 38%, 94%;
+    --brand-solid: 38, 91%, 32%;  /* Updated to match primary */
+    --brand-solid-foreground: 0 0% 98%;
+    
+    /* Updated food-themed color palette */
+    --primary: 38, 91%, 32%;      /* #9F6508 - Dark amber */
+    --primary-light: 39, 86%, 70%; /* #F3C871 - Light gold */
+    --primary-lighter: 49, 100%, 85%; /* #FFF3B4 - Cream */
+    --primary-foreground: 0 0% 98%;
+    
+    /* You might want to update these colors to complement your new primary color */
+    --teriary: 38, 91%, 25%;
+    --teriary-foreground: 0 0% 98%;
+    --secondary: 38, 80%, 20%;
+    --secondary-foreground: 38, 5.9%, 95%;
+    
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 5.9% 90%;
+    --border-secondary: 218, 17%, 91%;
+    --input: 240 5.9% 90%;
+    --ring: 38, 91%, 32%;  /* Match primary for focus rings */
+    --radius: 0.5rem;
+    --navigation: 38, 80%, 20%;
+  }
+  
+  /* Update dark mode colors as well if needed */
+  .dark {
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 39, 86%, 70%; /* Lighter in dark mode for contrast */
+    --primary-light: 49, 100%, 85%;
+    --primary-foreground: 240 5.9% 10%;
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 39, 86%, 70%; /* Match primary */
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+@layer utilities {
+  /* Hide scrollbar for Chrome, Safari and Opera */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  /* Hide scrollbar for IE, Edge and Firefox */
+  .no-scrollbar {
+    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none; /* Firefox */
+  }
+  .scrollbar-stable {
+    scrollbar-gutter: stable;
+  }
+}
+
+.swiper-pagination-bullet {
+  @apply w-[16.5px] h-[3px] lg:h-[5px] px-0 mx-0 rounded-none border-none bg-[#D0D5DD] flex items-center justify-center
+  transition-all duration-300 !important;
+}
+
+.swiper-pagination-bullet-active {
+  @apply bg-white w-[32px] !important;
+}
+
+.swiper-pagination {
+  @apply flex gap-0.5 lg:gap-1 justify-center !important;
+}
+
+.incoming-banner:after {
+  content: "";
+  display: block;
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  opacity: 0.55;
+  @apply bg-gradient-to-t from-black via-black to-[#FFFFFF4D] aspect-[320/362] lg:aspect-[1440/1010] !important;
+}
+
+.show:after {
+  content: "";
+  display: block;
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+}
+
+.testimonial-background:before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  z-index: 1;
+  @apply rounded-md;
+}
+
+.testimonial-background > * {
+  position: relative;
+  z-index: 2;
+}
+
+/* Hide scrollbar for WebKit browsers (Chrome, Safari) */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hide scrollbar for Firefox */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+
+/* Hide scrollbar for IE and Edge */
+.no-scrollbar {
+  -ms-overflow-style: none;
+}
+
+/* Add this to your globals.css file */
+.food-gradient {
+  background: linear-gradient(to right, hsl(38, 91%, 32%), hsl(39, 86%, 70%), hsl(49, 100%, 85%));
+}
+
+/* Vertical variant */
+.food-gradient-vertical {
+  background: linear-gradient(to bottom, hsl(38, 91%, 32%), hsl(39, 86%, 70%), hsl(49, 100%, 85%));
+}
+
+/* Text gradient */
+.food-text-gradient {
+  background: linear-gradient(to right, hsl(38, 91%, 32%), hsl(39, 86%, 70%), hsl(49, 100%, 85%));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Button with gradient hover */
+.food-button {
+  background-color: hsl(38, 91%, 32%);
+  transition: background-color 0.3s ease;
+}
+
+.food-button:hover {
+  background: linear-gradient(to right, hsl(38, 91%, 32%), hsl(39, 86%, 70%));
+}
+
+/* Add this to your globals.css file */
+.navbar-gradient {
+  background: linear-gradient(to right, hsl(38, 91%, 32%), hsl(39, 86%, 70%), hsl(49, 100%, 85%));
+  box-shadow: 0 2px 10px rgba(159, 101, 8, 0.15);
+}
