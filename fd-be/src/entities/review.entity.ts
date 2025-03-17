@@ -2,32 +2,35 @@
 // src/users/entities/user.entity.ts
 import { Entity, Column, ManyToOne, JoinColumn, PrimaryColumn, PrimaryGeneratedColumn } from 'typeorm';
 import { User } from './user.entity';
-import { Order } from './order.entity';
 import { Food } from './food.entity';
 
-@Entity({ name: 'orderDetails' })
-export class OrderDetail {
+@Entity({ name: 'reviews' })
+export class Review {
     @PrimaryGeneratedColumn("uuid")
     id: string;
 
 
-    @ManyToOne(() => Order, { eager: true })
-    @JoinColumn({ name: 'order_id' })
-    order: Order;
-    
+    @ManyToOne(() => User, { eager: true })
+    @JoinColumn({ name: 'user_id' })
+    user: User;
+
     @ManyToOne(() => Food, { eager: true })
     @JoinColumn({ name: 'food_id' })
     food: Food;
 
     @Column({ nullable: true })
-    varity: string;
+    image: string;
 
     @Column({ nullable: true })
-    quantity: string;
+    comment: string;
 
     @Column({ nullable: true })
-    price: string;
+    rating: number;
 
-    @Column({ nullable: true })
-    note: string ;
+    @Column({ type: 'enum', enum: ['food', 'shipper'] })
+    type: 'food' | 'shipper';
+
+    @ManyToOne(() => User, { eager: true })
+    @JoinColumn({ name: 'shipper_id' })
+    shipper: User;
 }
