@@ -73,16 +73,10 @@ export default function UserActions({ openModal }: UserActionsProps) {
             variant="ghost"
             className="w-full text-base border-primary hover:bg-transparent"
           >
-            <Link href="/learning">Góc học tập</Link>
+            <Link href="/learning">Món yêu thích</Link>
           </Button>
         ) : (
-          <Button
-            onClick={() => openModal("activate")}
-            variant="outline"
-            className="w-full text-base border-primary hover:bg-primary hover:text-white"
-          >
-            Kích hoạt khóa học
-          </Button>
+          <></>
         )}
       </div>
 

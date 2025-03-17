@@ -25,7 +25,7 @@ export default function NavbarBrand({
   const isMobile = useIsMobile();
   return (
     <div className="flex items-center justify-between py-3 lg:block">
-      <Brand className="w-48" width={isMobile ? 96 : 128} />
+      <Brand className="w-12" width={isMobile ? 96 : 128} />
       <div className="lg:hidden">
         <button
           className="font-semibold"

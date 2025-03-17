@@ -343,21 +343,6 @@ const PaginationArrowUpIcon: React.FC<IconProps> = ({
   );
 };
 
-const CartIcon: React.FC<IconProps> = ({}) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width="24"
-    height="25"
-    viewBox="0 0 24 25"
-    fill="none"
-  >
-    <path
-      d="M2.40039 2.49268C1.84811 2.49268 1.40039 2.94039 1.40039 3.49268C1.40039 4.04496 1.84811 4.49268 2.40039 4.49268V2.49268ZM4.69293 3.49268L5.65815 3.23126C5.5401 2.79536 5.14453 2.49268 4.69293 2.49268V3.49268ZM8.4183 17.2479L7.45307 17.5093C7.58334 17.9903 8.04786 18.302 8.54234 18.2402L8.4183 17.2479ZM19.881 15.8151L20.005 16.8073C20.4297 16.7543 20.7735 16.4368 20.8602 16.0177L19.881 15.8151ZM21.6004 7.50462L22.5796 7.70722C22.6406 7.41271 22.5657 7.10641 22.3758 6.87319C22.1859 6.63998 21.9011 6.50462 21.6004 6.50462V7.50462ZM5.77949 7.50462L4.81427 7.76603L5.77949 7.50462ZM2.40039 4.49268H4.69293V2.49268H2.40039V4.49268ZM8.54234 18.2402L20.005 16.8073L19.7569 14.8228L8.29427 16.2556L8.54234 18.2402ZM20.8602 16.0177L22.5796 7.70722L20.6211 7.30201L18.9017 15.6125L20.8602 16.0177ZM3.7277 3.75409L4.81427 7.76603L6.74472 7.2432L5.65815 3.23126L3.7277 3.75409ZM4.81427 7.76603L7.45307 17.5093L9.38353 16.9865L6.74472 7.2432L4.81427 7.76603ZM21.6004 6.50462H5.77949V8.50462H21.6004V6.50462ZM11.0004 20.9999C11.0004 21.2761 10.7765 21.4999 10.5004 21.4999V23.4999C11.8811 23.4999 13.0004 22.3807 13.0004 20.9999H11.0004ZM10.5004 21.4999C10.2242 21.4999 10.0004 21.2761 10.0004 20.9999H8.00039C8.00039 22.3807 9.11968 23.4999 10.5004 23.4999V21.4999ZM10.0004 20.9999C10.0004 20.7238 10.2242 20.4999 10.5004 20.4999V18.4999C9.11968 18.4999 8.00039 19.6192 8.00039 20.9999H10.0004ZM10.5004 20.4999C10.7765 20.4999 11.0004 20.7238 11.0004 20.9999H13.0004C13.0004 19.6192 11.8811 18.4999 10.5004 18.4999V20.4999ZM19.0004 20.9999C19.0004 21.2761 18.7765 21.4999 18.5004 21.4999V23.4999C19.8811 23.4999 21.0004 22.3807 21.0004 20.9999H19.0004ZM18.5004 21.4999C18.2242 21.4999 18.0004 21.2761 18.0004 20.9999H16.0004C16.0004 22.3807 17.1197 23.4999 18.5004 23.4999V21.4999ZM18.0004 20.9999C18.0004 20.7238 18.2242 20.4999 18.5004 20.4999V18.4999C17.1197 18.4999 16.0004 19.6192 16.0004 20.9999H18.0004ZM18.5004 20.4999C18.7765 20.4999 19.0004 20.7238 19.0004 20.9999H21.0004C21.0004 19.6192 19.8811 18.4999 18.5004 18.4999V20.4999Z"
-      fill="white"
-    />
-  </svg>
-);
-
 const MapPinIcon: React.FC<IconProps> = ({
   className,
   width = 36,
@@ -741,6 +726,34 @@ const QuoteCloseIcon = (props: SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
+const CartIcon = (props: SVGProps<SVGSVGElement>) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="25"
+    height="24"
+    viewBox="0 0 25 24"
+    fill="none"
+    {...props}
+  >
+    <g clipPath="url(#clip0_745_11986)">
+      <path
+        d="M4.91328 2.44448L4.81535 2.07143H4.42966H2.03571C1.60178 2.07143 1.25 1.71965 1.25 1.28571C1.25 0.851776 1.60178 0.5 2.03571 0.5H4.76143H4.76147C5.14013 0.499969 5.50717 0.630742 5.8005 0.870201L5.80051 0.870203C6.08526 1.10265 6.28357 1.42365 6.36425 1.78161L6.36618 1.79015L6.3684 1.79862L6.94209 3.98409L7.04001 4.35714H7.4257H23.0368C23.5823 4.35953 24.0677 4.73585 24.2061 5.26378C24.2506 5.43394 24.2578 5.61138 24.2272 5.78382L24.225 5.79428L24.2244 5.79744L22.8675 12.4165L22.866 12.4239L22.8647 12.4313L22.8602 12.4569L22.8601 12.458C22.8438 12.5526 22.8058 12.7633 22.7403 12.9129L22.7403 12.913C22.5781 13.2839 22.2267 13.5619 21.8225 13.628L21.8224 13.628C21.7146 13.6456 21.5842 13.6443 21.5222 13.6432L21.52 13.6431L21.5022 13.6429V13.6429H21.4954H9.51842H8.90851L9.02813 14.2409L9.4567 16.3838L9.53709 16.7857H9.94699H20.0359C20.4698 16.7857 20.8216 17.1375 20.8216 17.5714C20.8216 18.0053 20.4698 18.3571 20.0359 18.3571H9.59582C9.21713 18.3571 8.85008 18.2264 8.55675 17.9869L8.55671 17.9869C8.26361 17.7476 8.06206 17.4144 7.98615 17.0437C7.98609 17.0434 7.98603 17.0431 7.98597 17.0428L7.26537 13.4398C7.25978 13.4118 7.25576 13.3842 7.25324 13.357L7.25082 13.3309L7.24567 13.3052L5.58472 5.00042L5.57958 4.97471L5.57178 4.94968C5.56805 4.93771 5.56462 4.92577 5.56149 4.91385L5.56147 4.91377L4.91328 2.44448ZM4.42966 2.57143L5.07785 5.04072C5.08296 5.06019 5.0885 5.07945 5.09443 5.09847L4.42966 2.57143ZM18.7171 20.4743C19.5283 20.4743 20.1861 21.1321 20.1861 21.9435C20.1861 22.7549 19.5283 23.4126 18.7171 23.4126C17.9056 23.4126 17.2479 22.7549 17.2479 21.9435C17.2479 21.1321 17.9057 20.4743 18.7171 20.4743ZM10.1455 20.4743C10.9569 20.4743 11.6146 21.1321 11.6146 21.9435C11.6146 22.7548 10.9569 23.4126 10.1455 23.4126C9.33417 23.4126 8.67644 22.7548 8.67644 21.9435C8.67644 21.1321 9.3342 20.4743 10.1455 20.4743Z"
+        stroke="black"
+      />
+    </g>
+    <defs>
+      <clipPath id="clip0_745_11986">
+        <rect
+          width="24"
+          height="24"
+          fill="white"
+          transform="translate(0.75)"
+        />
+      </clipPath>
+    </defs>
+  </svg>
+);
+
 const RedArrowIcon = (props: SVGProps<SVGSVGElement>) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
@@ -780,10 +793,291 @@ const RedArrowIcon = (props: SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
+const CoreIcon1: React.FC<React.SVGProps<SVGSVGElement>> = (
+  props,
+) => {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="76"
+      height="76"
+      viewBox="0 0 76 76"
+      fill="none"
+      {...props}
+    >
+      <g filter="url(#filter0_dd_3624_19887)">
+        <path
+          d="M13 6.41026C13 2.86997 15.87 0 19.4103 0H56.5897C60.13 0 63 2.86997 63 6.41026V43.5897C63 47.13 60.13 50 56.5897 50H19.4103C15.87 50 13 47.13 13 43.5897V6.41026Z"
+          fill="white"
+          shapeRendering="crispEdges"
+        />
+        <path
+          d="M35.4358 35.5942C31.477 34.6394 28.3609 31.5231 27.4061 27.5642M48.5945 27.5643C47.6397 31.5231 44.5236 34.6393 40.5648 35.5941M40.5646 14.4061C44.5235 15.3608 47.6397 18.477 48.5945 22.436M27.4064 22.4361C28.3611 18.4771 31.4774 15.3608 35.4364 14.4061"
+          stroke="#3F8BB8"
+          strokeWidth="1.60256"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </g>
+      <defs>
+        <filter
+          id="filter0_dd_3624_19887"
+          x="0.179487"
+          y="0"
+          width="75.641"
+          height="75.641"
+          filterUnits="userSpaceOnUse"
+          colorInterpolationFilters="sRGB"
+        >
+          <feFlood floodOpacity="0" result="BackgroundImageFix" />
+          <feColorMatrix
+            in="SourceAlpha"
+            type="matrix"
+            values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0"
+            result="hardAlpha"
+          />
+          <feOffset dy="5.12821" />
+          <feGaussianBlur stdDeviation="2.5641" />
+          <feComposite in2="hardAlpha" operator="out" />
+          <feColorMatrix
+            type="matrix"
+            values="0 0 0 0 0.0627451 0 0 0 0 0.0941176 0 0 0 0 0.156863 0 0 0 0.03 0"
+          />
+          <feBlend
+            mode="normal"
+            in2="BackgroundImageFix"
+            result="effect1_dropShadow_3624_19887"
+          />
+          <feBlend
+            mode="normal"
+            in="SourceGraphic"
+            in2="effect1_dropShadow_3624_19887"
+            result="shape"
+          />
+        </filter>
+      </defs>
+    </svg>
+  );
+};
+
+const CoreIcon2: React.FC<React.SVGProps<SVGSVGElement>> = (
+  props,
+) => (
+  <svg
+    width="76"
+    height="76"
+    viewBox="0 0 76 76"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    {...props}
+  >
+    <g filter="url(#filter0_dd_3624_19893)">
+      <path
+        d="M13 6.41026C13 2.86997 15.87 0 19.4103 0H56.5897C60.13 0 63 2.86997 63 6.41026V43.5897C63 47.13 60.13 50 56.5897 50H19.4103C15.87 50 13 47.13 13 43.5897V6.41026Z"
+        fill="white"
+        shapeRendering="crispEdges"
+      />
+      <path
+        d="M36.7181 23.718H30.5643C29.1283 23.718 28.4103 23.718 27.8618 23.9974C27.3793 24.2433 26.987 24.6355 26.7412 25.118C26.4617 25.6665 26.4617 26.3845 26.4617 27.8205V36.5385M49.5387 36.5385V17.5641C49.5387 16.1281 49.5387 15.4101 49.2592 14.8616C49.0134 14.3791 48.6211 13.9868 48.1386 13.741C47.5901 13.4615 46.8721 13.4615 45.4361 13.4615H40.8207C39.3847 13.4615 38.6667 13.4615 38.1182 13.741C37.6357 13.9868 37.2434 14.3791 36.9976 14.8616C36.7181 15.4101 36.7181 16.1281 36.7181 17.5641V36.5385M50.8207 36.5385H25.1797M41.2053 18.5898H45.0515M41.2053 23.718H45.0515M41.2053 28.8462H45.0515"
+        stroke="#3F8BB8"
+        strokeWidth="1.60256"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </g>
+    <defs>
+      <filter
+        id="filter0_dd_3624_19893"
+        x="0.179487"
+        y="-4.76837e-07"
+        width="75.641"
+        height="75.641"
+        filterUnits="userSpaceOnUse"
+        colorInterpolationFilters="sRGB"
+      >
+        <feFlood floodOpacity="0" result="BackgroundImageFix" />
+        <feColorMatrix
+          in="SourceAlpha"
+          type="matrix"
+          values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0"
+          result="hardAlpha"
+        />
+        <feMorphology
+          radius="2.5641"
+          operator="erode"
+          in="SourceAlpha"
+          result="effect1_dropShadow_3624_19893"
+        />
+        <feOffset dy="5.12821" />
+        <feGaussianBlur stdDeviation="2.5641" />
+        <feComposite in2="hardAlpha" operator="out" />
+        <feColorMatrix
+          type="matrix"
+          values="0 0 0 0 0.0627451 0 0 0 0 0.0941176 0 0 0 0 0.156863 0 0 0 0.03 0"
+        />
+        <feBlend
+          mode="normal"
+          in2="BackgroundImageFix"
+          result="effect1_dropShadow_3624_19893"
+        />
+        <feColorMatrix
+          in="SourceAlpha"
+          type="matrix"
+          values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0"
+          result="hardAlpha"
+        />
+        <feMorphology
+          radius="2.5641"
+          operator="erode"
+          in="SourceAlpha"
+          result="effect2_dropShadow_3624_19893"
+        />
+        <feOffset dy="12.8205" />
+        <feGaussianBlur stdDeviation="7.69231" />
+        <feComposite in2="hardAlpha" operator="out" />
+        <feColorMatrix
+          type="matrix"
+          values="0 0 0 0 0.0627451 0 0 0 0 0.0941176 0 0 0 0 0.156863 0 0 0 0.08 0"
+        />
+        <feBlend
+          mode="normal"
+          in2="effect1_dropShadow_3624_19893"
+          result="effect2_dropShadow_3624_19893"
+        />
+        <feBlend
+          mode="normal"
+          in="SourceGraphic"
+          in2="effect2_dropShadow_3624_19893"
+          result="shape"
+        />
+      </filter>
+    </defs>
+  </svg>
+);
+
+const CoreIcon3: React.FC<React.SVGProps<SVGSVGElement>> = (
+  props,
+) => (
+  <svg
+    width="76"
+    height="76"
+    viewBox="0 0 76 76"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    {...props}
+  >
+    <g filter="url(#filter0_dd_3624_19899)">
+      <path
+        d="M13 6.41026C13 2.86997 15.87 0 19.4103 0H56.5897C60.13 0 63 2.86997 63 6.41026V43.5897C63 47.13 60.13 50 56.5897 50H19.4103C15.87 50 13 47.13 13 43.5897V6.41026Z"
+        fill="white"
+        shapeRendering="crispEdges"
+      />
+      <path
+        d="M32.872 27.5641C32.872 27.5641 34.7951 30.1282 38.0002 30.1282C41.2053 30.1282 43.1284 27.5641 43.1284 27.5641M44.4105 21.4615C43.904 22.0833 43.2117 22.4359 42.4874 22.4359C41.763 22.4359 41.0899 22.0833 40.5643 21.4615M35.4361 21.4615C34.9297 22.0833 34.2374 22.4359 33.513 22.4359C32.7887 22.4359 32.1156 22.0833 31.5899 21.4615M50.8207 25C50.8207 32.0805 45.0808 37.8205 38.0002 37.8205C30.9196 37.8205 25.1797 32.0805 25.1797 25C25.1797 17.9194 30.9196 12.1794 38.0002 12.1794C45.0808 12.1794 50.8207 17.9194 50.8207 25Z"
+        stroke="#3F8BB8"
+        strokeWidth="1.60256"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </g>
+    <defs>
+      <filter
+        id="filter0_dd_3624_19899"
+        x="0.179487"
+        y="-4.76837e-07"
+        width="75.641"
+        height="75.641"
+        filterUnits="userSpaceOnUse"
+        colorInterpolationFilters="sRGB"
+      >
+        <feFlood floodOpacity="0" result="BackgroundImageFix" />
+        <feColorMatrix
+          in="SourceAlpha"
+          type="matrix"
+          values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0"
+          result="hardAlpha"
+        />
+        <feMorphology
+          radius="2.5641"
+          operator="erode"
+          in="SourceAlpha"
+          result="effect1_dropShadow_3624_19899"
+        />
+        <feOffset dy="5.12821" />
+        <feGaussianBlur stdDeviation="2.5641" />
+        <feComposite in2="hardAlpha" operator="out" />
+        <feColorMatrix
+          type="matrix"
+          values="0 0 0 0 0.0627451 0 0 0 0 0.0941176 0 0 0 0 0.156863 0 0 0 0.03 0"
+        />
+        <feBlend
+          mode="normal"
+          in2="BackgroundImageFix"
+          result="effect1_dropShadow_3624_19899"
+        />
+        <feColorMatrix
+          in="SourceAlpha"
+          type="matrix"
+          values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0"
+          result="hardAlpha"
+        />
+        <feMorphology
+          radius="2.5641"
+          operator="erode"
+          in="SourceAlpha"
+          result="effect2_dropShadow_3624_19899"
+        />
+        <feOffset dy="12.8205" />
+        <feGaussianBlur stdDeviation="7.69231" />
+        <feComposite in2="hardAlpha" operator="out" />
+        <feColorMatrix
+          type="matrix"
+          values="0 0 0 0 0.0627451 0 0 0 0 0.0941176 0 0 0 0 0.156863 0 0 0 0.08 0"
+        />
+        <feBlend
+          mode="normal"
+          in2="effect1_dropShadow_3624_19899"
+          result="effect2_dropShadow_3624_19899"
+        />
+        <feBlend
+          mode="normal"
+          in="SourceGraphic"
+          in2="effect2_dropShadow_3624_19899"
+          result="shape"
+        />
+      </filter>
+    </defs>
+  </svg>
+);
+
+const ArrowDoubleRightIcon: React.FC<
+  React.SVGProps<SVGSVGElement>
+> = () => (
+  <svg
+    width="40"
+    height="40"
+    viewBox="0 0 40 40"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path
+      d="M19 15L14 20L19 25M26 15L21 20L26 25"
+      stroke="#475467"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
 export {
+  ArrowDoubleRightIcon,
   ArrowRightIcon,
   CalendarIcon,
   CartIcon,
+  CoreIcon1,
+  CoreIcon2,
+  CoreIcon3,
   DollarCircleIcon,
   FacebookIcon,
   FacebookNegativeIcon,

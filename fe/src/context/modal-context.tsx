@@ -1,10 +1,4 @@
-// contexts/auth-modal-context.tsx
 "use client";
-
-import {
-  FacebookNegativeIcon,
-  GoogleLoginIcon,
-} from "@/components/icon";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -21,29 +15,47 @@ import {
 } from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SocialLoginButtons } from "@/components/ui/social-login";
 import { useMediaQuery } from "@/hooks/use-media-query";
-import Link from "next/link";
-import { createContext, useContext, useState } from "react";
-import { useAuth } from "./auth-context";
-import { auth, googleProvider, facebookProvider} from "../../firebaseconfig";
 import {
+  onAuthStateChanged,
   signInWithEmailAndPassword,
-  signInWithPopup,
-  createUserWithEmailAndPassword,
+  setPersistence,
+  browserLocalPersistence,
+  browserSessionPersistence,
 } from "firebase/auth";
-import { authService } from "@/apis/auth";
+import Link from "next/link";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
+import { auth } from "../../firebaseconfig";
+import { useAuth } from "./auth-context";
+import { authService } from "@/api/auth";
+import { FirebaseError } from "firebase/app";
 
-type FormType = "login" | "register" | "activate";
-
+type FormType = "login" | "register" | "activate" | "forgotPassword";
 
 type AuthModalContextType = {
   openModal: (form: FormType) => void;
   closeModal: () => void;
 };
 
+/**
+ * @description: Tạo ModalContext để wrap xung quanh children, áp dụng mở modal login ở bất kỳ component nào
+ * @param {React.ReactNode} children
+ * **/
+
 const AuthModalContext = createContext<AuthModalContextType | null>(
   null,
 );
+
+/**
+ * @description: Xử lý logic mở modal login và register
+ * @param {React.ReactNode} children
+ * **/
 
 export function AuthModalProvider({
   children,
@@ -54,15 +66,12 @@ export function AuthModalProvider({
   const [formType, setFormType] = useState<FormType>("login");
   const isDesktop = useMediaQuery("(min-width: 768px)");
 
-
-
   const openModal = (form: FormType) => {
     setFormType(form);
     setIsOpen(true);
   };
 
   const closeModal = () => setIsOpen(false);
-
   const ModalContainer = isDesktop ? Dialog : Drawer;
   const ModalContent = isDesktop ? DialogContent : DrawerContent;
   const ModalHeader = isDesktop ? DialogTitle : DrawerTitle;
@@ -70,12 +79,20 @@ export function AuthModalProvider({
     login: "Đăng nhập",
     register: "Đăng ký",
     activate: "Kích hoạt tài khoản",
+    forgotPassword: "Quên mật khẩu"
   };
   const formDescriptions = {
     login: "Đăng nhập vào tài khoản của bạn",
     register: "Tạo tài khoản mới",
     activate: "Kích hoạt tài khoản của bạn",
+    forgotPassword: "Khổi phục mật khẩu của bạn"
   };
+
+  // Close modal when user is authenticated
+  useEffect(() => {
+    onAuthStateChanged(auth, () => closeModal());
+  }, []);
+
   return (
     <AuthModalContext.Provider value={{ openModal, closeModal }}>
       {children}
@@ -103,12 +120,14 @@ export function AuthModalProvider({
           {formType === "login" && <LoginForm />}
           {formType === "register" && <RegisterForm />}
           {formType === "activate" && <ActivateForm />}
+          {formType === "forgotPassword" && <ForgetPasswordForm />}
         </ModalContent>
       </ModalContainer>
     </AuthModalContext.Provider>
   );
 }
 
+// Custom hook để sử dụng AuthModalContext
 export const useAuthModal = () => {
   const context = useContext(AuthModalContext);
   if (!context) {
@@ -120,72 +139,58 @@ export const useAuthModal = () => {
 };
 
 const LoginForm = () => {
-  
-  const { openModal, closeModal } = useAuthModal();
+  const { openModal } = useAuthModal();
+  const { handleAuth } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  // Hàm xử lý chung sau khi đăng nhập thành công
-    const handleAuth = async (userCredential: any) => {
-      try {
-        // Lấy token từ Firebase
-        const token = await userCredential.user.getIdToken();
-        // Gọi API BE để xác nhận token và lấy thông tin người dùng
-        const response = await authService.login(token);
-        // Lưu thông tin user, token vào localStorage (có thể lưu ở state hoặc context tùy theo dự án)
-        localStorage.setItem("user", JSON.stringify(response.user));
-        localStorage.setItem("token", token);
-        closeModal();
-      } catch (error) {
-        console.error("Authentication error:", error);
-      }
-    };
-     // Đăng nhập bằng Email/Mật khẩu
+  const [isLoading, setIsLoading] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
+  // Thêm state để lưu thông báo lỗi
+  const [errorMessage, setErrorMessage] = useState("");
+
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsLoading(true);
+    setErrorMessage("");
     try {
+      await setPersistence(auth, rememberMe ? browserLocalPersistence : browserSessionPersistence);
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const token = await userCredential.user.getIdToken();
+
+      await authService.login(token);
       await handleAuth(userCredential);
-    } catch (error: any) {
-      console.error("Lỗi đăng nhập:", error.message);
+      
+    } catch (error: unknown) {
+      if (error instanceof FirebaseError) {
+        switch (error.code) {
+          case "auth/user-not-found":
+            setErrorMessage("Email không tồn tại");
+            break;
+          case "auth/wrong-password":
+            setErrorMessage("Mật khẩu không đúng");
+            break;
+          case "auth/invalid-email":
+            setErrorMessage("Email không hợp lệ");
+            break;
+          default:
+            setErrorMessage("Đã xảy ra lỗi. Vui lòng thử lại.");
+        }
+      } else {
+        setErrorMessage("Đã xảy ra lỗi. Vui lòng thử lại.");
+      }
+      console.error("Login error:", error);
+      setIsLoading(false);
     }
   };
 
-  // Đăng nhập bằng Google
-  const handleGoogleLogin = async () => {
-    try {
-      const result = await signInWithPopup(auth, googleProvider);
-      await handleAuth(result);
-    } catch (error: any) {
-      console.error("Lỗi đăng nhập Google:", error.message);
-    }
-  };
-
-  // Đăng nhập bằng Facebook
-  const handleFacebookLogin = async () => {
-    try {
-      const result = await signInWithPopup(auth, facebookProvider);
-      await handleAuth(result);
-    } catch (error: any) {
-      console.error("Lỗi đăng nhập Facebook:", error.message);
-    }
-  };
   return (
     <form>
       <div className="grid gap-5">
-        <div className="flex flex-col gap-4">
-          <Button variant="outline" className="w-full text-base" onClick={handleGoogleLogin}>
-            <GoogleLoginIcon />
-            Đăng nhập bằng Google
-          </Button>
-          <Button
-            onClick={handleFacebookLogin}
-            variant="outline"
-            className="w-full text-base bg-[#1877F2] text-white hover:bg-[#1877F2d1] hover:text-white"
-          >
-            <FacebookNegativeIcon />
-            Đăng nhập bằng Facebook
-          </Button>
-        </div>
+        <SocialLoginButtons
+          handleAuth={handleAuth}
+          isLoading={isLoading}
+          setIsLoading={setIsLoading}
+        />
         <div className="relative text-center text-sm after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t after:border-border">
           <span className="relative z-10 bg-background px-2 text-muted-foreground text-md">
             Hoặc đăng nhập
@@ -203,14 +208,13 @@ const LoginForm = () => {
               className="placeholder:text-base"
               required
               onChange={(e) => setEmail(e.target.value)}
+              disabled={isLoading}
             />
           </div>
           <div className="grid gap-2">
-            <div className="flex items-center">
-              <Label htmlFor="password" className="text-lg">
-                Mật khẩu
-              </Label>
-            </div>
+            <Label htmlFor="password" className="text-lg">
+              Mật khẩu
+            </Label>
             <Input
               id="password"
               type="password"
@@ -218,20 +222,31 @@ const LoginForm = () => {
               className="placeholder:text-base"
               required
               onChange={(e) => setPassword(e.target.value)}
+              disabled={isLoading}
             />
+            {/* Hiển thị thông báo lỗi */}
+            {errorMessage && (
+              <p className="text-center text-sm text-red-500 mt-2">{errorMessage}</p>
+            )}
             <div className="flex items-center justify-between mt-2">
               <div className="flex items-center space-x-2">
-                <Checkbox id="remember-login" />
+                <Checkbox
+                  id="remember-login"
+                  checked={rememberMe}
+                  onCheckedChange={(checked) => setRememberMe(checked === true)}
+                  disabled={isLoading}
+                />
                 <label
                   htmlFor="remember-login"
                   className="text-md font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                 >
-                  Ghi nhớ đăng nhập
+                  Ghi nhớ đăng nhập
                 </label>
               </div>
               <Link
                 href="#"
                 className="ml-auto text-md text-primary underline-offset-4 hover:underline"
+                onClick={() => openModal("forgotPassword")}
               >
                 Quên mật khẩu ?
               </Link>
@@ -241,8 +256,9 @@ const LoginForm = () => {
             type="submit"
             onClick={handleEmailLogin}
             className="w-full text-lg border border-transparent hover:border-primary hover:text-primary"
+            disabled={isLoading}
           >
-            Đăng nhập
+            {isLoading ? "Đang xử lý..." : "Đăng nhập"}
           </Button>
         </div>
         <div className="text-center text-base text-primary">
@@ -251,6 +267,7 @@ const LoginForm = () => {
             onClick={() => openModal("register")}
             variant="link"
             className="text-base hover:underline hover:underline-offset-2 font-semibold"
+            disabled={isLoading}
           >
             Đăng ký
           </Button>
@@ -259,87 +276,58 @@ const LoginForm = () => {
     </form>
   );
 };
+
+// Form đăng ký
 const RegisterForm = () => {
-  const { closeModal, openModal } = useAuthModal();
+  const { openModal } = useAuthModal();
+  const { handleAuth } = useAuth();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [repassword, setRepassword] = useState("");
+  const [repeatPassword, setRepeatPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  // Thêm state để lưu thông báo lỗi
+  const [errorMessage, setErrorMessage] = useState("");
 
-  
-  // Hàm xử lý chung sau khi đăng ký/đăng nhập qua social
-  const handleAuth = async (userCredential: any) => {
-    if (repassword !== password) {
-      console.error("Authentication error: Password not match");
-      return;
-    }
-    try {
-      const token = await userCredential.user.getIdToken();
-      // Gọi API BE để xử lý đăng ký hoặc đăng nhập qua token Firebase
-      const response = await authService.login(token);
-      localStorage.setItem("user", JSON.stringify(response.user));
-      localStorage.setItem("token", token);
-      closeModal();
-    } catch (error) {
-      console.error("Authentication error:", error);
-    }
-  };
-
-  // Đăng ký bằng Email/Mật khẩu
   const handleEmailRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (password !== repeatPassword) {
+      setErrorMessage("Mật khẩu không khớp");
+      return;
+    }
+    setIsLoading(true);
+    setErrorMessage("");
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      await handleAuth(userCredential);
-    } catch (error: any) {
-      console.error("Lỗi đăng ký:", error.message);
+      const result = await authService.register({ email, password, name });
+      if ((result as { message: string }).message === "User registered successfully") {
+        openModal("login"); // Chuyển sang form đăng nhập sau khi đăng ký thành công
+      } else {
+        setErrorMessage((result as { message: string }).message || "Đăng ký thất bại");
+      }
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        setErrorMessage(error.message || "Đăng ký thất bại");
+      }
+      else
+      setErrorMessage( "Đã xảy ra lỗi. Vui lòng thử lại.");
+    } finally {
+      setIsLoading(false);
     }
   };
-
-  // Đăng ký/Đăng nhập bằng Google
-  const handleGoogleRegister = async () => {
-    try {
-      const result = await signInWithPopup(auth, googleProvider);
-      await handleAuth(result);
-    } catch (error: any) {
-      console.error("Lỗi Google:", error.message);
-    }
-  };
-
-  // Đăng ký/Đăng nhập bằng Facebook
-  const handleFacebookRegister = async () => {
-    try {
-      const result = await signInWithPopup(auth, facebookProvider);
-      await handleAuth(result);
-    } catch (error: any) {
-      console.error("Lỗi Facebook:", error.message);
-    }
-  };
-    return (
+  return (
     <form>
       <div className="grid gap-6">
-        <div className="flex flex-col gap-4">
-          <Button
-          onClick={handleGoogleRegister}
-          variant="outline" className="w-full text-base">
-            <GoogleLoginIcon />
-            Đăng nhập bằng Google
-          </Button>
-          <Button
-          onClick={handleFacebookRegister}
-            variant="outline"
-            className="w-full text-base bg-[#1877F2] text-white hover:bg-[#1877F2d1] hover:text-white"
-          >
-            <FacebookNegativeIcon />
-            Đăng nhập bằng Facebook
-          </Button>
-        </div>
+        <SocialLoginButtons
+          handleAuth={handleAuth}
+          isLoading={isLoading}
+          setIsLoading={setIsLoading}
+        />
         <div className="relative text-center text-sm after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t after:border-border">
           <span className="relative z-10 bg-background px-2 text-muted-foreground text-md">
-            Hoặc đăng nhập
+            Hoặc đăng ký
           </span>
         </div>
-        <div className="grid gap-5">
+        <div className="grid gap-4">
           <div className="grid gap-2">
             <Label htmlFor="fullname" className="text-lg">
               Họ tên
@@ -351,6 +339,7 @@ const RegisterForm = () => {
               className="placeholder:text-base"
               required
               onChange={(e) => setName(e.target.value)}
+              disabled={isLoading}
             />
           </div>
           <div className="grid gap-2">
@@ -364,14 +353,13 @@ const RegisterForm = () => {
               className="placeholder:text-base"
               required
               onChange={(e) => setEmail(e.target.value)}
+              disabled={isLoading}
             />
           </div>
           <div className="grid gap-2">
-            <div className="flex items-center">
-              <Label htmlFor="password" className="text-lg">
-                Mật khẩu
-              </Label>
-            </div>
+            <Label htmlFor="password" className="text-lg">
+              Mật khẩu
+            </Label>
             <Input
               id="password"
               type="password"
@@ -379,29 +367,34 @@ const RegisterForm = () => {
               className="placeholder:text-base"
               required
               onChange={(e) => setPassword(e.target.value)}
+              disabled={isLoading}
             />
           </div>
           <div className="grid gap-2">
-            <div className="flex items-center">
-              <Label htmlFor="repassword" className="text-lg">
-                Nhập lại mật khẩu
-              </Label>
-            </div>
+            <Label htmlFor="repassword" className="text-lg">
+              Nhập lại mật khẩu
+            </Label>
             <Input
               id="repassword"
               type="password"
               placeholder="Nhập mật khẩu"
               className="placeholder:text-base input:text-base"
               required
-              onChange={(e) => setRepassword(e.target.value)}
+              onChange={(e) => setRepeatPassword(e.target.value)}
+              disabled={isLoading}
             />
           </div>
+          {/* Hiển thị thông báo lỗi */}
+          {errorMessage && (
+            <p className="text-center text-sm text-red-800 mt-2">{errorMessage}</p>
+          )}
           <Button
             onClick={handleEmailRegister}
             type="submit"
-            className="w-full text-lg border border-transparent hover:border-primary hover:text-primary"
+            className="w-full mt-4 text-lg border border-transparent hover:border-primary hover:text-primary"
+            disabled={isLoading}
           >
-            Đăng ký
+            {isLoading ? "Đang xử lý..." : "Đăng ký"}
           </Button>
         </div>
         <div className="text-center text-base text-primary">
@@ -410,6 +403,7 @@ const RegisterForm = () => {
             onClick={() => openModal("login")}
             variant="link"
             className="text-base hover:underline hover:underline-offset-2 font-semibold"
+            disabled={isLoading}
           >
             Đăng nhập
           </Button>
@@ -418,24 +412,122 @@ const RegisterForm = () => {
     </form>
   );
 };
-const ActivateForm = () => (
-  <form>
+const ForgetPasswordForm = () => {
+  const { openModal } = useAuthModal();
+  const [email, setEmail] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [message, setMessage] = useState("");
+
+  const handleForgetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setMessage("");
+    try {
+      const result = await authService.forgetPassword(email) as { success: boolean, error?: string };
+      if (result.success) {
+        setMessage("Đã gửi yêu cầu khôi phục mật khẩu. Vui lòng kiểm tra email của bạn.");
+      } else {
+        if (result.error === "user-not-found") {
+          setMessage("Email không tồn tại");
+        } else {
+          setMessage(result.error || "Có lỗi xảy ra. Vui lòng thử lại.");
+        }
+      }
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        setMessage(error.message);
+      }
+      else
+      setMessage("Có lỗi xảy ra. Vui lòng thử lại.");
+      console.error("Forget password error:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
     <div className="grid gap-5">
-      <div className="grid gap-2">
-        <Input
-          id="code"
-          type="text"
-          placeholder="Nhập mã kích hoạt"
-          className="placeholder:text-base"
-          required
-        />
+      <p className="text-center text-md text-muted-foreground">
+        Nhập email của bạn để nhận liên kết khôi phục mật khẩu.
+      </p>
+      <form onSubmit={handleForgetPassword}>
+        <div className="grid gap-2">
+          <Label htmlFor="email-forget" className="text-lg">
+            Email
+          </Label>
+          <Input
+            id="email-forget"
+            type="email"
+            placeholder="Nhập Email"
+            className="placeholder:text-base"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            disabled={isLoading}
+          />
+        </div>
+        {/* Hiển thị thông báo với màu sắc khác nhau */}
+        {message && (
+          <p
+            className={`text-center text-sm mt-2 ${message.includes("Đã gửi") ? "text-green-500" : "text-red-500"
+              }`}
+          >
+            {message}
+          </p>
+        )}
+        <Button
+          type="submit"
+          className="w-full mt-4 text-lg border border-transparent hover:border-primary hover:text-primary"
+          disabled={isLoading}
+        >
+          {isLoading ? "Đang xử lý..." : "Gửi yêu cầu"}
+        </Button>
+      </form>
+      <div className="text-center text-base text-primary mt-4">
+        Quay lại{" "}
+        <Button
+          onClick={() => openModal("login")}
+          variant="link"
+          className="text-base hover:underline hover:underline-offset-2 font-semibold"
+          disabled={isLoading}
+        >
+          Đăng nhập
+        </Button>
       </div>
-      <Button
-        type="submit"
-        className="w-full text-lg border border-transparent hover:border-primary hover:text-primary"
-      >
-        Kích hoạt
-      </Button>
     </div>
-  </form>
-);
+  );
+};
+const ActivateForm = () => {
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleActivate = (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    // Implement activation logic here
+    setIsLoading(false);
+  };
+
+  return (
+    <form onSubmit={handleActivate}>
+      <div className="grid gap-5">
+        <div className="grid gap-2">
+          <Input
+            id="code"
+            type="text"
+            placeholder="Nhập mã kích hoạt"
+            className="placeholder:text-base"
+            required
+            disabled={isLoading}
+          />
+        </div>
+        <Button
+          type="submit"
+          className="w-full text-lg border border-transparent hover:border-primary hover:text-primary"
+          disabled={isLoading}
+        >
+          {isLoading ? "Đang xử lý..." : "Kích hoạt"}
+        </Button>
+      </div>
+    </form>
+  );
+};
