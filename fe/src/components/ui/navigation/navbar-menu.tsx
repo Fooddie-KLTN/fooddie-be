@@ -38,10 +38,10 @@ export default function NavbarMenu({
           setDropdownState={setDropdownState}
         />
 
-        {/* Search bar - flexible width */}
+        {/* Search bar - flexible width
         <li className="lg:flex-1 lg:mx-4">
           <SearchBar windowDimensions={windowDimensions} />
-        </li>
+        </li> */}
 
         {/* User actions (login/profile, cart, etc.) */}
         <li className="lg:flex-none lg:flex lg:items-center">
