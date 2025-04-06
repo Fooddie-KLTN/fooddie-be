@@ -1,54 +1,69 @@
+/**
+ * SearchBar Component
+ *
+ * Provides a search input for finding courses and content.
+ * The component is responsive and adapts to different screen sizes.
+ */
+
 "use client";
 
+import { SearchBarProps } from "@/components/ui/navigation/types";
 import { SearchIcon } from "lucide-react";
 import { useState } from "react";
 
-interface SearchBarProps {
-  value: string;
-  onChange: (value: string) => void;
-  placeholder?: string;
-}
-
-/**
- * A search bar component with a blue ring when focused.
- * @param {{ value: string, onChange: (value: string) => void, placeholder?: string }} props
- * @param {string} props.value The value of the search bar.
- * @param {(value: string) => void} props.onChange The function to call when the value changes.
- * @param {string} [props.placeholder="T m ki m..."] The placeholder text.
- */
-export function SearchBar({ value, onChange, placeholder = "Tìm kiếm..." }: SearchBarProps) {
+export default function SearchBar({
+  windowDimensions = { width: 1200, height: 800 },
+}: SearchBarProps) {
+  // State for search input
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  // Track focus state for enhanced styling
   const [isFocused, setIsFocused] = useState(false);
 
+  // Determine if search should be visible based on screen width
+  const isVisible = !(
+    windowDimensions.width < 1190 && windowDimensions.width > 1024
+  );
+
+  // Handle search submission
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    // Implement search functionality here
+    console.log("Searching for:", searchQuery);
+  };
+
+  if (!isVisible) return <></>;
+
   return (
-    <div
+    <form
       className={`
-        relative flex items-center w-full overflow-hidden
-        rounded-lg border border-gray-200 bg-white
-        transition-all duration-300 ease-in-out
-        ${isFocused ? 'ring-2 ring-primary border-transparent' : 'hover:border-gray-300'}
+        flex items-center text-base w-full rounded-md 
+        border transition-all duration-200 ease-in-out
+        bg-white border-gray-200
+        ${isFocused 
+          ? "border-primary shadow-sm ring-1 ring-primary/30" 
+          : "border-gray-200 hover:border-gray-300"
+        }
       `}
+      onSubmit={handleSubmit}
+      role="search"
     >
-      <SearchIcon 
-        className={`
-          w-5 h-5 ml-3 transition-colors duration-300
-          ${isFocused ? ' text-primary' : 'text-gray-400'}
-          ${value ? 'text-gray-700' : ''}
-        `}
-      />
+      <SearchIcon className={`
+        h-5 w-5 ml-3 mr-1
+        ${isFocused ? "text-primary" : "text-gray-400"}
+        ${searchQuery ? "text-primary/70" : ""}
+        transition-colors duration-200
+      `} />
+      
       <input
+        className="w-full py-2 pr-3 pl-1 bg-transparent outline-none appearance-none text-gray-700 rounded-r-md"
         type="text"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
+        placeholder="Tìm món ăn..."
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
         onFocus={() => setIsFocused(true)}
         onBlur={() => setIsFocused(false)}
-        placeholder={placeholder}
-        className={`
-          w-full px-3 py-2 bg-transparent
-          text-gray-700 placeholder-gray-400
-          focus:outline-none
-          transition-all duration-300
-        `}
+        aria-label="Tìm món ăn"
       />
-    </div>
+    </form>
   );
 }

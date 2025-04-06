@@ -1,6 +1,6 @@
 /* eslint-disable prettier/prettier */
 // src/users/entities/user.entity.ts
-import { Entity, Column, ManyToOne, JoinColumn, PrimaryColumn, ManyToMany, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
+import { Entity, Column, ManyToOne, JoinColumn, PrimaryColumn, ManyToMany, OneToMany, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 import { Category } from './category.entity';
 import { Restaurant } from './restaurant.entity';
 import { OrderDetail } from './orderDetail.entity';
@@ -16,30 +16,50 @@ export class Food {
     @Column({ nullable: true })
     image: string;
 
+    @Column("simple-array", { nullable: true, name: 'image_urls' })
+    imageUrls: string[];
+
     @Column({ nullable: true })
     name: string;
 
-    @Column({ nullable: true })
-    price: string;
+    @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+    price: number;
 
+    @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true, name: 'discount_percent' })
+    discountPercent: number;
+
+    @Column({ type: 'int', default: 0, nullable: true, name: 'sold_count' })
+    soldCount: number;
+
+    @Column({ type: 'decimal', precision: 3, scale: 2, nullable: true })
+    rating: number;
+
+    @Column({ type: 'int', default: 0, nullable: true, name: 'purchased_number' })
+    purchasedNumber: number;
+
+    // In food.entity.ts
     @ManyToOne(() => Category, (category) => category.foods, {
         nullable: true,
-        onDelete: 'SET NULL'
+        onDelete: 'SET NULL',
     })
     @JoinColumn({ name: 'category_id' })
-    category: Category;
+    category?: Category; // Make it optional in TypeScript too
 
-    @Column({ nullable: true })
-    discountPercent: string;
-
-    @Column({ nullable: true })
-    status: string;
     
     @Column({ nullable: true })
-    StarReview: string;
+    status: string;
 
     @Column({ nullable: true })
-    purchasedNumber: string;
+    tag: string;
+
+    @CreateDateColumn({ name: 'created_at' })
+    createdAt: Date;
+
+    @UpdateDateColumn({ name: 'updated_at' })
+    updatedAt: Date;
+
+    @Column({ nullable: true, name: 'preparation_time' })
+    preparationTime: number;
 
     @ManyToOne(() => Restaurant, { eager: true })
     @JoinColumn({ name: 'restaurant_id' })

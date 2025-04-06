@@ -8,7 +8,6 @@
 "use client";
 
 import NavigationItems from "@/components/ui/navigation/navbar-item";
-import SearchBar from "@/components/ui/navigation/navbar-search";
 import UserActions from "@/components/ui/navigation/navbar-user";
 import { NavbarMenuProps } from "@/components/ui/navigation/types";
 
@@ -19,7 +18,6 @@ export default function NavbarMenu({
   setDropdownState,
   user,
   openModal,
-  windowDimensions,
 }: NavbarMenuProps) {
   return (
     <div
@@ -38,10 +36,10 @@ export default function NavbarMenu({
           setDropdownState={setDropdownState}
         />
 
-        {/* Search bar - flexible width */}
+        {/* Search bar - flexible width
         <li className="lg:flex-1 lg:mx-4">
           <SearchBar windowDimensions={windowDimensions} />
-        </li>
+        </li> */}
 
         {/* User actions (login/profile, cart, etc.) */}
         <li className="lg:flex-none lg:flex lg:items-center">
