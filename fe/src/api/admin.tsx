@@ -109,6 +109,23 @@ interface CourseResponse {
     price?: number;
 }
 
+interface StoreResponse {
+    id: string;
+    name: string;
+    phoneNumber: string;
+    address: string;
+    status: 'pending' | 'approved' | 'rejected';
+    location: string;
+    createdAt: string;
+    owner: string;
+  }
+  
+interface GetStoresResponse {
+    data: StoreResponse[];
+    total: number;
+  }
+  
+
 /**
  * Các dịch vụ API cho phần quản trị hệ thống
  * 
@@ -235,4 +252,24 @@ export const adminService = {
             }
         },
     },
+    Store: {
+        async getStores(token: string, page: number = 1, pageSize: number = 10): Promise<GetStoresResponse> {
+          try {
+            const response = await apiRequest<StoreResponse[]>('/restaurants', 'GET', {
+              token,
+              query: { page, pageSize }
+            });
+
+            return {
+              data: response,
+              total: response.length // Hoặc response.total nếu có
+            };
+          } catch (error) {
+            console.error("Lỗi API cửa hàng:", error);
+            throw error;
+          }
+        }
+      }
+      
+      
 };
