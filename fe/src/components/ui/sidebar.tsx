@@ -27,6 +27,7 @@ import {
   UserPenIcon,
   UsersIcon,
   XIcon,
+  StoreIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -65,45 +66,10 @@ const tabs: Tab[] = [
     permission: "read_user",
   },
   {
-    label: "Quản lý nhóm học",
-    icon: UsersIcon,
-    path: "/groups",
-    permission: "read_student_group",
-  },
-  {
-    label: "Quản lý khóa học",
-    icon: GraduationCapIcon,
-    permission: "read_course",
-    children: [
-      {
-        label: "Khóa cơ bản",
-        path: "/courses",
-        permission: "read_course",
-      },
-      {
-        label: "Khóa lộ trình",
-        path: "/course-path",
-        permission: "read_course",
-      }
-    ],
-  },
-  {
-    label: "Quản lý nội dung",
-    icon: FileTextIcon,
-    path: "/content",
-    permission: "read_content",
-  },
-  {
-    label: "Thi trắc nghiệm",
-    icon: LibraryBigIcon,
-    path: "/quizzes",
-    permission: "read_exam",
-  },
-  {
-    label: "Quản lý phản hồi",
-    icon: MessageSquareMoreIcon,
-    path: "/feedback",
-    permission: "read_review",
+    label: "Vai trò & Phân quyền",
+    icon: ServerIcon,
+    path: "/roles",
+    permission: "read_role", // đã sửa từ view_role
   },
   {
     label: "Quản lý mã giảm giá",
@@ -112,12 +78,49 @@ const tabs: Tab[] = [
     permission: "read_promotion",
   },
   {
-    label: "Vai trò & Phân quyền",
-    icon: ServerIcon,
-    path: "/roles",
-    permission: "view_role",
+    label: "Thống kê",
+    icon: ChartNoAxesColumnIcon,
+    path: "/dashboard",
+    permission: "read_dashboard",
+  },
+  {
+    label: "Quản lý cửa hàng",
+    icon: StoreIcon,
+    path: "/stores",
+    permission: "read_store",
+  },
+  {
+    label: "Quản lý danh mục",
+    icon: LibraryBigIcon, // Có thể đổi sang biểu tượng hợp lý hơn
+    path: "/categories",
+    permission: "read_category",
+  },
+  {
+    label: "Quản lý đơn hàng",
+    icon: FileTextIcon,
+    path: "/orders",
+    permission: "read_order",
+  },
+  {
+    label: "Quản lý shipper",
+    icon: UsersIcon,
+    path: "/shippers",
+    permission: "read_shipper",
+  },
+  {
+    label: "Sự kiện",
+    icon: MessageSquareMoreIcon,
+    path: "/events",
+    permission: "read_event",
+  },
+  {
+    label: "Luật hệ thống",
+    icon: GraduationCapIcon,
+    path: "/rules",
+    permission: "read_rule",
   },
 ];
+
 
 const additionalTabs: PublicTab[] = [
   { label: "Hỗ trợ", icon: LifeBuoyIcon, path: "/support" },
