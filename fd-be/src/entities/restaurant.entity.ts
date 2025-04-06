@@ -17,7 +17,6 @@ export class Restaurant {
     @PrimaryGeneratedColumn("uuid")
     id: string;
 
-
     @Column({ nullable: true })
     name: string;
 
@@ -54,6 +53,12 @@ export class Restaurant {
         default: RestaurantStatus.PENDING
     })
     status: RestaurantStatus;
+
+    @Column({ type: 'decimal', precision: 10, scale: 7, nullable: true })
+    latitude: number;
+
+    @Column({ type: 'decimal', precision: 10, scale: 7, nullable: true })
+    longitude: number;
 
     @OneToMany(() => Food, (food) => food.restaurant)
     foods: Food[];

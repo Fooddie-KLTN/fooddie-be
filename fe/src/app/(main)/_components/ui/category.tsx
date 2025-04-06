@@ -2,12 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { ChevronRightIcon } from "lucide-react";
-
-interface Category {
-  id: number;
-  name: string;
-  icon: string;
-}
+import { Category } from "@/interface";
 
 interface CategorySectionProps {
   categories: Category[];

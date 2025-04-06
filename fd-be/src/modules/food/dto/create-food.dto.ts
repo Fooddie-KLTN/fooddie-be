@@ -1,9 +1,6 @@
-import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString, IsNumber, IsUUID, IsNumberString } from 'class-validator';
 
 export class CreateFoodDto {
-  @IsString()
-  @IsNotEmpty()
-  id: string;
 
   @IsString()
   @IsNotEmpty()
@@ -13,7 +10,7 @@ export class CreateFoodDto {
   @IsOptional()
   description?: string;
 
-  @IsString()
+  @IsNumberString()
   @IsNotEmpty()
   price: string;
 
@@ -21,7 +18,7 @@ export class CreateFoodDto {
   @IsOptional()
   image?: string;
 
-  @IsString()
+  @IsNumberString()
   @IsOptional()
   discountPercent?: string;
 
@@ -29,11 +26,7 @@ export class CreateFoodDto {
   @IsOptional()
   status?: string;
 
-  @IsString()
-  @IsOptional()
-  StarReview?: string;
-
-  @IsString()
+  @IsNumberString()
   @IsOptional()
   purchasedNumber?: string;
 
@@ -44,4 +37,8 @@ export class CreateFoodDto {
   @IsString()
   @IsOptional()
   categoryId?: string;
+
+  @IsString()
+  @IsOptional()
+  preparationTime?: string;
 }

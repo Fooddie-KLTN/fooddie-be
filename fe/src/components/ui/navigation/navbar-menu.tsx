@@ -8,7 +8,6 @@
 "use client";
 
 import NavigationItems from "@/components/ui/navigation/navbar-item";
-import SearchBar from "@/components/ui/navigation/navbar-search";
 import UserActions from "@/components/ui/navigation/navbar-user";
 import { NavbarMenuProps } from "@/components/ui/navigation/types";
 
@@ -19,7 +18,6 @@ export default function NavbarMenu({
   setDropdownState,
   user,
   openModal,
-  windowDimensions,
 }: NavbarMenuProps) {
   return (
     <div

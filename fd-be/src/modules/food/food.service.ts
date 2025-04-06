@@ -18,60 +18,68 @@ export class FoodService {
         private categoryRepository: Repository<Category>,
     ) { }
 
-    /**
-     * Create a new food
-     * 
-     * @param createFoodDto The food data to create
-     * @returns The created food
-     */
-    async create(createFoodDto: CreateFoodDto): Promise<Food> {
-        try {
-            // Check if restaurant exists
-            const restaurant = await this.restaurantRepository.findOne({
-                where: { id: createFoodDto.restaurantId }
-            });
-
-            if (!restaurant) {
-                throw new BadRequestException('Restaurant not found');
-            }
-
-            // Check if category exists if provided
-            let category: Category | undefined = undefined;
-            if (createFoodDto.categoryId) {
-                const foundCategory = await this.categoryRepository.findOne({
-                    where: { id: createFoodDto.categoryId }
-                });
-
-                if (!foundCategory) {
-                    throw new BadRequestException('Category not found');
-                }
-
-                category = foundCategory;
-            }
-
-            // Create new food
-            const food = this.foodRepository.create({
-                id: createFoodDto.id,
-                name: createFoodDto.name,
-                description: createFoodDto.description,
-                price: createFoodDto.price,
-                image: createFoodDto.image,
-                discountPercent: createFoodDto.discountPercent,
-                status: createFoodDto.status || 'available',
-                StarReview: createFoodDto.StarReview || '0',
-                purchasedNumber: createFoodDto.purchasedNumber || '0',
-                restaurant: restaurant,
-                category: category // Use undefined instead of null
-            });
-
-            return await this.foodRepository.save(food);
-        } catch (error) {
-            if (error instanceof BadRequestException) {
-                throw error;
-            }
-            throw new BadRequestException(`Failed to create food: ${error.message}`);
+/**
+ * Create a new food item
+ * 
+ * @param createFoodDto The food data to create
+ * @returns The created food
+ */
+async create(createFoodDto: CreateFoodDto): Promise<Food> {
+    try {
+      // Validate restaurant exists
+      const restaurant = await this.restaurantRepository.findOne({
+        where: { id: createFoodDto.restaurantId }
+      });
+      
+      if (!restaurant) {
+        throw new BadRequestException(`Restaurant with ID ${createFoodDto.restaurantId} not found`);
+      }
+      
+      const category = await this.categoryRepository.findOne({
+        where: { id: createFoodDto.categoryId }
+        });
+        if (!category) {
+            throw new BadRequestException(`Category with ID ${createFoodDto.categoryId} not found`);
         }
+      // Validate category if provided
+
+      
+      // Create a new Food entity with proper type conversions
+      const food = new Food();
+      food.name = createFoodDto.name;
+      food.description = createFoodDto.description || "";
+      food.price = createFoodDto.price ? parseFloat(createFoodDto.price) : 0;
+      food.image = createFoodDto.image || "";
+      food.discountPercent = createFoodDto.discountPercent ? parseFloat(createFoodDto.discountPercent) : 0;
+      food.status = createFoodDto.status || 'available';
+      food.purchasedNumber = createFoodDto.purchasedNumber ? parseInt(createFoodDto.purchasedNumber, 10) : 0;
+      food.soldCount = 0;
+      food.rating = 0;
+      food.imageUrls = [];
+      food.tag = "";
+      food.preparationTime = createFoodDto.preparationTime ? parseInt(createFoodDto.preparationTime, 10) : 0;
+      food.restaurant = restaurant;
+      
+      // Only assign category if it exists (undefined is safer than null for TypeScript)
+      if (category) {
+        food.category = category;
+      }
+      
+      // Save the entity
+      const savedFood = await this.foodRepository.save(food);
+      return savedFood;
+      
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      
+      console.error('Food creation error:', error);
+      throw new BadRequestException(
+        `Failed to create food: ${error.message || 'Unknown error'}`
+      );
     }
+  }
 
     /**
      * Get all foods with pagination

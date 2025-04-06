@@ -34,7 +34,7 @@ import { useState } from "react";
 import { auth } from "../../../firebaseconfig";
 import "../../styles/globals.css";
 import NavbarBrand from "./navigation/navbar-brand";
-import { SearchBar } from "./searchbar";
+import SearchBar from "./searchbar";
 
 // Interface for navigation tabs
 interface Tab {

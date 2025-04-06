@@ -1,30 +1,19 @@
 import { Button } from "@/components/ui/button";
 import { FilterIcon } from "lucide-react";
 import FoodCard from "../food-card";
-
-interface Food {
-  id: number;
-  name: string;
-  description: string;
-  price: number;
-  image: string;
-  category: string;
-  rating: number;
-  popular: boolean;
-  restaurant: string;
-  deliveryTime: string;
-}
+import { FoodPreview } from "@/interface/index";
 
 interface FoodGridProps {
-  foods: Food[];
+  foods: FoodPreview[];
   formatPrice: (price: number) => string;
+  name: string;
 }
 
-export default function FoodGrid({ foods, formatPrice }: FoodGridProps) {
+export default function FoodGrid({ foods, formatPrice, name }: FoodGridProps) {
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold">Popular Food</h2>
+        <h2 className="text-2xl font-bold">{name}</h2>
         <div className="flex items-center">
           <Button variant="outline" className="flex items-center gap-2">
             <FilterIcon className="h-4 w-4" />
@@ -34,7 +23,7 @@ export default function FoodGrid({ foods, formatPrice }: FoodGridProps) {
       </div>
 
       {foods.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4  gap-6">
           {foods.map((food) => (
             <FoodCard key={food.id} food={food} formatPrice={formatPrice} />
           ))}
