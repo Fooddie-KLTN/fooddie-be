@@ -1,289 +1,507 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { useCart } from "@/context/cart-context";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { RadioGroup, RadioItem } from "@radix-ui/react-dropdown-menu";
-import {  ChevronLeft, Minus, Plus, Trash2 } from "lucide-react";
-import Link from "next/link";
-import Image from "next/image";
+import { useCart } from '@/context/cart-context';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // Import Select components
+import Image from 'next/image';
+import { Trash2, Plus, Minus } from 'lucide-react';
+import Link from 'next/link';
+import { FoodPreview } from '@/interface';
+import { useMemo, useEffect, useState } from 'react'; // Import useState
 
-/**
- * @component Cart
- * @description Component hiển thị trang thanh toán (checkout) với danh sách sản phẩm và tóm tắt đơn hàng
- */
-export default function Cart() {
-  const { cart, addToCart, removeFromCart } = useCart();
-  const [totalAmount, setTotalAmount] = useState(0);
-  const [deliveryFee, setDeliveryFee] = useState(15000); // Fixed delivery fee
-  const [paymentMethod, setPaymentMethod] = useState("cod");
-  const [formData, setFormData] = useState({
-    name: "",
-    phone: "",
-    address: "",
-    note: "",
-  });
+// Define interfaces for API data - CORRECTED
+interface Province {
+  id: number; // Use id (number) instead of code
+  name: string;
+  // Add other fields if needed from the API response (e.g., full_name, type)
+}
 
-  // Calculate total amount whenever cart changes
+interface District {
+  id: number; // Assuming district also uses id (number)
+  name: string;
+  // Add other fields if needed
+}
+
+// Add Ward interface
+interface Ward {
+  id: number;
+  name: string;
+  // Add other fields if needed
+}
+
+// Define the type for cart items used for display
+type DisplayCartItem = FoodPreview & { quantity: number };
+
+// Sample food items (assuming this is consistent with the context)
+// Keep sample data as is unless specifically asked to change
+const sampleFoodItems: FoodPreview[] = [
+  {
+    id: "1",
+    name: "Hamburger Phô Mai Cổ Điển",
+    description: "Bánh burger bò với phô mai cheddar.",
+    price: 89000,
+    image: "https://source.unsplash.com/random/300x200/?cheeseburger",
+    category: { id: "1", name: "Burgers" },
+    rating: 4.8,
+    popular: true,
+    restaurant: { id: "hub-1", name: "Burger Hub", deliveryTime: "15-25" },
+    status: "available"
+  },
+  {
+    id: "2",
+    name: "Pizza Margherita",
+    description: "Pizza truyền thống với sốt cà chua và phô mai mozzarella.",
+    price: 120000,
+    image: "https://source.unsplash.com/random/300x200/?pizza",
+    category: { id: "2", name: "Pizza" },
+    rating: 4.5,
+    popular: true,
+    restaurant: { id: "palace-1", name: "Pizza Palace", deliveryTime: "20-35" },
+    status: "available"
+  },
+  {
+    id: "3",
+    name: "Combo Sushi",
+    description: "Hỗn hợp nigiri và cuộn maki tươi.",
+    price: 180000,
+    image: "https://source.unsplash.com/random/300x200/?sushi",
+    category: { id: "3", name: "Sushi" },
+    rating: 4.9,
+    popular: true,
+    restaurant: { id: "sushi-1", name: "Sushi Master", deliveryTime: "25-40" },
+    status: "available"
+  },
+];
+
+
+export default function CheckoutPage() {
+  const { cartItems, removeFromCart, updateQuantity, getTotalPrice, getTotalItems, removeInvalidCartItems } = useCart();
+  const [provinces, setProvinces] = useState<Province[]>([]);
+  const [districts, setDistricts] = useState<District[]>([]);
+  const [wards, setWards] = useState<Ward[]>([]); // Add state for wards
+  // Use number | null for selected IDs, initialize to null
+  const [selectedProvince, setSelectedProvince] = useState<number | null>(null);
+  const [selectedDistrict, setSelectedDistrict] = useState<number | null>(null);
+  const [selectedWard, setSelectedWard] = useState<number | null>(null); // Add state for selected ward
+  const [isLoadingProvinces, setIsLoadingProvinces] = useState(false);
+  const [isLoadingDistricts, setIsLoadingDistricts] = useState(false);
+  const [isLoadingWards, setIsLoadingWards] = useState(false); // Add loading state for wards
+
+  // Fetch provinces on component mount
   useEffect(() => {
+    const fetchProvinces = async () => {
+      setIsLoadingProvinces(true);
+      try {
+        // Using the public API endpoint mentioned in context
+        const response = await fetch('https://vnprovinces.pythonanywhere.com/api/provinces/?basic=true&limit=100'); // Added params for basic info and increased limit
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        console.log("Provinces API response:", data); // Log raw data
+        // Check if data is an array directly, or has a 'results' property which is an array
+        const provinceData = Array.isArray(data) ? data : (data && Array.isArray(data.results) ? data.results : []);
+        if (!Array.isArray(provinceData)) {
+            console.error("Fetched province data is not an array:", provinceData);
+            setProvinces([]); // Set to empty array if data is invalid
+        } else {
+            setProvinces(provinceData);
+        }
+      } catch (error) {
+        console.error("Failed to fetch provinces:", error);
+        setProvinces([]); // Reset on error
+      } finally {
+        setIsLoadingProvinces(false);
+      }
+    };
+    fetchProvinces();
+  }, []);
 
+  // Fetch districts when a province is selected
+  useEffect(() => {
+    console.log("District fetch effect - Selected Province ID:", selectedProvince);
 
-    const subtotal = cart.reduce((sum, item) => sum + item.price * (item.quantity || 1), 0);
-    setTotalAmount(subtotal);
-  }, [cart]);
-
-  const handleQuantityChange = (item, newQuantity) => {
-    if (newQuantity <= 0) {
-      removeFromCart(item.id);
+    if (!selectedProvince) {
+      setDistricts([]);
+      setSelectedDistrict(null);
+      setWards([]); // Reset wards when province changes
+      setSelectedWard(null); // Reset selected ward
       return;
     }
 
-    // First remove the current item
-    removeFromCart(item.id);
-    
-    // Then add it back with updated quantity
-    addToCart({
-      ...item,
-      quantity: newQuantity
-    });
+    const fetchDistricts = async () => {
+      setIsLoadingDistricts(true);
+      setDistricts([]);
+      setSelectedDistrict(null);
+      setWards([]); // Reset wards when fetching new districts
+      setSelectedWard(null); // Reset selected ward
+      try {
+        // CORRECTED API endpoint using query parameter province_id
+        const response = await fetch(`https://vnprovinces.pythonanywhere.com/api/districts/?province_id=${selectedProvince}&basic=true&limit=100`);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        console.log(`Districts API response for province ${selectedProvince}:`, data);
+        // Use data.results as the API nests the array
+        const districtData = data && Array.isArray(data.results) ? data.results : [];
+        if (!Array.isArray(districtData)) {
+            console.error("Fetched district data is not in the expected format (results array):", data);
+            setDistricts([]);
+        } else {
+            setDistricts(districtData);
+        }
+      } catch (error) {
+        console.error("Failed to fetch districts:", error);
+        setDistricts([]);
+      } finally {
+        setIsLoadingDistricts(false);
+      }
+    };
+
+    fetchDistricts();
+  }, [selectedProvince]);
+
+  // Fetch wards when a district is selected
+  useEffect(() => {
+    console.log("Ward fetch effect - Selected District ID:", selectedDistrict);
+
+    if (!selectedDistrict) {
+      setWards([]);
+      setSelectedWard(null);
+      return;
+    }
+
+    const fetchWards = async () => {
+      setIsLoadingWards(true);
+      setWards([]);
+      setSelectedWard(null);
+      try {
+        const response = await fetch(`https://vnprovinces.pythonanywhere.com/api/wards/?district_id=${selectedDistrict}&basic=true&limit=100`);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        console.log(`Wards API response for district ${selectedDistrict}:`, data);
+        const wardData = data && Array.isArray(data.results) ? data.results : [];
+        if (!Array.isArray(wardData)) {
+            console.error("Fetched ward data is not in the expected format (results array):", data);
+            setWards([]);
+        } else {
+            setWards(wardData);
+        }
+      } catch (error) {
+        console.error("Failed to fetch wards:", error);
+        setWards([]);
+      } finally {
+        setIsLoadingWards(false);
+      }
+    };
+
+    fetchWards();
+  }, [selectedDistrict]); // Dependency on selectedDistrict
+
+  // Add a separate effect to log the state value whenever it changes
+  useEffect(() => {
+    console.log("State updated - selectedProvince is now:", selectedProvince);
+  }, [selectedProvince]);
+
+  useEffect(() => {
+    console.log("State updated - selectedDistrict is now:", selectedDistrict);
+  }, [selectedDistrict]);
+
+  useEffect(() => {
+    console.log("State updated - selectedWard is now:", selectedWard);
+  }, [selectedWard]);
+
+  useEffect(() => {
+    removeInvalidCartItems();
+  }, [cartItems, removeInvalidCartItems]);
+
+  const displayCartItems = useMemo(() => {
+    return cartItems.map(cartItem => {
+        const foodDetails = sampleFoodItems.find(food => food.id === cartItem.foodId);
+        if (!foodDetails) {
+          return null;
+        }
+        return {
+          ...foodDetails,
+          quantity: cartItem.quantity,
+        };
+      }).filter((item): item is DisplayCartItem => item !== null);
+  }, [cartItems]);
+
+  const totalPrice = getTotalPrice();
+  const totalItems = getTotalItems();
+
+  const formatPrice = (price: number): string => {
+    return new Intl.NumberFormat('vi-VN', {
+      style: 'currency',
+      currency: 'VND'
+    }).format(price);
   };
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+  // Handler for province selection change
+  const handleProvinceChange = (value: string) => { // shadcn/ui Select typically provides string value
+    console.log("Province Select onValueChange triggered. Value:", value, "Type:", typeof value);
+    const provinceId = parseInt(value, 10);
+    if (!isNaN(provinceId)) {
+      setSelectedProvince(provinceId);
+      setSelectedDistrict(null); // Reset district when province changes
+      setSelectedWard(null); // Reset ward when province changes
+    } else {
+      console.error("Received non-numeric string or invalid value from Province Select:", value);
+      setSelectedProvince(null); // Reset if parsing fails
+      setSelectedDistrict(null);
+      setSelectedWard(null);
+    }
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    
-    // Here you would typically process the order
-    // For now, we'll just show an alert
-    alert("Đặt hàng thành công!");
-    
-    // In a real app, you would redirect to a confirmation page
-    // window.location.href = "/order-confirmation";
+  // Handler for district selection change
+  const handleDistrictChange = (value: string) => { // shadcn/ui Select typically provides string value
+    console.log("District Select onValueChange triggered. Value:", value, "Type:", typeof value);
+    const districtId = parseInt(value, 10);
+    if (!isNaN(districtId)) {
+      setSelectedDistrict(districtId);
+      setSelectedWard(null); // Reset ward when district changes
+    } else {
+      console.error("Received non-numeric string or invalid value from District Select:", value);
+      setSelectedDistrict(null); // Reset if parsing fails
+      setSelectedWard(null);
+    }
   };
 
-  // Format price to VND
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
+  // Handler for ward selection change
+  const handleWardChange = (value: string) => {
+    console.log("Ward Select onValueChange triggered. Value:", value, "Type:", typeof value);
+    const wardId = parseInt(value, 10);
+    if (!isNaN(wardId)) {
+      setSelectedWard(wardId);
+    } else {
+      console.error("Received non-numeric string or invalid value from Ward Select:", value);
+      setSelectedWard(null); // Reset if parsing fails
+    }
   };
+
+  // Example delivery fee
+  const deliveryFee = 15000;
 
   return (
-    <div className="bg-gray-50 min-h-screen">
-      {/* Breadcrumb */}
-      <div className="bg-white py-4 shadow-sm">
-        <div className="container mx-auto px-4">
-          <Link href="/" className="flex items-center text-gray-600 hover:text-primary">
-            <ChevronLeft className="h-4 w-4 mr-1" />
-            <span>Trở về trang chủ</span>
+    <div className="container mx-auto px-4 py-10 max-w-4xl"> {/* Adjusted max-width */}
+      <h1 className="text-3xl font-bold mb-8 text-center md:text-left">Thanh toán</h1>
+
+      { !displayCartItems || displayCartItems.length === 0 ? (
+        <Card className="text-center p-10 shadow-lg border border-gray-200 rounded-lg">
+          <CardTitle className="mb-4 text-2xl font-semibold">Giỏ hàng của bạn đang trống</CardTitle>
+          <p className="text-gray-600 mb-6">Có vẻ như bạn chưa thêm sản phẩm nào vào giỏ hàng.</p>
+          <Link href="/">
+            <Button size="lg">Bắt đầu mua sắm</Button>
           </Link>
-        </div>
-      </div>
-      
-      <div className="container mx-auto px-4 py-8">
-        <h1 className="text-2xl font-bold mb-8">Thanh toán</h1>
-
-        {cart.length === 0 ? (
-          <div className="text-center py-16">
-            <div className="w-24 h-24 mx-auto mb-6 text-gray-300">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-              </svg>
-            </div>
-            <h2 className="text-xl font-semibold mb-4">Giỏ hàng của bạn đang trống</h2>
-            <p className="text-gray-500 mb-8">Hãy thêm vài món ngon vào giỏ hàng của bạn</p>
-            <Link href="/">
-              <Button className="bg-primary hover:bg-primary/90 hover:text-primary hover:border-primary">
-                Tiếp tục mua sắm
-              </Button>
-            </Link>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Left column - Cart items */}
-            <div className="lg:col-span-2">
-              <Card className="p-6 mb-6">
-                <h2 className="text-xl font-semibold mb-4">Giỏ hàng ({cart.length} món)</h2>
-                <div className="divide-y">
-                  {cart.map((item) => (
-                    <div key={item.id} className="py-4 flex items-center">
-                      <div className="relative h-20 w-20 flex-shrink-0 rounded-md overflow-hidden">
-                        <Image
-                          src={item.image}
-                          alt={item.name}
-                          fill
-                          className="object-cover"
-                        />
-                      </div>
-                      
-                      <div className="ml-4 flex-grow">
-                        <h3 className="font-medium">{item.name}</h3>
-                        <p className="text-sm text-gray-500 line-clamp-1">{item.description}</p>
-                        <p className="text-primary font-semibold mt-1">{formatPrice(item.price)}</p>
-                      </div>
-                      
-                      <div className="flex items-center ml-4">
-                        <div className="flex items-center border rounded-md">
-                          <button 
-                            onClick={() => handleQuantityChange(item, (item.quantity || 1) - 1)}
-                            className="px-2 py-1 hover:bg-gray-100"
-                          >
-                            <Minus className="h-4 w-4" />
-                          </button>
-                          <span className="px-3">{item.quantity || 1}</span>
-                          <button 
-                            onClick={() => handleQuantityChange(item, (item.quantity || 1) + 1)}
-                            className="px-2 py-1 hover:bg-gray-100"
-                          >
-                            <Plus className="h-4 w-4" />
-                          </button>
-                        </div>
-                        
-                        <button 
-                          onClick={() => removeFromCart(item.id)}
-                          className="ml-4 text-gray-400 hover:text-red-500"
-                        >
-                          <Trash2 className="h-5 w-5" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </Card>
-
-              <Card className="p-6 mb-6">
-                <h2 className="text-xl font-semibold mb-4">Thông tin giao hàng</h2>
-                <form className="space-y-4">
-                  <div>
-                    <Label htmlFor="name">Họ và tên</Label>
-                    <Input 
-                      id="name" 
-                      name="name" 
-                      placeholder="Nhập họ tên của bạn"
-                      value={formData.name}
-                      onChange={handleInputChange}
-                      required
+        </Card>
+      ) : (
+        // Changed grid to flex layout for stacking
+        <div className="flex flex-col gap-8">
+          {/* Cart Summary */}
+          <div className="space-y-6">
+            <Card className="shadow-md border border-gray-100 rounded-lg">
+              <CardHeader>
+                <CardTitle className="text-xl font-semibold">Tóm tắt đơn hàng ({totalItems} sản phẩm)</CardTitle>
+              </CardHeader>
+              <CardContent className="divide-y divide-gray-100 p-0">
+                {displayCartItems.map((item) => (
+                  <div key={item.id} className="flex flex-wrap items-center p-4 hover:bg-gray-50 transition-colors duration-150 gap-4">
+                    <Image
+                      src={item.image}
+                      alt={item.name}
+                      width={80}
+                      height={80}
+                      className="rounded-md object-cover border"
                     />
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="phone">Số điện thoại</Label>
-                    <Input 
-                      id="phone" 
-                      name="phone" 
-                      placeholder="Nhập số điện thoại"
-                      value={formData.phone}
-                      onChange={handleInputChange}
-                      required
-                    />
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="address">Địa chỉ giao hàng</Label>
-                    <Textarea 
-                      id="address" 
-                      name="address"
-                      placeholder="Nhập địa chỉ giao hàng đầy đủ" 
-                      value={formData.address}
-                      onChange={handleInputChange}
-                      required
-                    />
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="note">Ghi chú (không bắt buộc)</Label>
-                    <Textarea 
-                      id="note" 
-                      name="note"
-                      placeholder="Ghi chú thêm cho đơn hàng" 
-                      value={formData.note}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-                </form>
-              </Card>
-            </div>
-            
-            {/* Right column - Order summary */}
-            <div>
-              <div className="lg:sticky lg:top-20">
-                <Card className="p-6 mb-6">
-                  <h2 className="text-xl font-semibold mb-4">Tổng đơn hàng</h2>
-                  <div className="space-y-3">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Tạm tính</span>
-                      <span>{formatPrice(totalAmount)}</span>
+                    <div className="flex-grow min-w-[150px]"> {/* Added min-width */}
+                      <h3 className="font-semibold text-base">{item.name}</h3>
+                      <p className="text-sm text-gray-500">{item.restaurant.name}</p>
+                      <p className="text-sm font-medium text-primary">{formatPrice(item.price)}</p>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Phí giao hàng</span>
-                      <span>{formatPrice(deliveryFee)}</span>
-                    </div>
-                    <div className="border-t pt-3 mt-3">
-                      <div className="flex justify-between font-semibold">
-                        <span>Tổng cộng</span>
-                        <span className="text-primary text-xl">{formatPrice(totalAmount + deliveryFee)}</span>
-                      </div>
-                      <p className="text-gray-500 text-xs mt-1">
-                        (Đã bao gồm VAT nếu có)
-                      </p>
-                    </div>
-                  </div>
-                </Card>
-                
-                <Card className="p-6 mb-6">
-                  <h2 className="text-xl font-semibold mb-4">Phương thức thanh toán</h2>
-                  <RadioGroup defaultValue="cod" value={paymentMethod} onValueChange={setPaymentMethod}>
-                    <div className="flex items-center space-x-2 mb-3">
-                      <RadioItem value="cod" id="cod" />
-                      <Label className="flex items-center" htmlFor="cod">
-                        <div className="w-8 h-8 mr-2 rounded-full bg-gray-100 flex items-center justify-center">
-                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z" />
-                          </svg>
-                        </div>
-                        Thanh toán khi nhận hàng
-                      </Label>
-                    </div>
-                    
                     <div className="flex items-center space-x-2">
-                      <RadioItem value="online" id="online" />
-                      <Label className="flex items-center" htmlFor="online">
-                        <div className="w-8 h-8 mr-2 rounded-full bg-gray-100 flex items-center justify-center">
-                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" />
-                          </svg>
-                        </div>
-                        Thanh toán online
-                      </Label>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8 border-gray-300 hover:bg-gray-100"
+                        onClick={() => updateQuantity(item.id!, item.quantity - 1)}
+                        disabled={item.quantity <= 1}
+                      >
+                        <Minus className="h-4 w-4" />
+                      </Button>
+                      <span className="font-medium w-6 text-center">{item.quantity}</span>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8 border-gray-300 hover:bg-gray-100"
+                        onClick={() => updateQuantity(item.id!, item.quantity + 1)}
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
                     </div>
-                  </RadioGroup>
-                </Card>
-                
-                <Button 
-                  className="w-full bg-primary hover:bg-primary/90 py-6 text-lg"
-                  onClick={handleSubmit}
-                  disabled={!formData.name || !formData.phone || !formData.address}
-                >
-                  Đặt hàng
-                </Button>
-                
-                <p className="text-center text-gray-500 text-sm mt-4">
-                  Bằng cách đặt hàng, bạn đồng ý với các{' '}
-                  <a href="#" className="text-primary hover:underline">điều khoản</a> của chúng tôi
-                </p>
-              </div>
-            </div>
+                    <div className="text-right font-semibold min-w-[100px] text-base"> {/* Adjusted min-width */}
+                      {formatPrice(item.price * item.quantity)}
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-red-500 hover:text-red-700 hover:bg-red-50 rounded-full"
+                      onClick={() => removeFromCart(item.id!)}
+                    >
+                      <Trash2 className="h-5 w-5" />
+                    </Button>
+                  </div>
+                ))}
+              </CardContent>
+              <CardFooter className="flex justify-end font-bold text-lg p-4 bg-gray-50 rounded-b-lg">
+                Tổng cộng: {formatPrice(totalPrice)}
+              </CardFooter>
+            </Card>
           </div>
-        )}
-      </div>
+
+          {/* Checkout Details - Now in the same column */}
+          <div className="space-y-6">
+             {/* Address Card */}
+            <Card className="shadow-md border border-gray-100 rounded-lg">
+              <CardHeader>
+                <CardTitle className="text-xl font-semibold">Địa chỉ giao hàng</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                 <div>
+                  <Label htmlFor="address" className="text-sm font-medium">Địa chỉ nhà</Label>
+                  <Input id="address" placeholder="Ví dụ: 123 Đường ABC, Phường XYZ" className="mt-1"/>
+                </div>
+                {/* Province/City Select */}
+                <div>
+                  <Label htmlFor="city" className="text-sm font-medium">Tỉnh/Thành phố</Label>
+                   <Select
+                    value={selectedProvince?.toString() ?? ''} // Use ?? '' for null safety
+                    onValueChange={handleProvinceChange} // Use the refined handler
+                    disabled={isLoadingProvinces}
+                  >
+                    <SelectTrigger id="city" className="mt-1">
+                      <SelectValue placeholder={isLoadingProvinces ? "Đang tải..." : "Chọn tỉnh/thành phố"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {/* Add check for empty provinces */}
+                      {provinces.length === 0 && !isLoadingProvinces && <p key="no-provinces-found" className="p-4 text-sm text-gray-500">Không tìm thấy tỉnh/thành phố.</p>}
+                      {provinces.map((province) => (
+                        <SelectItem key={province.id} value={province.id.toString()}>
+                          {province.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                 {/* District Select */}
+                 <div>
+                  <Label htmlFor="district" className="text-sm font-medium">Quận/Huyện</Label>
+                   <Select
+                    value={selectedDistrict?.toString() ?? ''} // Use ?? '' for null safety
+                    onValueChange={handleDistrictChange} // Use the new handler
+                    disabled={!selectedProvince || isLoadingDistricts || districts.length === 0}
+                  >
+                    <SelectTrigger id="district" className="mt-1">
+                      <SelectValue placeholder={
+                        isLoadingDistricts ? "Đang tải..." :
+                        !selectedProvince ? "Vui lòng chọn tỉnh/thành phố" :
+                        districts.length === 0 && !isLoadingProvinces ? "Không tìm thấy quận/huyện" : // Check province loading too
+                        "Chọn quận/huyện"
+                      } />
+                    </SelectTrigger>
+                    <SelectContent>
+                       {/* Add check for empty districts */}
+                      {districts.length === 0 && selectedProvince && !isLoadingDistricts && <p key="no-districts-found" className="p-4 text-sm text-gray-500">Không tìm thấy quận/huyện cho tỉnh/thành phố đã chọn.</p>}
+                      {districts.map((district) => (
+                        <SelectItem key={district.id} value={district.id.toString()}>
+                          {district.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {/* Ward Select */}
+                <div>
+                  <Label htmlFor="ward" className="text-sm font-medium">Phường/Xã</Label>
+                  <Select
+                    value={selectedWard?.toString() ?? ''} // Use ?? '' for null safety
+                    onValueChange={handleWardChange} // Use the new handler
+                    disabled={!selectedDistrict || isLoadingWards || wards.length === 0}
+                  >
+                    <SelectTrigger id="ward" className="mt-1">
+                      <SelectValue placeholder={
+                        isLoadingWards ? "Đang tải..." :
+                        !selectedDistrict ? "Vui lòng chọn quận/huyện" :
+                        wards.length === 0 && !isLoadingDistricts ? "Không tìm thấy phường/xã" : // Check district loading too
+                        "Chọn phường/xã"
+                      } />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {/* Add check for empty wards */}
+                      {wards.length === 0 && selectedDistrict && !isLoadingWards && <p key="no-wards-found" className="p-4 text-sm text-gray-500">Không tìm thấy phường/xã cho quận/huyện đã chọn.</p>}
+                      {wards.map((ward) => (
+                        <SelectItem key={ward.id} value={ward.id.toString()}>
+                          {ward.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="phone" className="text-sm font-medium">Số điện thoại</Label>
+                  <Input id="phone" type="tel" placeholder="Ví dụ: 09xxxxxxxx" className="mt-1"/>
+                </div>
+                 <div>
+                  <Label htmlFor="notes" className="text-sm font-medium">Ghi chú (tùy chọn)</Label>
+                  <Input id="notes" placeholder="Ví dụ: Giao hàng giờ hành chính" className="mt-1"/>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Payment Method Card */}
+            <Card className="shadow-md border border-gray-100 rounded-lg">
+              <CardHeader>
+                <CardTitle className="text-xl font-semibold">Phương thức thanh toán</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {/* Add actual payment options here later */}
+                <p className="text-gray-600">Các tùy chọn thanh toán sẽ hiển thị ở đây.</p>
+                <p className="text-sm text-gray-500 mt-2">(Ví dụ: Thanh toán khi nhận hàng, Ví điện tử, Thẻ ngân hàng)</p>
+              </CardContent>
+            </Card>
+
+            {/* Order Summary Card */}
+            <Card className="shadow-md border border-gray-100 rounded-lg sticky top-24">
+              <CardHeader>
+                <CardTitle className="text-xl font-semibold">Tổng đơn hàng</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3 text-base">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Tạm tính</span>
+                  <span>{formatPrice(totalPrice)}</span>
+                </div>
+                <div className="flex justify-between text-gray-600">
+                  <span>Phí giao hàng</span>
+                  <span>{formatPrice(deliveryFee)}</span>
+                </div>
+                <div className="flex justify-between font-bold text-lg pt-3 border-t border-gray-200 mt-3">
+                  <span>Tổng cộng</span>
+                  <span>{formatPrice(totalPrice + deliveryFee)}</span>
+                </div>
+              </CardContent>
+              <CardFooter className="p-4">
+                <Button className="w-full" size="lg">Đặt hàng</Button>
+              </CardFooter>
+            </Card>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -11,8 +11,11 @@ import { SearchBarProps } from "@/components/ui/navigation/types";
 import { SearchIcon } from "lucide-react";
 import { useState } from "react";
 
+
+
 export default function SearchBar({
   windowDimensions = { width: 1200, height: 800 },
+  
 }: SearchBarProps) {
   // State for search input
   const [searchQuery, setSearchQuery] = useState<string>("");

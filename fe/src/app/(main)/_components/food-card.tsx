@@ -3,7 +3,7 @@ import { StarIcon, MapPinIcon, ClockIcon, ShoppingCartIcon } from "lucide-react"
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/context/cart-context";
 import Image from "next/image";
-import { FoodPreview, foodToCartItem } from "@/interface/index";
+import { FoodPreview } from "@/interface/index";
 
 interface FoodCardProps {
     food: FoodPreview;
@@ -17,18 +17,25 @@ export default function FoodCard({ food, formatPrice }: FoodCardProps) {
         e.preventDefault();
         e.stopPropagation();
         
-        // Use the helper function to convert food to cart item
-        const cartItem = foodToCartItem(food);
-        addToCart(cartItem);
+        // Add to cart using the food ID
+        if (!food.id) {
+            console.error("Food ID is missing");
+            return;
+        }
+        addToCart(food.id);
     };
 
     const handleBuyNow = (e: React.MouseEvent) => {
         e.preventDefault();
         e.stopPropagation();
 
+        // Check if food ID is available
+        if (!food.id) {
+            console.error("Food ID is missing");
+            return;
+        }
         // Add to cart and redirect to checkout
-        const cartItem = foodToCartItem(food);
-        addToCart(cartItem);
+        addToCart(food.id);
 
         // Redirect to checkout page
         window.location.href = "/checkout";
@@ -40,7 +47,7 @@ export default function FoodCard({ food, formatPrice }: FoodCardProps) {
     }
     
     // Calculate discounted price if applicable
-    const finalPrice = food.discountPercent 
+    const finalPrice = food.discountPercent && food.discountPercent > 0
         ? food.price * (1 - food.discountPercent / 100)
         : food.price;
 

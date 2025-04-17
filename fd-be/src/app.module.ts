@@ -21,6 +21,7 @@ import { RestaurantModule } from './modules/restaurant/restaurant.module';
 import { FoodModule } from './modules/food/food.module';
 import { OrderModule } from './modules/order/order.module';
 import { CategoryModule } from './modules/category/category.module';
+import { Permission } from './entities/permission.entity';
 @Module({
   imports: [
     // Import the module that contains the user entity
@@ -51,7 +52,7 @@ import { CategoryModule } from './modules/category/category.module';
     FoodModule,
     OrderModule,
     CategoryModule,
-    TypeOrmModule.forFeature([Role, User, Review, Promotion, Address]),
+    TypeOrmModule.forFeature([Role, User, Review, Promotion, Address, Permission]),
 
   ],
   controllers: [AppController],

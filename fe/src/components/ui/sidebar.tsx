@@ -35,7 +35,6 @@ import { useState } from "react";
 import { auth } from "../../../firebaseconfig";
 import "../../styles/globals.css";
 import NavbarBrand from "./navigation/navbar-brand";
-import SearchBar from "./searchbar";
 
 // Interface for navigation tabs
 interface Tab {
@@ -167,7 +166,7 @@ const Sidebar = () => {
   const [openTabs, setOpenTabs] = useState<string[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [state, setState] = useState(false);
-  const [searchQuery, setSearchQuery] = useState(''); // State for search query
+  const [searchQuery, ] = useState(''); // State for search query
 
   const handleLogout = async () => {
     try {
@@ -310,13 +309,7 @@ const Sidebar = () => {
         {/* Rest of the sidebar content */}
         <div className="flex-1 overflow-y-hidden p-4">
           {/* Search Bar */}
-          <div className="mb-4">
-            <SearchBar
-              value={searchQuery}
-              onChange={setSearchQuery}
-              placeholder="Tìm kiếm menu..."
-            />
-          </div>
+
 
           <nav className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar">
             <ul>
