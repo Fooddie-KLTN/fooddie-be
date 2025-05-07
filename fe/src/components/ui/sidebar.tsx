@@ -7,7 +7,6 @@ import {
   AvatarImage,
 } from "@/components/ui/avatar";
 import { useAuth } from "@/context/auth-context";
-import { useUser } from "@/context/user-context";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
@@ -41,7 +40,6 @@ interface Tab {
   label: string;
   icon?: React.ComponentType<{ className?: string }>;
   path?: string;
-  permission: string;
   children?: Tab[];
 }
 
@@ -62,64 +60,53 @@ const tabs: Tab[] = [
     label: "Quản lý người dùng",
     icon: UserPenIcon,
     path: "/users",
-    permission: "read_user",
   },
   {
     label: "Vai trò & Phân quyền",
     icon: ServerIcon,
     path: "/roles",
-    permission: "read_role", // đã sửa từ view_role
   },
   {
     label: "Quản lý mã giảm giá",
     icon: TicketPercentIcon,
     path: "/promotions",
-    permission: "read_promotion",
   },
   {
     label: "Thống kê",
     icon: ChartNoAxesColumnIcon,
     path: "/dashboard",
-    permission: "read_dashboard",
   },
   {
     label: "Quản lý cửa hàng",
     icon: StoreIcon,
     path: "/stores",
-    permission: "read_store",
   },
   {
     label: "Quản lý danh mục",
-    icon: LibraryBigIcon, // Có thể đổi sang biểu tượng hợp lý hơn
+    icon: LibraryBigIcon,
     path: "/categories",
-    permission: "read_category",
   },
   {
     label: "Quản lý đơn hàng",
     icon: FileTextIcon,
     path: "/orders",
-    permission: "read_order",
   },
   {
     label: "Quản lý shipper",
     icon: UsersIcon,
     path: "/shippers",
-    permission: "read_shipper",
   },
   {
     label: "Sự kiện",
     icon: MessageSquareMoreIcon,
     path: "/events",
-    permission: "read_event",
   },
   {
     label: "Luật hệ thống",
     icon: GraduationCapIcon,
     path: "/rules",
-    permission: "read_rule",
   },
 ];
-
 
 const additionalTabs: PublicTab[] = [
   { label: "Hỗ trợ", icon: LifeBuoyIcon, path: "/support" },
@@ -128,52 +115,24 @@ const additionalTabs: PublicTab[] = [
 
 /**
  * Sidebar component for the admin dashboard.
- * 
- * This component renders a sidebar navigation with collapsible tab sections 
- * based on user permissions. It provides functionalities for searching, 
- * filtering, and navigating through tabs, as well as handling user logout.
- * 
- * State Management:
- * - `openTabs`: Manages which tab sections are expanded.
- * - `sidebarOpen` and `state`: Control the sidebar's visibility and animation state.
- * - `searchQuery`: Holds the current search input for filtering tabs.
- * 
- * Hooks:
- * - `useUser`: Retrieves user permissions.
- * - `usePathname`: Gets the current URL pathname for active link styling.
- * - `useIsMobile` and `useMediaQuery`: Determine device screen size for responsive design.
- * - `useAuth`: Provides authentication functionalities like token retrieval and user state.
- * 
- * Functions:
- * - `handleLogout`: Logs out the user and reloads the page.
- * - `toggleTab`: Toggles the open state of a tab section.
- * - `handleNavigation`: Closes the sidebar on mobile/tablet after navigation.
- * - `handleToggle`: Toggles the sidebar's open/close state.
- * - `filterTabs`: Filters tabs based on search query and permissions.
- * - `isPathActive`: Checks if a tab's path matches the current pathname.
- * 
- * Renders an overlay for mobile/tablet when the sidebar is open and a spacer 
- * for the desktop layout.
  */
-
 const Sidebar = () => {
-  const { permissions }: { permissions: string[] } = useUser();
   const pathname = usePathname();
   const isMobile = useIsMobile();
-  const isTablet = useMediaQuery('(max-width: 1023px)');
+  const isTablet = useMediaQuery("(max-width: 1023px)");
   const { getToken, user } = useAuth();
 
   const [openTabs, setOpenTabs] = useState<string[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [state, setState] = useState(false);
-  const [searchQuery, ] = useState(''); // State for search query
+  const [searchQuery, ] = useState(""); // State for search query
 
   const handleLogout = async () => {
     try {
       await auth.signOut();
       const token = await getToken();
       if (token) {
-        await authService.logout(token);
+        await authService.logout();
       }
       window.location.reload();
     } catch (error) {
@@ -185,7 +144,7 @@ const Sidebar = () => {
     setOpenTabs((prev) =>
       prev.includes(label)
         ? prev.filter((l) => l !== label)
-        : [...prev, label],
+        : [...prev, label]
     );
   };
 
@@ -201,12 +160,11 @@ const Sidebar = () => {
     setState(!state);
   };
 
-  // Function to filter tabs based on search query and permissions
+  // Function to filter tabs based on search query only (no permissions check)
   const filterTabs = (tabs: Tab[], query: string): Tab[] => {
     const lowerQuery = query.toLowerCase();
     return tabs
       .filter((tab) => {
-        if (!permissions.includes(tab.permission)) return false;
         const matches = tab.label.toLowerCase().includes(lowerQuery);
         if (!tab.children) {
           return matches;
@@ -226,20 +184,17 @@ const Sidebar = () => {
       });
   };
 
-  // Compute filtered tabs
+  // Compute filtered tabs (only by search, no permissions)
   const renderedTabs = filterTabs(tabs, searchQuery);
   const filteredAdditionalTabs = additionalTabs.filter((tab) =>
-    tab.label.toLowerCase().includes(searchQuery.toLowerCase()),
+    tab.label.toLowerCase().includes(searchQuery.toLowerCase())
   );
   const shouldShowDashboard = dashboardTab.label
     .toLowerCase()
     .includes(searchQuery.toLowerCase());
-  // Helper to highlight tab
-  // Update the isPathActive function to handle the dashboard path specially
-  const isPathActive = (
-    tabPath: string,
-    currentPath: string,
-  ): boolean => {
+
+  // Helper to highlight active tab
+  const isPathActive = (tabPath: string, currentPath: string): boolean => {
     if (!tabPath) return false;
 
     // Special case for dashboard
@@ -252,6 +207,7 @@ const Sidebar = () => {
     const normalizedCurrentPath = currentPath.replace(/\/$/, "");
     return normalizedCurrentPath.startsWith(normalizedTabPath);
   };
+
   return (
     <>
       {(isMobile || isTablet) && !sidebarOpen && !state && (
@@ -279,11 +235,7 @@ const Sidebar = () => {
       >
         {/* Header with close button */}
         <div className="flex items-center justify-between p-4 border-b">
-          <NavbarBrand
-            state={state}
-            setState={setState}
-            showButton={false}
-          />
+          <NavbarBrand state={state} setState={setState} showButton={false} />
           <div className="flex items-center gap-2">
             <button
               className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
@@ -308,8 +260,7 @@ const Sidebar = () => {
 
         {/* Rest of the sidebar content */}
         <div className="flex-1 overflow-y-hidden p-4">
-          {/* Search Bar */}
-
+          {/* Search Bar could be added here if needed */}
 
           <nav className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar">
             <ul>
@@ -333,18 +284,14 @@ const Sidebar = () => {
                         }`}
                       />
                     )}
-                    <span className="truncate">
-                      {dashboardTab.label}
-                    </span>
+                    <span className="truncate">{dashboardTab.label}</span>
                   </Link>
                 </li>
               )}{" "}
               {renderedTabs.map((tab) => {
                 const isActive =
-                  tab.path &&
-                  isPathActive(`/admin${tab.path}`, pathname);
-                const hasChildren =
-                  tab.children && tab.children.length > 0;
+                  tab.path && isPathActive(`/admin${tab.path}`, pathname);
+                const hasChildren = tab.children && tab.children.length > 0;
 
                 return (
                   <li key={tab.label} className="mb-1">
@@ -362,22 +309,16 @@ const Sidebar = () => {
                           {tab.icon && (
                             <tab.icon
                               className={`w-5 h-5 min-w-[1.25rem] mr-2 ${
-                                isActive
-                                  ? "text-white"
-                                  : "text-gray-500"
+                                isActive ? "text-white" : "text-gray-500"
                               }`}
                             />
                           )}
-                          <span className="truncate">
-                            {tab.label}
-                          </span>
+                          <span className="truncate">{tab.label}</span>
                         </Link>
                       ) : (
                         <span
                           className={`flex items-center p-2 rounded-md text-gray-700 flex-1 cursor-pointer hover:bg-gray-100 ${
-                            openTabs.includes(tab.label)
-                              ? "bg-gray-50"
-                              : ""
+                            openTabs.includes(tab.label) ? "bg-gray-50" : ""
                           }`}
                           onClick={() =>
                             hasChildren && toggleTab(tab.label)
@@ -386,17 +327,13 @@ const Sidebar = () => {
                           {tab.icon && (
                             <tab.icon className="w-5 h-5 min-w-[1.25rem] mr-2 text-gray-500" />
                           )}
-                          <span className="truncate">
-                            {tab.label}
-                          </span>
+                          <span className="truncate">{tab.label}</span>
                         </span>
                       )}
                       {hasChildren && (
                         <ChevronDownIcon
                           className={`w-5 h-5 transform transition-transform text-gray-500 ${
-                            openTabs.includes(tab.label)
-                              ? "rotate-180"
-                              : ""
+                            openTabs.includes(tab.label) ? "rotate-180" : ""
                           }`}
                           onClick={() => toggleTab(tab.label)}
                         />
@@ -405,16 +342,14 @@ const Sidebar = () => {
                     {hasChildren && openTabs.includes(tab.label) && (
                       <div
                         className={`overflow-hidden transition-all duration-500 ease-in-out ${
-                          openTabs.includes(tab.label)
-                            ? "max-h-96"
-                            : "max-h-0"
+                          openTabs.includes(tab.label) ? "max-h-96" : "max-h-0"
                         }`}
                       >
                         <ul className="ml-7 mt-1 overflow-hidden">
                           {tab.children?.map((child) => {
                             const isChildActive = isPathActive(
                               `/admin${child.path}`,
-                              pathname,
+                              pathname
                             );
                             return (
                               <li key={child.path} className="mb-1">
@@ -448,10 +383,7 @@ const Sidebar = () => {
           <div className="mt-4">
             <ul>
               {filteredAdditionalTabs.map((tab) => {
-                const isActive = isPathActive(
-                  `/admin${tab.path}`,
-                  pathname,
-                );
+                const isActive = isPathActive(`/admin${tab.path}`, pathname);
                 return (
                   <li key={tab.label} className="mb-1">
                     <Link
@@ -481,7 +413,7 @@ const Sidebar = () => {
         <div className="p-4 border-t border-gray-200">
           <div className="flex items-center">
             <Avatar>
-              <AvatarImage src={user?.photoURL ?? ""} />
+              <AvatarImage src={user?.avatar ?? ""} />
               <AvatarFallback>ED</AvatarFallback>
             </Avatar>
             <div className="ml-2 overflow-hidden">
