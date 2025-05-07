@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { IsUUID, IsString, IsOptional, IsNotEmpty, IsArray, ValidateNested } from 'class-validator';
+import { IsUUID, IsString, IsOptional, IsNotEmpty, IsArray, ValidateNested, IsNumber } from 'class-validator';
 import { Type } from 'class-transformer';
 
 
@@ -37,8 +37,8 @@ export class CreateOrderDto {
     promotionId?: string;
 
     @IsOptional()
-    @IsString()
-    total?: string;
+    @IsNumber()
+    total?: number;
 
     @IsOptional()
     @IsString()

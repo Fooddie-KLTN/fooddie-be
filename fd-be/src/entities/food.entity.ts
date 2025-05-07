@@ -4,6 +4,7 @@ import { Entity, Column, ManyToOne, JoinColumn, PrimaryColumn, ManyToMany, OneTo
 import { Category } from './category.entity';
 import { Restaurant } from './restaurant.entity';
 import { OrderDetail } from './orderDetail.entity';
+import { Checkout } from './checkout.entity';
 
 @Entity({ name: 'foods' })
 export class Food {
@@ -67,4 +68,7 @@ export class Food {
 
     @OneToMany(() => OrderDetail, (orderDetail) => orderDetail.food)
     orderDetails: OrderDetail[];
+
+    @OneToMany(()=> Checkout, (checkout) => checkout.food)
+    checkouts: Checkout[]; // Add this line to establish the relationship with Checkout entity
 }

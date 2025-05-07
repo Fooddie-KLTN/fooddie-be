@@ -4,6 +4,8 @@ import { Entity, Column, ManyToOne, JoinColumn, PrimaryColumn, OneToMany, Create
 import { Role } from './role.entity';
 import { Address } from './address.entity';
 import { ShipperCertificateInfo } from './shipperCertificateInfo.entity';
+import { Checkout } from './checkout.entity';
+import { Order } from './order.entity';
 
 
 enum AuthProvider {
@@ -75,4 +77,10 @@ export class User {
   
     @Column({ nullable: true, name: 'reset_password_expires' })
     resetPasswordExpires?: Date;  
+
+    @OneToMany(()=> Checkout, checkout=> checkout.user)
+    checkouts: Checkout[]; // Danh sách các đơn hàng của người dùng
+
+    @OneToMany(()=> Order, order=> order.user)
+    orders: Order[]; // Danh sách các đơn hàng của người dùng
 }
