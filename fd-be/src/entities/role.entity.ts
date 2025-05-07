@@ -22,7 +22,7 @@ export class Role {
   })
   name: DefaultRole;
 
-  @Column({name: 'display_name', type: 'varchar', length: 255 })
+  @Column({name: 'display_name', type: 'varchar', length: 255, nullable: true })
   displayName: string;
 
   @Column({ type: 'text', nullable: true })

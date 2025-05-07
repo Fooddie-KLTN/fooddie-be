@@ -39,6 +39,7 @@ import { Permission } from './entities/permission.entity';
       //entities: [__dirname + '/**/*.entity{.ts,.js}'],
       entities: [__dirname + '/entities/*.entity{.ts,.js}'],
       synchronize: true, // Không dùng synchronize trong production, thay vào đó dùng migrations
+      dropSchema: true, // WARNING: This will drop all tables - use in development only!
       migrations: [__dirname + '/migrations/*{.ts,.js}'],
       autoLoadEntities: true,
     }),
