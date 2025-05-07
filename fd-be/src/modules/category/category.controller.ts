@@ -19,9 +19,13 @@ export class CategoryController {
   @Get()
   @ApiOperation({ summary: 'Get all categories' })
   @ApiResponse({ status: 200, description: 'Return all categories.' })
-  findAll(@Query() query: any) {
-    return this.categoryService.findAll(query);
+  findAll(
+    @Query('page') page: number = 1,
+    @Query('pageSize') pageSize: number = 10,
+  ) {
+    return this.categoryService.findAll(page, pageSize);
   }
+  
 
   @Get(':id')
   @ApiOperation({ summary: 'Get category by id' })

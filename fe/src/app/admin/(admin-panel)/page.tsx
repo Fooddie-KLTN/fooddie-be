@@ -31,22 +31,22 @@ const AdminPage = () => {
 
     const STAT_CARDS_DATA = [
         {
-            title: "Học viên",
+            title: "Shipper",
             value: "13.281",
             previousValue: "12.491",
             change: "+13.28% so với năm trước",
             isPositive: true,
         },
         {
-            title: "Học viên đăng ký",
+            title: "Shipper Hoạt Động",
             value: "9.491",
             previousValue: "8.564",
             change: "+10.38% so với năm trước",
             isPositive: true,
         },
         {
-            title: "Hoàn thành khóa học",
-            value: "3.672",
+            title: "Hoàn thành đơn hàng",
+            value: "90.672",
             previousValue: "4.821",
             change: "-11% so với năm trước",
             isPositive: false,
