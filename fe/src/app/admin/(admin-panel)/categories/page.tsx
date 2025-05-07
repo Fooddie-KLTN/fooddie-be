@@ -11,6 +11,8 @@ import SearchAndFilters from "@/app/admin/(admin-panel)/_components/search-and-f
 import Table, { Column, Action } from "@/app/admin/(admin-panel)/_components/table";
 import Pagination from "@/app/admin/(admin-panel)/_components/pagination";
 import AddCategoryForm from "./_components/add-category-modal";
+import { adminService } from "@/api/admin";
+import { useAuth } from "@/context/auth-context";
 
 interface Category {
   id: string;
@@ -35,16 +37,25 @@ const CategoryAdminPage: React.FC = () => {
   });
 
   const isDesktop = useMediaQuery("(min-width: 768px)");
+  const { getToken } = useAuth();
 
   useEffect(() => {
-    const stored = localStorage.getItem("categories");
-    const parsed = stored ? JSON.parse(stored) : [];
-    setCategories(parsed);
-    setPagination((prev) => ({
-      ...prev,
-      totalPages: Math.ceil(parsed.length / prev.pageSize),
-    }));
-  }, []);
+    const fetchData = async () => {
+      try {
+        const token = await getToken();
+        if (!token) return;
+        const res = await adminService.Category.getCategories(token, pagination.currentPage, pagination.pageSize);
+        setCategories(res.items);
+        setPagination((prev) => ({
+          ...prev,
+          totalPages: res.totalPages,
+        }));
+      } catch (err) {
+        console.error("Failed to fetch categories", err);
+      }
+    };
+    fetchData();
+  }, [pagination.currentPage, pagination.pageSize]);
 
   const filteredCategories = categories.filter(c =>
     c.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -105,18 +116,22 @@ const CategoryAdminPage: React.FC = () => {
   };
 
   const handlePageSizeChange = (size: number) => {
-    setPagination({
+    setPagination((prev) => ({
+      ...prev,
       currentPage: 1,
       pageSize: size,
-      totalPages: Math.ceil(categories.length / size),
-    });
+    }));
   };
 
-  const handleDelete = (id: string) => {
-    const updated = categories.filter((c) => c.id !== id);
-    localStorage.setItem("categories", JSON.stringify(updated));
-    setCategories(updated);
+  const handleDelete = async (id: string) => {
+    const token = await getToken();
+    if (!token) return; // hoặc throw new Error("Missing token");
+  
+    await adminService.Category.deleteCategory(token, id);
+    const res = await adminService.Category.getCategories(token, pagination.currentPage, pagination.pageSize);
+    setCategories(res.items);
   };
+  
 
   const categoryColumns: Column<Category>[] = [
     { header: "Tên danh mục", accessor: "name", sortable: true },
@@ -212,14 +227,32 @@ const CategoryAdminPage: React.FC = () => {
         <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
           <DialogContent className="p-0 h-screen w-screen overflow-auto">
             <DialogTitle className="sr-only">Thêm danh mục</DialogTitle>
-            <AddCategoryForm onClose={() => setIsAddModalOpen(false)} />
+            <AddCategoryForm
+              onClose={() => setIsAddModalOpen(false)}
+              onCreated={(newList) => {
+                setCategories(newList);
+                setPagination((prev) => ({
+                  ...prev,
+                  totalPages: Math.ceil(newList.length / prev.pageSize),
+                }));
+              }}
+            />
           </DialogContent>
         </Dialog>
       ) : (
         <Drawer open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
           <DrawerContent className="h-screen p-0 overflow-auto">
             <DialogTitle className="sr-only">Thêm danh mục</DialogTitle>
-            <AddCategoryForm onClose={() => setIsAddModalOpen(false)} />
+            <AddCategoryForm
+              onClose={() => setIsAddModalOpen(false)}
+              onCreated={(newList) => {
+                setCategories(newList);
+                setPagination((prev) => ({
+                  ...prev,
+                  totalPages: Math.ceil(newList.length / prev.pageSize),
+                }));
+              }}
+            />
           </DrawerContent>
         </Drawer>
       )}

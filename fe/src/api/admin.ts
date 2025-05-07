@@ -124,6 +124,26 @@ interface GetStoresResponse {
     data: StoreResponse[];
     total: number;
   }
+
+  interface CategoryResponse {
+    id: string;
+    name: string;
+    image: string;
+    foods: any[];
+  }
+  
+  interface GetCategoriesResponse {
+    items: CategoryResponse[];
+    totalItems: number;
+    page: number;
+    pageSize: number;
+    totalPages: number;
+  }
+  
+  interface CreateCategoryDto {
+    name: string;
+    image: string;
+  }
   
 
 /**
@@ -269,7 +289,51 @@ export const adminService = {
             throw error;
           }
         }
-      }
+      },
+
+      Category: {
+        async getCategories(
+          token: string,
+          page: number = 1,
+          pageSize: number = 10
+        ): Promise<GetCategoriesResponse> {
+          try {
+            return await apiRequest<GetCategoriesResponse>("/categories", "GET", {
+              token,
+              query: { page, pageSize },
+            });
+          } catch (error) {
+            console.error("Lỗi API danh mục:", error);
+            throw error;
+          }
+        },
+    
+        async createCategory(
+          token: string,
+          data: CreateCategoryDto
+        ): Promise<CategoryResponse> {
+          try {
+            return await apiRequest<CategoryResponse>("/categories", "POST", {
+              token,
+              data,
+            });
+          } catch (error) {
+            console.error("Lỗi tạo danh mục:", error);
+            throw error;
+          }
+        },
+    
+        async deleteCategory(token: string, id: string): Promise<void> {
+          try {
+            await apiRequest<void>(`/categories/${id}`, "DELETE", {
+              token,
+            });
+          } catch (error) {
+            console.error("Lỗi xóa danh mục:", error);
+            throw error;
+          }
+        },
+      },
       
       
 };
