@@ -4,7 +4,6 @@ import { User } from 'src/entities/user.entity';
 import { UsersService } from './users.service';
 import { UsersController } from './users.controller';
 import { Role } from 'src/entities/role.entity';
-import { FirebaseAuthGuard } from 'src/auth/firebase-auth.guard';
 
 @Module({
   imports: [TypeOrmModule.forFeature([User, Role])],

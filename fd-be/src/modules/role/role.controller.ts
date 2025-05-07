@@ -1,16 +1,16 @@
 /* eslint-disable prettier/prettier */
 // src/roles/roles.controller.ts
 import { Controller, Post, Body, UseGuards, Get, Query, Req } from '@nestjs/common';
-import { RoleService } from './role.service';
+import { RolesService } from './role.service';
 import { CreateRoleDto } from './dto/create-role.dto';
 import { RolesGuard } from 'src/common/guard/role.guard';
 import { Permissions } from 'src/common/decorator/permissions.decorator';
 import { Permission } from 'src/constants/permission.enum';
-import { FirebaseAuthGuard } from 'src/auth/firebase-auth.guard';
+import { AuthGuard } from 'src/auth/auth.guard';
 @Controller('role')
 @UseGuards(RolesGuard)
 export class RoleController {
-  constructor(private readonly roleService: RoleService) { }
+  constructor(private readonly roleService: RolesService) { }
 
   @Post()
   @Permissions(Permission.ROLE.CREATE)  // Chỉ cho phép những user có permission 'create_role'
@@ -77,11 +77,5 @@ export class RoleController {
     return await this.roleService.getUsersByRole(roleId);
   }
 
-  @Get('user-role-and-permission')
-  @UseGuards(FirebaseAuthGuard)
-  async getUserRoleAndPermission(@Req() req) {
-    const userId = req.user.uid;
-    return await this.roleService.getUserRoleAndPermission(userId);
-  }
 
 }

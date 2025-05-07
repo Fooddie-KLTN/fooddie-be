@@ -111,16 +111,15 @@ export default function Footer() {
             <Brand variant="light" width={196} />
             <div className="w-full flex gap-2 items-center leading-relaxed mt-4 text-base font-light">
               <MapPinIcon className="w-5 h-5 flex-none" />
-              F34 Hoa Mai, KDC Hiệp Thành, Phương Hiệp Thành, Quận 12,
-              TP HCM
+              Trường Đại học Công Nghệ Thông Tin - ĐHQG TP.HCM
             </div>
             <div className="flex gap-2 items-start leading-relaxed mt-4 text-base font-light">
               <PhoneIcon className="w-5 h-5 flex-none" />
-              Hotline : 0946 814 968
+              Hotline : 035 822 1363
             </div>
             <div className="flex gap-2 items-start leading-relaxed mt-4 text-base font-light">
               <UserIcon className="w-5 h-5 flex-none" />
-              Legel Representative : Trương Viết Bảo
+              Legel Representative : Phù Đức Quân
             </div>
           </div>
         </div>

@@ -4,17 +4,32 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateCol
 import { User } from './user.entity';
 import { Permission } from './permission.entity';
 
-@Entity({ name: 'roles' })
+export enum DefaultRole {
+  SUPER_ADMIN = 'super_admin',
+  ADMINISTRATOR = 'administrator',
+  USER = 'user',
+}
+
+@Entity('roles')
 export class Role {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ unique: true })
-  name: string;
+  @Column({
+    type: 'varchar',
+    length: 50,
+    default: DefaultRole.USER,
+  })
+  name: DefaultRole;
 
-  // Keep this for backward compatibility if needed
-  @Column('text', { array: true, default: [] })
-  permissions: string[];
+  @Column({name: 'display_name', type: 'varchar', length: 255 })
+  displayName: string;
+
+  @Column({ type: 'text', nullable: true })
+  description: string;
+
+  @Column({ name: 'is_system' ,type: 'boolean', default: false })
+  isSystem: boolean;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
@@ -22,14 +37,14 @@ export class Role {
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 
-  @OneToMany(() => User, user => user.role)
+  @OneToMany(() => User, (user) => user.role)
   users: User[];
 
-  @ManyToMany(() => Permission, permission => permission.roles, { eager: true })
+  @ManyToMany(() => Permission, permission => permission.roles)
   @JoinTable({
     name: 'role_permissions',
     joinColumn: { name: 'role_id', referencedColumnName: 'id' },
     inverseJoinColumn: { name: 'permission_id', referencedColumnName: 'id' }
   })
-  permissionsList: Permission[];
+  permissions: Permission[];
 }

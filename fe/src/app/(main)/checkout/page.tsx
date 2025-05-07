@@ -496,7 +496,7 @@ export default function CheckoutPage() {
                 </div>
               </CardContent>
               <CardFooter className="p-4">
-                <Button className="w-full" size="lg">Đặt hàng</Button>
+                <Button className="w-full hover:outline-primary hover:text-primary" size="lg" >Đặt hàng</Button>
               </CardFooter>
             </Card>
           </div>

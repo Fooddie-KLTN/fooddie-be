@@ -1,7 +1,14 @@
-/* eslint-disable prettier/prettier */
-// src/roles/dto/create-role.dto.ts
+import { IsString, IsNotEmpty, IsOptional } from 'class-validator';
+import { DefaultRole } from '../../../entities/role.entity';
+
 export class CreateRoleDto {
-    readonly name: string;
-    readonly permissions: string[]; // ví dụ: ['create_user', 'delete_post', ...]
-  }
-  
+
+
+  @IsString()
+  @IsNotEmpty()
+  displayName: string;
+
+  @IsString()
+  @IsOptional()
+  description?: string;
+}

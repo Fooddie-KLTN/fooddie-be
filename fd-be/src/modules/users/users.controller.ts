@@ -6,11 +6,11 @@ import { CreateUserDto } from './dto/create-users.dto';
 import { UpdateUserDto } from './dto/update-users.dto';
 import { Permission } from 'src/constants/permission.enum';
 import { Permissions } from 'src/common/decorator/permissions.decorator';
-import { FirebaseAuthGuard } from 'src/auth/firebase-auth.guard';
 import { User } from 'src/entities/user.entity';
 import { RolesGuard } from 'src/common/guard/role.guard';
 import { InjectRepository } from '@nestjs/typeorm';
 import { UserResponse } from './interface/user-response.interface';
+import { AuthGuard } from 'src/auth/auth.guard';
 
 
 @Controller('users')
@@ -20,14 +20,14 @@ export class UsersController {
 
 
   @Get('me')
-  @UseGuards(FirebaseAuthGuard)  // Verify Firebase token
+  @UseGuards(AuthGuard)  // Verify Firebase token
   async getMe(@Req() req): Promise<User> {
     const id = req.user.uid;
     return await this.usersService.getMe(id);
   }
 
   @Put('me')
-  @UseGuards(FirebaseAuthGuard)
+  @UseGuards(AuthGuard)
   async updateMe(@Req() req, @Body() updateUserDto: UpdateUserDto): Promise<User> {
     const id = req.user.uid;
     return await this.usersService.updateMe(id, updateUserDto);

@@ -1,7 +1,8 @@
 /* eslint-disable prettier/prettier */
-/* eslint-disable @typescript-eslint/no-unsafe-call */
-import { IsString, IsNotEmpty, IsOptional, IsEmail, IsUUID, IsDate, IsNumber, IsBoolean } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsEmail, IsUUID, IsDate, IsEnum, IsBoolean } from 'class-validator';
 import { Type } from 'class-transformer';
+import { DefaultRole } from '../../../entities/role.entity';
+import { AuthProvider } from 'src/auth/auth.service';
 
 export class CreateUserDto {
   @IsString()
@@ -24,9 +25,8 @@ export class CreateUserDto {
   @IsString()
   name?: string;
 
-  @IsOptional()
-  @IsString()
-  address?: string;
+  // Address is an entity relationship in the User entity, so we shouldn't have it as a simple string
+  // Address creation should be handled separately with an AddressDto
 
   @IsOptional()
   @IsString()
@@ -45,4 +45,11 @@ export class CreateUserDto {
   @IsDate()
   birthday: Date;
 
+  @IsOptional()
+  @IsEnum(AuthProvider)
+  authProvider?: AuthProvider = AuthProvider.EMAIL;
+
+  @IsOptional()
+  @IsString()
+  googleId?: string;
 }

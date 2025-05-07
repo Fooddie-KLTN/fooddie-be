@@ -1,19 +1,32 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToMany } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  CreateDateColumn,
+  UpdateDateColumn,
+  JoinColumn,
+  ManyToMany,
+} from 'typeorm';
 import { Role } from './role.entity';
+import { Permission as PermissionEnum, PermissionType } from 'src/constants/permission.enum';
 
-@Entity({ name: 'permissions' })
+/**
+ * Entity representing a permission in the system
+ */
+@Entity('permissions')
 export class Permission {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ unique: true })
+  @Column({ type: 'varchar', length: 255 })
   name: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'text', nullable: true })
   description: string;
 
-  @Column({ nullable: true })
-  group: string;
+  @Column({ type: 'boolean', default: true, name: 'is_active' })
+  isActive: boolean;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
@@ -21,6 +34,6 @@ export class Permission {
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 
-  @ManyToMany(() => Role, role => role.permissionsList)
+  @ManyToMany(() => Role, (role) => role.permissions)
   roles: Role[];
 }
