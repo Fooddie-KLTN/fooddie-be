@@ -33,14 +33,13 @@ import {
   UserIcon,
 } from "lucide-react";
 import Link from "next/link";
-import { auth } from "../../../../firebaseconfig";
 
 export default function UserActions({ openModal }: UserActionsProps) {
   // Get cart context
+  const { getToken, logout, user} = useAuth();
   const { cartItems } = useCart(); // Change 'cart' to 'cartItems'
 
-  // Get auth context
-  const { getToken, user } = useAuth();
+
 
   /**
    * Handle user logout
@@ -49,12 +48,12 @@ export default function UserActions({ openModal }: UserActionsProps) {
   const handleLogout = async () => {
     try {
       // Firebase signs out the user
-      await auth.signOut();
+      await logout();
 
       // Backend logout
       const token = await getToken();
       if (token) {
-        await authService.logout(token);
+        await authService.logout();
       }
 
       // Refresh page to reset state
@@ -183,11 +182,11 @@ export default function UserActions({ openModal }: UserActionsProps) {
               <DropdownMenuTrigger className="flex items-center gap-3 focus-visible:ring-0 focus:outline-none">
                 <Avatar>
                   <AvatarImage
-                    src={user.photoURL ?? ""}
-                    alt={user.displayName ?? "User"}
+                    src={user.avatar ?? ""}
+                    alt={user.name ?? "User"}
                   />
                   <AvatarFallback>
-                    {user.displayName?.substring(0, 2) ?? "U"}
+                    {user.name?.substring(0, 2) ?? "U"}
                   </AvatarFallback>
                 </Avatar>
                 <span className="absolute right-0.5 -bottom-1 flex h-3 w-3 border-2 border-white rounded-full bg-green-600" />
@@ -197,16 +196,16 @@ export default function UserActions({ openModal }: UserActionsProps) {
                 <DropdownMenuItem className="text-base p-3 cursor-default">
                   <Avatar>
                     <AvatarImage
-                      src={user.photoURL ?? ""}
-                      alt={user.displayName ?? "User"}
+                      src={user.avatar ?? ""}
+                      alt={user.name ?? "User"}
                     />
                     <AvatarFallback>
-                      {user.displayName?.substring(0, 2) ?? "U"}
+                      {user.name?.substring(0, 2) ?? "U"}
                     </AvatarFallback>
                   </Avatar>
                   <div className="ml-3 flex flex-col">
                     <p className="font-medium">
-                      {user.displayName ?? "User"}
+                      {user.name ?? "User"}
                     </p>
                     <p className="text-sm text-muted-foreground">
                       {user.email}

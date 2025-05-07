@@ -40,33 +40,67 @@ export class AdminSeedService implements OnModuleInit {
   }
 
   async seedPermissions() {
-    // Extract all permissions from enum
-    const permissionsToCreate: { name: string; description: string }[] = [];
+    // Create standard permission groups if they don't exist
+    const standardGroups = [
+      'user', 'role', 'permission', 'restaurant', 'food', 
+      'order', 'promotion', 'category', 'payment', 'review'
+    ];
     
-    Object.entries(PermissionEnum).forEach(([group, permissions]) => {
-      Object.values(permissions).forEach(permissionName => {
-        permissionsToCreate.push({
-          name: permissionName,
-          description: `Permission to ${permissionName.replace(/_/g, ' ').toLowerCase()}`
-        });
-      });
-    });
+    // Track created permissions for reporting
+    const createdPermissions: string[] = [];
 
-    // Create permissions if they don't exist
-    for (const { name, description } of permissionsToCreate) {
-      let permission = await this.permissionRepository.findOne({ where: { name } });
-      if (!permission) {
-        permission = this.permissionRepository.create({
-          name,
-          description,
-          isActive: true
-        });
-        await this.permissionRepository.save(permission);
-        this.logger.log(`Created permission: ${name}`);
+    // Create CRUD permissions for each resource
+    for (const group of standardGroups) {
+      const operations = ['CREATE', 'READ', 'UPDATE', 'DELETE', 'LIST'];
+      
+      for (const operation of operations) {
+        const name = `${group.toUpperCase()}_${operation}`;
+        const description = `Permission to ${operation.toLowerCase()} ${group}`;
+        
+        // Check if permission already exists
+        let permission = await this.permissionRepository.findOne({ where: { name } });
+        
+        if (!permission) {
+          permission = this.permissionRepository.create({
+            name,
+            description,
+            isActive: true
+            // Removed group property as it doesn't exist in the Permission entity
+          });
+          await this.permissionRepository.save(permission);
+          createdPermissions.push(name);
+        }
       }
     }
     
-    this.logger.log('All permissions seeded successfully');
+    // Also add special permissions from enum
+    if (PermissionEnum) {
+      Object.entries(PermissionEnum).forEach(async ([group, permissions]) => {
+        Object.values(permissions).forEach(async (permissionName) => {
+          // Check if permission already exists
+          let permission = await this.permissionRepository.findOne({ where: { name: permissionName } });
+          
+          if (!permission) {
+              permission = this.permissionRepository.create({
+              name: permissionName,
+              description: `Permission to ${permissionName.replace(/_/g, ' ').toLowerCase()}`,
+              isActive: true
+              // Removed group property as it doesn't exist in the Permission entity
+            });
+            await this.permissionRepository.save(permission);
+            createdPermissions.push(permissionName);
+          }
+        });
+      });
+    }
+    
+    if (createdPermissions.length > 0) {
+      this.logger.log(`Created ${createdPermissions.length} new permissions: ${createdPermissions.join(', ')}`);
+    } else {
+      this.logger.log('No new permissions needed to be created');
+    }
+    
+    this.logger.log('Permission seeding completed successfully');
   }
 
   async seedRoles() {

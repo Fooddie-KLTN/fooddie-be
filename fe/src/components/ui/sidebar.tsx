@@ -31,7 +31,6 @@ import {
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { auth } from "../../../firebaseconfig";
 import "../../styles/globals.css";
 import NavbarBrand from "./navigation/navbar-brand";
 
@@ -120,7 +119,7 @@ const Sidebar = () => {
   const pathname = usePathname();
   const isMobile = useIsMobile();
   const isTablet = useMediaQuery("(max-width: 1023px)");
-  const { getToken, user } = useAuth();
+  const { getToken, user, logout } = useAuth();
 
   const [openTabs, setOpenTabs] = useState<string[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -129,7 +128,7 @@ const Sidebar = () => {
 
   const handleLogout = async () => {
     try {
-      await auth.signOut();
+      await logout();
       const token = await getToken();
       if (token) {
         await authService.logout();

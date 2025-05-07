@@ -2,7 +2,7 @@
  * Type definitions for the navigation system
  */
 
-import { User } from "firebase/auth";
+import { BackendUser } from "@/api/auth";
 import { ReactNode } from "react";
 
 /**
@@ -66,7 +66,7 @@ export interface NavbarMenuProps {
   navigation: NavItem[];
   dropdownState: DropdownState;
   setDropdownState: (state: DropdownState) => void;
-  user: User | null;
+  user: BackendUser | null;
   openModal: (type: "login" | "register" | "activate") => void;
   windowDimensions: { width: number; height: number };
 }
@@ -91,6 +91,6 @@ export interface SearchBarProps {
  * Props for the user actions component
  */
 export interface UserActionsProps {
-  user: User | null;
+  user: BackendUser | null;
   openModal: (type: "login" | "register" | "activate") => void;
 }
