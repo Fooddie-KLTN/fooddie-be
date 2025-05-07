@@ -1,55 +1,63 @@
-import { Controller, Post, Get, Put, Delete, Param, Body, Query, UseGuards } from '@nestjs/common';
+import { Controller, Post, Get, Put, Delete, Param, Body, Query, UseGuards, Req } from '@nestjs/common';
 import { OrderService } from './order.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { RolesGuard } from 'src/common/guard/role.guard';
 import { Permissions } from 'src/common/decorator/permissions.decorator';
 import { Permission } from 'src/constants/permission.enum';
 import { PaymentDto } from './dto/payment.dto';
+import { FirebaseAuthGuard } from 'src/auth/firebase-auth.guard';
 
 @Controller('orders')
 export class OrderController {
-    constructor(private readonly orderService: OrderService) {}
+  constructor(private readonly orderService: OrderService) {}
 
-    @Post()
-    createOrder(@Body() createOrderDto: CreateOrderDto) {
-        return this.orderService.createOrder(createOrderDto);
-    }
+  @Post()
+  createOrder(@Body() createOrderDto: CreateOrderDto) {
+    return this.orderService.createOrder(createOrderDto);
+  }
 
-    @Get()
-    getAllOrders() {
-        return this.orderService.getAllOrders();
-    }
+  @Get('my')
+  @UseGuards(FirebaseAuthGuard)
+  async getMyOrders(@Req() req) {
+    const userId = req.user.uid;
+    return this.orderService.getOrdersByUser(userId);
+  }
 
-    @Get(':id')
-    getOrderById(@Param('id') id: string) {
-        return this.orderService.getOrderById(id);
-    }
+  @Get()
+  getAllOrders() {
+    return this.orderService.getAllOrders();
+  }
 
-    @Get('user/:userId')
-    getOrdersByUser(@Param('userId') userId: string) {
-        return this.orderService.getOrdersByUser(userId);
-    }
+  @Get(':id')
+  getOrderById(@Param('id') id: string) {
+    return this.orderService.getOrderById(id);
+  }
 
-    @Get(':id/details')
-    getOrderDetails(@Param('id') id: string) {
-        return this.orderService.getOrderDetails(id);
-    }
+  @Get('user/:userId')
+  getOrdersByUser(@Param('userId') userId: string) {
+    return this.orderService.getOrdersByUser(userId);
+  }
 
-    @Put(':id/status')
-    updateOrderStatus(@Param('id') id: string, @Body('status') status: string) {
-        return this.orderService.updateOrderStatus(id, status);
-    }
+  @Get(':id/details')
+  getOrderDetails(@Param('id') id: string) {
+    return this.orderService.getOrderDetails(id);
+  }
 
-    @Delete(':id')
-    deleteOrder(@Param('id') id: string) {
-        return this.orderService.deleteOrder(id);
-    }
+  @Put(':id/status')
+  updateOrderStatus(@Param('id') id: string, @Body('status') status: string) {
+    return this.orderService.updateOrderStatus(id, status);
+  }
 
-    @Post(':id/payment')
-    processPayment(
-        @Param('id') id: string, 
-        @Body() paymentData: PaymentDto
-    ) {
-        return this.orderService.processPayment(id, paymentData);
-    }   
+  @Delete(':id')
+  deleteOrder(@Param('id') id: string) {
+    return this.orderService.deleteOrder(id);
+  }
+
+  @Post(':id/payment')
+  processPayment(
+    @Param('id') id: string,
+    @Body() paymentData: PaymentDto
+  ) {
+    return this.orderService.processPayment(id, paymentData);
+  }
 }
