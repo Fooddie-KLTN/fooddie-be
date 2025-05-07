@@ -11,6 +11,7 @@ import { Food } from 'src/entities/food.entity';
 import { Address } from 'src/entities/address.entity';
 import { Promotion } from 'src/entities/promotion.entity';
 import { PaymentDto } from './dto/payment.dto';
+import { log } from 'console';
 
 @Injectable()
 export class OrderService {
@@ -69,7 +70,7 @@ export class OrderService {
             const order = new Order();
             order.user = user;
             order.restaurant = restaurant;
-            order.total = data.total || '0';
+            order.total = data.total || 0;
             order.note = data.note || '';
 
             if (!address) {
@@ -269,4 +270,40 @@ export class OrderService {
         const order = await this.getOrderById(orderId);
         return order.orderDetails;
     }
+    /**
+ * Confirm payment for an order
+ * @param orderId The ID of the order to confirm payment for
+ * @returns The updated order
+ */
+async confirmPayment(orderId: string): Promise<Order> {
+    log(`Confirming payment for order ${orderId}`);
+    
+    const order = await this.getOrderById(orderId);
+    
+    if (!order) {
+        throw new NotFoundException(`Order with ID ${orderId} not found`);
+    }
+    
+    // Only confirm payment if order is in pending or processing status
+    if (order.status !== 'pending' && order.status !== 'processing') {
+        throw new BadRequestException(`Cannot confirm payment for an order with status ${order.status}`);
+    }
+    
+    // Update order status and payment details
+    order.status = 'completed';
+    order.isPaid = true;
+    order.paymentDate = new Date().toISOString();
+    
+    // Save the updated order
+    const updatedOrder = await this.orderRepository.save(order);
+    
+    log(`Payment confirmed for order ${orderId}`);
+    
+    // You could add additional logic here, like:
+    // - Sending confirmation email
+    // - Updating inventory
+    // - Recording the transaction
+    
+    return updatedOrder;
+}
 }

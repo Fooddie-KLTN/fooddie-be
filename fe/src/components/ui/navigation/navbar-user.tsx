@@ -37,7 +37,7 @@ import { auth } from "../../../../firebaseconfig";
 
 export default function UserActions({ openModal }: UserActionsProps) {
   // Get cart context
-  const { cart } = useCart();
+  const { cartItems } = useCart(); // Change 'cart' to 'cartItems'
 
   // Get auth context
   const { getToken, user } = useAuth();
@@ -98,12 +98,12 @@ export default function UserActions({ openModal }: UserActionsProps) {
             <Link
               className="relative hover:bg-transparent bg-transparent p-2 rounded-full hover:bg-gray-100 transition-colors"
               href="/checkout"
-              aria-label={`Shopping cart with ${cart.length} items`}
+              aria-label={`Shopping cart with ${cartItems.length} items`} // Use cartItems.length
             >
               <CartIcon />
-              {cart.length > 0 && (
+              {cartItems.length > 0 && ( // Use cartItems.length
                 <span className="absolute flex items-center -top-1.5 -right-1.5 justify-center bg-primary h-5 w-5 rounded-full text-white text-xs font-medium">
-                  {cart.length}
+                  {cartItems.length}
                 </span>
               )}
             </Link>

@@ -47,43 +47,23 @@ const RestaurantCard: React.FC<RestaurantCardProps> = ({ restaurants, getFoods }
 
     const handleFoodClick = (foodId: string | undefined) => {
         if (!foodId) return;
-        // Handle food click event (e.g., navigate to food details page)
-        console.log(`Food ID: ${foodId}`);
         router.push(`/food/${foodId}`);
     };
 
     const handleAddToCart = (e: React.MouseEvent, food: FoodPreview) => {
         e.stopPropagation(); // Prevent triggering parent onClick
-
-        addToCart({
-            title: food.name,
-            price: food.price,
-            image: food.image,
-            description: food.description,
-            quantity: 1,
-            restaurantId: activeRestaurant.id,
-            restaurantName: activeRestaurant.name
-        });
-
-        // Show a toast notification (optional)
-        // toast.success(`${food.name} added to cart`);
+        if (food.id) {
+            addToCart(food.id);
+        }
     };
 
     const handleBuyNow = (e: React.MouseEvent, food: FoodPreview) => {
         e.stopPropagation(); // Prevent triggering parent onClick
-
-        addToCart({
-            title: food.name,
-            price: food.price,
-            image: food.image,
-            description: food.description,
-            quantity: 1,
-            restaurantId: activeRestaurant.id,
-            restaurantName: activeRestaurant.name
-        });
-
-        // Navigate to cart/checkout page
-        router.push('/cart');
+        if (food.id) {
+            addToCart(food.id);
+            // Navigate to cart/checkout page
+            router.push('/checkout');
+        }
     };
 
     return (

@@ -7,6 +7,7 @@ import { Address } from './address.entity';
 import { OrderDetail } from './orderDetail.entity';
 import { ShippingDetail } from './shippingDetail.entity';
 import { Promotion } from './promotion.entity';
+import { Checkout } from './checkout.entity';
 
 @Entity({ name: 'orders' })
 export class Order {
@@ -23,7 +24,7 @@ export class Order {
     restaurant: Restaurant;
 
     @Column({ nullable: true })
-    total: string;
+    total: number;
 
     @Column({ nullable: true })
     note: string;
@@ -68,4 +69,7 @@ export class Order {
 
     @Column({ default: false })
     isPaid: boolean;
+
+    @OneToMany(()=> Checkout, checkout => checkout.order)
+    checkout: Checkout[];
 }

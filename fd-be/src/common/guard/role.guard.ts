@@ -1,79 +1,212 @@
-/* eslint-disable prettier/prettier */
-// src/common/guards/roles.guard.ts
-import { Injectable, CanActivate, ExecutionContext, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  UnauthorizedException,
+  Logger,
+  ForbiddenException
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { JwtService } from '@nestjs/jwt';
 import { PERMISSIONS_KEY } from '../decorator/permissions.decorator';
-import admin from 'src/firebase-admin.config';
-import { log } from 'console';
 import { UsersService } from 'src/modules/users/users.service';
-
-
-@Injectable()
-export class RolesGuard implements CanActivate {
-  constructor(private reflector: Reflector,
-    private readonly userService: UsersService,
-  ) {}
-
+import { PermissionType } from 'src/constants/permission.enum';
 
 /**
- * Determines whether a request can proceed based on user permissions.
- * 
- * This method checks the required permissions from metadata and compares them
- * against the user's permissions obtained from a verified Firebase token in the
- * request header. If no required permissions are specified, access is allowed.
- * If the request lacks a valid authorization token, or if the token is invalid
- * or expired, an UnauthorizedException is thrown.
- * 
- * @param context - The execution context from which the request is derived.
- * 
- * @returns A boolean indicating whether the user has the necessary permissions 
- *          to proceed with the request.
- * 
- * @throws UnauthorizedException if the authorization token is missing, invalid, 
- *         or expired.
+ * Interface for JWT payload structure.
  */
+interface JwtPayload {
+  sub: string;
+  email?: string;
+  [key: string]: unknown;
+}
 
-  async canActivate(context: ExecutionContext): Promise<boolean> {
-    // Lấy danh sách permission cần thiết từ metadata
-    const requiredPermissions = this.reflector.get<string[]>(PERMISSIONS_KEY, context.getHandler());
+/**
+ * Interface for request object with authorization header and user data.
+ */
+interface RequestWithAuth {
+  headers: {
+    authorization?: string;
+  };
+  user?: {
+    id: string;
+    [key: string]: unknown;
+  };
+}
+
+/**
+ * Guard to protect routes based on user permissions.
+ */
+@Injectable()
+export class RolesGuard implements CanActivate {
+  private readonly logger = new Logger(RolesGuard.name);
+
+  constructor(
+    private readonly reflector: Reflector,
+    private readonly userService: UsersService,
+    private readonly jwtService: JwtService,
+  ) { }
+
+  /**
+   * Determines whether a request can proceed based on user permissions.
+   *
+   * @param context - The execution context from which the request is derived.
+   * @returns A boolean indicating whether the user has the necessary permissions.
+   * @throws UnauthorizedException if authentication fails.
+   * @throws ForbiddenException if authorization fails.
+   */
+  public async canActivate(context: ExecutionContext): Promise<boolean> {
+    const requiredPermissions = this.reflector.get<string[]>(
+      PERMISSIONS_KEY,
+      context.getHandler(),
+    );
+
     if (!requiredPermissions || requiredPermissions.length === 0) {
-      return true; // Không yêu cầu permission nào -> cho phép truy cập
+      return true;
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    const request = context.switchToHttp().getRequest();
+    const request = context.switchToHttp().getRequest<RequestWithAuth>();
 
+    try {
+      const token = this.extractTokenFromRequest(request);
+      const userId = await this.verifyTokenAndGetUserId(token);
 
+      request.user = { id: userId };
+
+      const userPermissions = await this.getUserPermissionStrings(userId);
+      const hasPermission = this.checkRequiredPermissions(requiredPermissions, userPermissions);
+
+      if (!hasPermission) {
+        this.logger.warn(`User ${userId} attempted to access resource requiring ${requiredPermissions.join(', ')} but only has ${userPermissions.join(', ')}`);
+        throw new ForbiddenException('Insufficient permissions to access this resource');
+      }
+
+      return true;
+    } catch (error) {
+      this.handleAuthenticationError(error);
+      return false;
+    }
+  }
+
+  /**
+   * Extracts the token from the request authorization header.
+   * 
+   * @param request - The HTTP request object.
+   * @returns The extracted JWT token.
+   * @throws UnauthorizedException if token is missing or invalid.
+   */
+  private extractTokenFromRequest(request: RequestWithAuth): string {
     const authHeader = request.headers.authorization;
 
     if (!authHeader) {
       throw new UnauthorizedException('No token provided');
     }
-    const token = authHeader.split(' ')[1];
-    if (!token) {
+
+    const [authType, token] = authHeader.split(' ');
+
+    if (authType !== 'Bearer' || !token) {
       throw new UnauthorizedException('Invalid token format');
     }
 
+    return token;
+  }
+
+  /**
+   * Verifies the JWT token and returns the user ID.
+   * 
+   * @param token - The JWT token to verify.
+   * @returns The user ID from the verified token.
+   * @throws UnauthorizedException if token verification fails.
+   */
+  private async verifyTokenAndGetUserId(token: string): Promise<string> {
     try {
-      // Verify Firebase token
-      const decodedToken = await admin.auth().verifyIdToken(token);
+      const decodedToken = this.jwtService.verify<JwtPayload>(token);
 
+      if (!decodedToken.sub) {
+        throw new Error('Token payload does not contain a user ID');
+      }
 
-      // Get user from database
-      const user = await this.userService.findOne(decodedToken.user_id as string);
-      if (!user) {
-        throw new UnauthorizedException('User not found');
-      }
-      log('user', user);
-      const userPermissions: string[] = user.role?.permissions || [];
-      log('userPermissions', userPermissions);
-      return requiredPermissions.every(permission => userPermissions.includes(permission));
-      
-    } catch (error : unknown) {
-      if (error instanceof Error) {
-        throw new UnauthorizedException(`Failed to verify token: ${error.message}`);
-      }
-      throw new UnauthorizedException('Invalid or expired token');
+      return decodedToken.sub;
+    } catch (error) {
+      throw new UnauthorizedException(
+        `Failed to verify token: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
+  }
+
+  /**
+   * Gets the user's permissions from the database as strings.
+   * 
+   * @param userId - The user's ID.
+   * @returns Array of permission strings assigned to the user.
+   * @throws UnauthorizedException if user not found.
+   */
+  private async getUserPermissionStrings(userId: string): Promise<string[]> {
+    const user = await this.userService.findOne(userId);
+
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    if (!user.role) {
+      this.logger.warn(`User ${userId} has no role assigned`);
+      return [];
+    }
+
+    if (!user.role.permissions) {
+      this.logger.warn(`Role ${user.role.name} has no permissions`);
+      return [];
+    }
+
+    return user.role.permissions.map((permission) => permission.name);
+  }
+
+  /**
+   * Checks if the user has the required permissions.
+   * 
+   * @param requiredPermissions - String permissions required for the endpoint.
+   * @param userPermissions - String permissions the user has.
+   * @returns True if user has all required permissions.
+   */
+  private checkRequiredPermissions(
+    requiredPermissions: string[],
+    userPermissions: string[]
+  ): boolean {
+    return requiredPermissions.every((required) => {
+      // Direct match
+      if (userPermissions.includes(required)) {
+        return true;
+      }
+
+      // Check for "ALL" permission in the same category
+      const permissionParts = required.split('_');
+      if (permissionParts.length >= 2) {
+        const resourceType = permissionParts[permissionParts.length - 1];
+        const allPermission = `all_${resourceType}`;
+
+        return userPermissions.includes(allPermission);
+      }
+
+      return false;
+    });
+  }
+
+  /**
+   * Handles authentication errors by throwing appropriate exceptions.
+   * 
+   * @param error - The error that occurred during authentication.
+   * @throws UnauthorizedException with appropriate message.
+   * @throws ForbiddenException if it's a permissions issue.
+   */
+  private handleAuthenticationError(error: unknown): never {
+    if (error instanceof ForbiddenException) {
+      throw error;
+    }
+
+    if (error instanceof Error) {
+      throw new UnauthorizedException(`Authentication failed: ${error.message}`);
+    }
+
+    throw new UnauthorizedException('Invalid or expired token');
   }
 }

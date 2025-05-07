@@ -1,6 +1,7 @@
 "use client";
+import { authService } from "@/api/auth"; // Keep authService for forgetPassword
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
+// Removed Checkbox import
 import {
   Dialog,
   DialogContent,
@@ -17,24 +18,18 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SocialLoginButtons } from "@/components/ui/social-login";
 import { useMediaQuery } from "@/hooks/use-media-query";
-import {
-  onAuthStateChanged,
-  signInWithEmailAndPassword,
-  setPersistence,
-  browserLocalPersistence,
-  browserSessionPersistence,
-} from "firebase/auth";
+// Removed Firebase imports
 import Link from "next/link";
 import React, {
   createContext,
   useContext,
-  useEffect,
+  useEffect, // Keep useEffect if needed for other logic
   useState,
+  useRef, // Added useRef
 } from "react";
-import { auth } from "../../firebaseconfig";
-import { useAuth } from "./auth-context";
-import { authService } from "@/api/auth";
-import { FirebaseError } from "firebase/app";
+// Removed Firebase auth import
+import { useAuth } from "./auth-context"; // Import useAuth
+import { Eye, EyeOff } from "lucide-react";
 
 type FormType = "login" | "register" | "activate" | "forgotPassword";
 
@@ -43,19 +38,9 @@ type AuthModalContextType = {
   closeModal: () => void;
 };
 
-/**
- * @description: Tạo ModalContext để wrap xung quanh children, áp dụng mở modal login ở bất kỳ component nào
- * @param {React.ReactNode} children
- * **/
-
 const AuthModalContext = createContext<AuthModalContextType | null>(
   null,
 );
-
-/**
- * @description: Xử lý logic mở modal login và register
- * @param {React.ReactNode} children
- * **/
 
 export function AuthModalProvider({
   children,
@@ -65,6 +50,8 @@ export function AuthModalProvider({
   const [isOpen, setIsOpen] = useState(false);
   const [formType, setFormType] = useState<FormType>("login");
   const isDesktop = useMediaQuery("(min-width: 768px)");
+  const { user, loading: authLoading } = useAuth(); // Get user state from AuthContext
+  const drawerContentRef = useRef<HTMLDivElement>(null); // Added ref for DrawerContent
 
   const openModal = (form: FormType) => {
     setFormType(form);
@@ -79,26 +66,54 @@ export function AuthModalProvider({
     login: "Đăng nhập",
     register: "Đăng ký",
     activate: "Kích hoạt tài khoản",
-    forgotPassword: "Quên mật khẩu"
+    forgotPassword: "Quên mật khẩu",
   };
   const formDescriptions = {
     login: "Đăng nhập vào tài khoản của bạn",
     register: "Tạo tài khoản mới",
     activate: "Kích hoạt tài khoản của bạn",
-    forgotPassword: "Khổi phục mật khẩu của bạn"
+    forgotPassword: "Khôi phục mật khẩu của bạn",
   };
 
-  // Close modal when user is authenticated
+  // Close modal when user is authenticated and auth is not loading
   useEffect(() => {
-    onAuthStateChanged(auth, () => closeModal());
-  }, []);
+    if (user && !authLoading) {
+      closeModal();
+    }
+  }, [user, authLoading]); // Depend on user and authLoading state
+
+  // Handle keyboard visibility on mobile
+  useEffect(() => {
+    if (isDesktop || !isOpen) return; // Only needed for mobile drawer when open
+
+    const handleResize = () => {
+      if (drawerContentRef.current) {
+        drawerContentRef.current.style.setProperty('bottom', `env(safe-area-inset-bottom)`);
+      }
+    };
+
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener("resize", handleResize);
+      handleResize();
+    }
+
+    return () => {
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener("resize", handleResize);
+      }
+    };
+  }, [isDesktop, isOpen]);
 
   return (
     <AuthModalContext.Provider value={{ openModal, closeModal }}>
       {children}
       <ModalContainer open={isOpen} onOpenChange={setIsOpen}>
         <ModalContent
-          className="px-6 py-8 bg-background"
+          ref={!isDesktop ? drawerContentRef : undefined} // Only apply ref to DrawerContent
+          className={`px-6 py-8 bg-background ${!isDesktop ? '!min-h-[80vh]' : ''}`}
+          style={{
+            minHeight: !isDesktop ? '80vh' : 'auto',
+          }}
           aria-describedby={"auth-modal"}
         >
           {isDesktop ? (
@@ -119,7 +134,6 @@ export function AuthModalProvider({
           )}
           {formType === "login" && <LoginForm />}
           {formType === "register" && <RegisterForm />}
-          {formType === "activate" && <ActivateForm />}
           {formType === "forgotPassword" && <ForgetPasswordForm />}
         </ModalContent>
       </ModalContainer>
@@ -127,7 +141,6 @@ export function AuthModalProvider({
   );
 }
 
-// Custom hook để sử dụng AuthModalContext
 export const useAuthModal = () => {
   const context = useContext(AuthModalContext);
   if (!context) {
@@ -140,56 +153,66 @@ export const useAuthModal = () => {
 
 const LoginForm = () => {
   const { openModal } = useAuthModal();
-  const { handleAuth } = useAuth();
+  const { handleEmailLogin, error: authError, loading: authLoading } = useAuth(); // Use context methods and state
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
-  // Thêm state để lưu thông báo lỗi
-  const [errorMessage, setErrorMessage] = useState("");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null); // Local error for immediate feedback
+  const [isLoading, setIsLoading] = useState(false); // Local loading state for the form submit
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false); // State for password visibility
+  const passwordType = isPasswordVisible ? 'text' : 'password';
+  const Icon = isPasswordVisible ? EyeOff : Eye;
+  const buttonAriaLabel = isPasswordVisible ? 'Ẩn mật khẩu' : 'Hiển thị mật khẩu';
 
-  const handleEmailLogin = async (e: React.FormEvent) => {
+  // Update local error message when authError changes
+  useEffect(() => {
+    setErrorMessage(authError);
+  }, [authError]);
+
+  const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    setErrorMessage("");
+    setErrorMessage(null); // Clear previous errors
     try {
-      await setPersistence(auth, rememberMe ? browserLocalPersistence : browserSessionPersistence);
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const token = await userCredential.user.getIdToken();
-
-      await authService.login(token);
-      await handleAuth(userCredential);
-      
+      await handleEmailLogin(email, password);
+      // On success, the AuthProvider handles state update and reload/redirect.
+      // The modal should close automatically via the useEffect in AuthModalProvider.
     } catch (error: unknown) {
-      if (error instanceof FirebaseError) {
-        switch (error.code) {
-          case "auth/user-not-found":
-            setErrorMessage("Email không tồn tại");
-            break;
-          case "auth/wrong-password":
-            setErrorMessage("Mật khẩu không đúng");
-            break;
-          case "auth/invalid-email":
-            setErrorMessage("Email không hợp lệ");
-            break;
-          default:
-            setErrorMessage("Đã xảy ra lỗi. Vui lòng thử lại.");
-        }
+      // handleEmailLogin already sets the error in AuthContext,
+      // which updates the local errorMessage via useEffect.
+      // If you need more specific messages here, you can set them.
+      if (error instanceof Error) {
+        setErrorMessage(error.message || "Đăng nhập thất bại. Vui lòng thử lại.");
       } else {
-        setErrorMessage("Đã xảy ra lỗi. Vui lòng thử lại.");
+        setErrorMessage("Đã xảy ra lỗi không xác định.");
       }
-      console.error("Login error:", error);
-      setIsLoading(false);
+      setIsLoading(false); // Ensure loading is stopped on error
     }
+    // No need to manually set loading to false on success, as the component/modal will likely unmount/close.
+    // If it doesn't unmount immediately, set it here:
+    // setIsLoading(false);
   };
 
+  const togglePasswordVisibility = () => {
+    setIsPasswordVisible(prevState => !prevState);
+  };
+
+  const combinedLoading = isLoading || authLoading; // Consider both form and context loading
+
   return (
-    <form>
+    <form
+      onSubmit={handleFormSubmit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" && !combinedLoading) {
+          e.preventDefault();
+          handleFormSubmit(e);
+        }
+      }}
+    >
       <div className="grid gap-5">
+        {/* Pass relevant props to SocialLoginButtons */}
         <SocialLoginButtons
-          handleAuth={handleAuth}
-          isLoading={isLoading}
-          setIsLoading={setIsLoading}
+          isLoading={combinedLoading} // Use combined loading state
+          setIsLoading={setIsLoading} // Allow social buttons to set local loading if needed
         />
         <div className="relative text-center text-sm after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t after:border-border">
           <span className="relative z-10 bg-background px-2 text-muted-foreground text-md">
@@ -198,55 +221,62 @@ const LoginForm = () => {
         </div>
         <div className="grid gap-6">
           <div className="grid gap-2">
-            <Label htmlFor="email-register" className="text-lg">
+            <Label htmlFor="email-login" className="text-lg"> {/* Changed ID */}
               Email
             </Label>
             <Input
-              id="email-register"
+              id="email-login" // Changed ID
               type="email"
               placeholder="Nhập Email"
-              className="placeholder:text-base"
+              className="placeholder:text-lg text-lg"
               required
+              value={email} // Controlled component
               onChange={(e) => setEmail(e.target.value)}
-              disabled={isLoading}
+              disabled={combinedLoading}
             />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="password" className="text-lg">
+            <Label htmlFor="password-login" className="text-lg"> {/* Changed ID */}
               Mật khẩu
             </Label>
-            <Input
-              id="password"
-              type="password"
-              placeholder="Nhập mật khẩu"
-              className="placeholder:text-base"
-              required
-              onChange={(e) => setPassword(e.target.value)}
-              disabled={isLoading}
-            />
-            {/* Hiển thị thông báo lỗi */}
+            <div className="relative w-full">
+              <Input
+                id="password-login" // Changed ID
+                type={passwordType}
+                placeholder="Nhập mật khẩu"
+                className="placeholder:text-lg text-lg"
+                required
+                value={password} // Controlled component
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={combinedLoading}
+              />
+              <button
+                type="button"
+                onClick={togglePasswordVisibility}
+                // Định vị tuyệt đối icon bên trong div tương đối
+                className="absolute inset-y-0 right-1 flex items-center pr-3 text-gray-500 hover:text-gray-700 focus:outline-none disabled:opacity-50"
+                aria-label={buttonAriaLabel}
+                disabled={combinedLoading} // Có thể disable nút toggle cùng lúc với input
+              >
+                <Icon className="h-5 w-5" />
+              </button>
+            </div>
+            {/* Display error message */}
             {errorMessage && (
-              <p className="text-center text-sm text-red-500 mt-2">{errorMessage}</p>
+              <p className="text-center text-sm text-red-500 mt-2">
+                {errorMessage}
+              </p>
             )}
-            <div className="flex items-center justify-between mt-2">
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="remember-login"
-                  checked={rememberMe}
-                  onCheckedChange={(checked) => setRememberMe(checked === true)}
-                  disabled={isLoading}
-                />
-                <label
-                  htmlFor="remember-login"
-                  className="text-md font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                >
-                  Ghi nhớ đăng nhập
-                </label>
-              </div>
+            <div className="flex items-center justify-end mt-2"> {/* Removed remember me */}
               <Link
                 href="#"
                 className="ml-auto text-md text-primary underline-offset-4 hover:underline"
-                onClick={() => openModal("forgotPassword")}
+                onClick={(e) => {
+                  e.preventDefault(); // Prevent default link behavior
+                  if (!combinedLoading) openModal("forgotPassword");
+                }}
+                aria-disabled={combinedLoading} // Indicate disabled state for accessibility
+                tabIndex={combinedLoading ? -1 : 0} // Remove from tab order when disabled
               >
                 Quên mật khẩu ?
               </Link>
@@ -254,11 +284,10 @@ const LoginForm = () => {
           </div>
           <Button
             type="submit"
-            onClick={handleEmailLogin}
             className="w-full text-lg border border-transparent hover:border-primary hover:text-primary"
-            disabled={isLoading}
+            disabled={combinedLoading}
           >
-            {isLoading ? "Đang xử lý..." : "Đăng nhập"}
+            {combinedLoading ? "Đang xử lý..." : "Đăng nhập"}
           </Button>
         </div>
         <div className="text-center text-base text-primary">
@@ -267,7 +296,8 @@ const LoginForm = () => {
             onClick={() => openModal("register")}
             variant="link"
             className="text-base hover:underline hover:underline-offset-2 font-semibold"
-            disabled={isLoading}
+            disabled={combinedLoading}
+            type="button"
           >
             Đăng ký
           </Button>
@@ -280,47 +310,67 @@ const LoginForm = () => {
 // Form đăng ký
 const RegisterForm = () => {
   const { openModal } = useAuthModal();
-  const { handleAuth } = useAuth();
+  const { handleRegister, error: authError, loading: authLoading } = useAuth(); // Use context register function
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [repeatPassword, setRepeatPassword] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  // Thêm state để lưu thông báo lỗi
-  const [errorMessage, setErrorMessage] = useState("");
+  const [isLoading, setIsLoading] = useState(false); // Local loading state
+  const [errorMessage, setErrorMessage] = useState<string | null>(null); // Local error state
+  const [successMessage, setSuccessMessage] = useState<string | null>(null); // Success message state
 
-  const handleEmailRegister = async (e: React.FormEvent) => {
+  // Update local error message when authError changes (relevant if handleRegister sets context error)
+  useEffect(() => {
+    // Only set error if it's relevant to registration, otherwise authError might be from login attempts
+    // We rely more on the catch block error here.
+    // setErrorMessage(authError);
+  }, [authError]);
+
+
+  const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMessage(null); // Clear previous messages
+    setSuccessMessage(null);
+
     if (password !== repeatPassword) {
       setErrorMessage("Mật khẩu không khớp");
       return;
     }
+    if (password.length < 6) { // Example validation
+      setErrorMessage("Mật khẩu phải có ít nhất 6 ký tự.");
+      return;
+    }
+
     setIsLoading(true);
-    setErrorMessage("");
+
     try {
-      const result = await authService.register({ email, password, name });
-      if ((result as { message: string }).message === "User registered successfully") {
-        openModal("login"); // Chuyển sang form đăng nhập sau khi đăng ký thành công
-      } else {
-        setErrorMessage((result as { message: string }).message || "Đăng ký thất bại");
-      }
+      await handleRegister({ email, password, name });
+      // Registration successful
+      setSuccessMessage("Đăng ký thành công! Bạn có thể đăng nhập ngay bây giờ.");
+      // Optionally clear form or switch to login after a delay
+      setTimeout(() => {
+        openModal("login");
+      }, 2000); // Switch to login after 2 seconds
     } catch (error: unknown) {
       if (error instanceof Error) {
-        setErrorMessage(error.message || "Đăng ký thất bại");
+        setErrorMessage(error.message || "Đăng ký thất bại. Vui lòng thử lại.");
+      } else {
+        setErrorMessage("Đã xảy ra lỗi không xác định khi đăng ký.");
       }
-      else
-      setErrorMessage( "Đã xảy ra lỗi. Vui lòng thử lại.");
     } finally {
       setIsLoading(false);
     }
   };
+
+  const combinedLoading = isLoading || authLoading;
+
   return (
-    <form>
+    <form onSubmit={handleFormSubmit}>
       <div className="grid gap-6">
+        {/* Pass relevant props to SocialLoginButtons */}
         <SocialLoginButtons
-          handleAuth={handleAuth}
-          isLoading={isLoading}
-          setIsLoading={setIsLoading}
+          isLoading={combinedLoading}
+          setIsLoading={setIsLoading} // Allow social buttons to set local loading if needed
         />
         <div className="relative text-center text-sm after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t after:border-border">
           <span className="relative z-10 bg-background px-2 text-muted-foreground text-md">
@@ -329,72 +379,82 @@ const RegisterForm = () => {
         </div>
         <div className="grid gap-4">
           <div className="grid gap-2">
-            <Label htmlFor="fullname" className="text-lg">
+            <Label htmlFor="fullname-register" className="text-lg"> {/* Changed ID */}
               Họ tên
             </Label>
             <Input
-              id="fullname"
+              id="fullname-register" // Changed ID
               type="text"
               placeholder="Nhập họ và tên"
-              className="placeholder:text-base"
+              className="placeholder:text-lg text-lg"
               required
+              value={name}
               onChange={(e) => setName(e.target.value)}
-              disabled={isLoading}
+              disabled={combinedLoading}
             />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="email-login" className="text-lg">
+            <Label htmlFor="email-register" className="text-lg"> {/* Changed ID */}
               Email
             </Label>
             <Input
-              id="email-login"
+              id="email-register" // Changed ID
               type="email"
               placeholder="Nhập Email"
-              className="placeholder:text-base"
+              className="placeholder:text-lg text-lg"
               required
+              value={email}
               onChange={(e) => setEmail(e.target.value)}
-              disabled={isLoading}
+              disabled={combinedLoading}
             />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="password" className="text-lg">
+            <Label htmlFor="password-register" className="text-lg"> {/* Changed ID */}
               Mật khẩu
             </Label>
             <Input
-              id="password"
+              id="password-register" // Changed ID
               type="password"
-              placeholder="Nhập mật khẩu"
-              className="placeholder:text-base"
+              placeholder="Nhập mật khẩu (ít nhất 6 ký tự)"
+              className="placeholder:text-lg text-lg"
               required
+              value={password}
               onChange={(e) => setPassword(e.target.value)}
-              disabled={isLoading}
+              disabled={combinedLoading}
             />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="repassword" className="text-lg">
+            <Label htmlFor="repassword-register" className="text-lg"> {/* Changed ID */}
               Nhập lại mật khẩu
             </Label>
             <Input
-              id="repassword"
+              id="repassword-register" // Changed ID
               type="password"
-              placeholder="Nhập mật khẩu"
-              className="placeholder:text-base input:text-base"
+              placeholder="Nhập lại mật khẩu"
+              className="placeholder:text-lg text-lg"
               required
+              value={repeatPassword}
               onChange={(e) => setRepeatPassword(e.target.value)}
-              disabled={isLoading}
+              disabled={combinedLoading}
             />
           </div>
-          {/* Hiển thị thông báo lỗi */}
+          {/* Display messages */}
           {errorMessage && (
-            <p className="text-center text-sm text-red-800 mt-2">{errorMessage}</p>
+            <p className="text-center text-sm text-red-500 mt-2">
+              {errorMessage}
+            </p>
+          )}
+          {successMessage && (
+            <p className="text-center text-sm text-green-500 mt-2">
+              {successMessage}
+            </p>
           )}
           <Button
-            onClick={handleEmailRegister}
             type="submit"
             className="w-full mt-4 text-lg border border-transparent hover:border-primary hover:text-primary"
-            disabled={isLoading}
+            disabled={combinedLoading || !!successMessage} // Disable after success message
           >
-            {isLoading ? "Đang xử lý..." : "Đăng ký"}
+            {combinedLoading ? "Đang xử lý..." : "Đăng ký"}
           </Button>
         </div>
         <div className="text-center text-base text-primary">
@@ -403,7 +463,8 @@ const RegisterForm = () => {
             onClick={() => openModal("login")}
             variant="link"
             className="text-base hover:underline hover:underline-offset-2 font-semibold"
-            disabled={isLoading}
+            disabled={combinedLoading}
+            type="button"
           >
             Đăng nhập
           </Button>
@@ -412,33 +473,42 @@ const RegisterForm = () => {
     </form>
   );
 };
+
+// --- ForgetPasswordForm and ActivateForm remain largely unchanged ---
+// --- but ensure they use appropriate loading states and disable buttons ---
+
 const ForgetPasswordForm = () => {
   const { openModal } = useAuthModal();
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const [isSuccess, setIsSuccess] = useState(false); // Track success state
 
   const handleForgetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setMessage("");
+    setIsSuccess(false);
     try {
-      const result = await authService.forgetPassword(email) as { success: boolean, error?: string };
-      if (result.success) {
-        setMessage("Đã gửi yêu cầu khôi phục mật khẩu. Vui lòng kiểm tra email của bạn.");
-      } else {
-        if (result.error === "user-not-found") {
-          setMessage("Email không tồn tại");
-        } else {
-          setMessage(result.error || "Có lỗi xảy ra. Vui lòng thử lại.");
-        }
-      }
+      // Assuming authService.forgetPassword returns a simple success/message object
+      // Adjust based on actual return type if needed
+      await authService.forgetPassword(email);
+      setMessage(
+        "Đã gửi yêu cầu khôi phục mật khẩu. Vui lòng kiểm tra email của bạn (kể cả thư mục spam).",
+      );
+      setIsSuccess(true); // Mark as success
     } catch (error: unknown) {
       if (error instanceof Error) {
-        setMessage(error.message);
+        // Provide more specific error messages if possible based on backend response
+        if (error.message.toLowerCase().includes('user not found')) {
+          setMessage("Email không tồn tại trong hệ thống.");
+        } else {
+          setMessage(error.message || "Có lỗi xảy ra khi gửi yêu cầu. Vui lòng thử lại.");
+        }
+      } else {
+        setMessage("Có lỗi không xác định xảy ra. Vui lòng thử lại.");
       }
-      else
-      setMessage("Có lỗi xảy ra. Vui lòng thử lại.");
+      setIsSuccess(false); // Mark as not success
       console.error("Forget password error:", error);
     } finally {
       setIsLoading(false);
@@ -459,17 +529,17 @@ const ForgetPasswordForm = () => {
             id="email-forget"
             type="email"
             placeholder="Nhập Email"
-            className="placeholder:text-base"
+            className="placeholder:text-lg text-lg" // Added text-base
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            disabled={isLoading}
+            disabled={isLoading || isSuccess} // Disable after success
           />
         </div>
         {/* Hiển thị thông báo với màu sắc khác nhau */}
         {message && (
           <p
-            className={`text-center text-sm mt-2 ${message.includes("Đã gửi") ? "text-green-500" : "text-red-500"
+            className={`text-center text-sm mt-2 ${isSuccess ? "text-green-600" : "text-red-600" // Adjusted colors
               }`}
           >
             {message}
@@ -478,7 +548,7 @@ const ForgetPasswordForm = () => {
         <Button
           type="submit"
           className="w-full mt-4 text-lg border border-transparent hover:border-primary hover:text-primary"
-          disabled={isLoading}
+          disabled={isLoading || isSuccess} // Disable after success
         >
           {isLoading ? "Đang xử lý..." : "Gửi yêu cầu"}
         </Button>
@@ -489,7 +559,8 @@ const ForgetPasswordForm = () => {
           onClick={() => openModal("login")}
           variant="link"
           className="text-base hover:underline hover:underline-offset-2 font-semibold"
-          disabled={isLoading}
+          disabled={isLoading} // Only disable while loading, allow going back after success/error
+          type="button" // Explicitly set type
         >
           Đăng nhập
         </Button>
@@ -497,37 +568,4 @@ const ForgetPasswordForm = () => {
     </div>
   );
 };
-const ActivateForm = () => {
-  const [isLoading, setIsLoading] = useState(false);
 
-  const handleActivate = (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    // Implement activation logic here
-    setIsLoading(false);
-  };
-
-  return (
-    <form onSubmit={handleActivate}>
-      <div className="grid gap-5">
-        <div className="grid gap-2">
-          <Input
-            id="code"
-            type="text"
-            placeholder="Nhập mã kích hoạt"
-            className="placeholder:text-base"
-            required
-            disabled={isLoading}
-          />
-        </div>
-        <Button
-          type="submit"
-          className="w-full text-lg border border-transparent hover:border-primary hover:text-primary"
-          disabled={isLoading}
-        >
-          {isLoading ? "Đang xử lý..." : "Kích hoạt"}
-        </Button>
-      </div>
-    </form>
-  );
-};

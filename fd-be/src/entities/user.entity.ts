@@ -4,6 +4,15 @@ import { Entity, Column, ManyToOne, JoinColumn, PrimaryColumn, OneToMany, Create
 import { Role } from './role.entity';
 import { Address } from './address.entity';
 import { ShipperCertificateInfo } from './shipperCertificateInfo.entity';
+import { Checkout } from './checkout.entity';
+import { Order } from './order.entity';
+
+
+enum AuthProvider {
+    EMAIL = 'email',
+    GOOGLE = 'google',
+    FACEBOOK = 'facebook', // Keep if needed, remove otherwise
+  }
 
 
 @Entity({ name: 'users' })
@@ -14,7 +23,6 @@ export class User {
         length: 28,
         unique: true, 
         nullable: false,
-        comment: 'Firebase UID used as primary key'
     })
     id: string;
 
@@ -58,4 +66,21 @@ export class User {
     @OneToOne(()=> ShipperCertificateInfo, shipperCertificateInfo=> shipperCertificateInfo.user)
     shipperCertificateInfo: ShipperCertificateInfo;
 
+    @Column({ type: 'enum', enum: AuthProvider, default: AuthProvider.EMAIL })
+    authProvider: AuthProvider; // Trường này sẽ lưu thông tin về nhà cung cấp xác thực (email, google, facebook)
+
+    @Column({ nullable: true, name: 'google_id' })
+    googleId?: string;
+  
+    @Column({ nullable: true, name: 'reset_password_token' }) 
+    resetPasswordToken?: string;
+  
+    @Column({ nullable: true, name: 'reset_password_expires' })
+    resetPasswordExpires?: Date;  
+
+    @OneToMany(()=> Checkout, checkout=> checkout.user)
+    checkouts: Checkout[]; // Danh sách các đơn hàng của người dùng
+
+    @OneToMany(()=> Order, order=> order.user)
+    orders: Order[]; // Danh sách các đơn hàng của người dùng
 }

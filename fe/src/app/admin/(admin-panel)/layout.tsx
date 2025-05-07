@@ -103,6 +103,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   // Show a loading indicator until permissions are fetched
   if (isPermissionsLoading) {
+    
     return <div>Loading permissions...</div>;
   }
 
@@ -144,7 +145,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
             {/* Main content with border and radius */}
             <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm 
-            
             ">
               {children}
             </div>

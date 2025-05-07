@@ -18,6 +18,7 @@ import RestaurantLink from './_components/restaurant-link';
 import LoadingState from './_components/loading';
 import FoodRow from '../../_components/ui/food-row';
 import { FoodDetail } from '@/interface';
+import ReviewsSection from './_components/review';
 
 // Sample Foods data for mocking API calls
 const sampleFoods: FoodDetail[] = [
@@ -26,7 +27,7 @@ const sampleFoods: FoodDetail[] = [
     name: "Bún Bò Huế Đặc Biệt",
     description: "Bún bò Huế đặc biệt với nước dùng đậm đà, thịt bò mềm, giò heo giòn, chả cua thơm ngon, ăn kèm rau sống và bánh mì.",
     image: "https://images.unsplash.com/photo-1582878826629-29b7ad1cdc43?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1974&q=80",
-    imageUrls: ["https://images.unsplash.com/photo-1582878826629-29b7ad1cdc43?ixlib=rb-4.0.3","https://images.unsplash.com/photo-1582878826629-29b7ad1cdc43?ixlib=rb-4.0.3","https://images.unsplash.com/photo-1582878826629-29b7ad1cdc43?ixlib=rb-4.0.3"],
+    imageUrls: ["https://images.unsplash.com/photo-1582878826629-29b7ad1cdc43?ixlib=rb-4.0.3", "https://images.unsplash.com/photo-1582878826629-29b7ad1cdc43?ixlib=rb-4.0.3", "https://images.unsplash.com/photo-1582878826629-29b7ad1cdc43?ixlib=rb-4.0.3"],
     price: 75000,
     status: "available",
     category: {
@@ -354,12 +355,20 @@ export default function FoodDetailPage() {
               onBuyNow={handleBuyNow}
             />
           </div>
+
+
+
         </div>
       </div>
-
+      <ReviewsSection
+        rating={food.rating || 0}
+        foodId={foodId}
+      />
       <RestaurantLink
         restaurantId={food.restaurant.id}
         restaurantName={food.restaurant.name}
+        restaurantImage={food.image} // Using food image for now as sample data doesn't have restaurant image
+        restaurantDescription={`${food.restaurant.name} là nhà hàng chuyên phục vụ các món ${food.category.name} ngon và chất lượng. Thời gian giao hàng trung bình: ${food.restaurant.deliveryTime} phút.`}
       />
       {/* Add the new sections here */}
       <div className="mt-12">
@@ -370,9 +379,9 @@ export default function FoodDetailPage() {
           maxItems={4}
           viewAllLink={`/restaurant/${food.restaurant.id}`}
         />
-        
+
         <FoodRow
-          foods={sameCategory} 
+          foods={sameCategory}
           formatPrice={formatPrice}
           name={`Món ${food.category.name} tương tự`}
           maxItems={4}

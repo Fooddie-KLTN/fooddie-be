@@ -3,7 +3,6 @@ import { RestaurantService } from './restaurant.service';
 import { CreateRestaurantDto } from './dto/create-restaurant.dto';
 import { UpdateRestaurantDto } from './dto/update-restaurant.dto';
 import { Restaurant } from 'src/entities/restaurant.entity';
-import { FirebaseAuthGuard } from 'src/auth/firebase-auth.guard';
 import { RolesGuard } from 'src/common/guard/role.guard';
 import { Permissions } from 'src/common/decorator/permissions.decorator';
 import { Permission } from 'src/constants/permission.enum';

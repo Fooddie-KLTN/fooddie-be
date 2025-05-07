@@ -21,6 +21,7 @@ import { RestaurantModule } from './modules/restaurant/restaurant.module';
 import { FoodModule } from './modules/food/food.module';
 import { OrderModule } from './modules/order/order.module';
 import { CategoryModule } from './modules/category/category.module';
+import { Permission } from './entities/permission.entity';
 @Module({
   imports: [
     // Import the module that contains the user entity
@@ -38,6 +39,7 @@ import { CategoryModule } from './modules/category/category.module';
       //entities: [__dirname + '/**/*.entity{.ts,.js}'],
       entities: [__dirname + '/entities/*.entity{.ts,.js}'],
       synchronize: true, // Không dùng synchronize trong production, thay vào đó dùng migrations
+      dropSchema: true, // WARNING: This will drop all tables - use in development only!
       migrations: [__dirname + '/migrations/*{.ts,.js}'],
       autoLoadEntities: true,
     }),
@@ -51,7 +53,7 @@ import { CategoryModule } from './modules/category/category.module';
     FoodModule,
     OrderModule,
     CategoryModule,
-    TypeOrmModule.forFeature([Role, User, Review, Promotion, Address]),
+    TypeOrmModule.forFeature([Role, User, Review, Promotion, Address, Permission]),
 
   ],
   controllers: [AppController],

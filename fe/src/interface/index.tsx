@@ -10,6 +10,46 @@ export interface Category {
   icon?: string;
 }
 
+// --- Interfaces ---
+export interface Province {
+  id: number;
+  name: string;
+}
+ 
+export interface District {
+  id: number;
+  name: string;
+}
+
+export interface Ward {
+  id: number;
+  name: string;
+}
+
+// Define a specific Address interface
+export interface Address {
+    id: string; // Unique ID for each address (e.g., UUID or DB ID)
+    label?: string; // Optional label like "Home", "Work"
+    street?: string;
+    wardId?: number | null;
+    districtId?: number | null;
+    provinceId?: number | null;
+    wardName?: string;
+    districtName?: string;
+    provinceName?: string;
+    isDefault?: boolean; // Optional: Mark one as default
+}
+
+export interface UserProfile {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  avatar?: string;
+  birthday?: string;
+  addresses?: Address[]; // Changed to array
+  currentAddress?: Address; // Optional: Current address for quick access
+}
 export interface Restaurant {
   id: string;
   name: string;
