@@ -144,6 +144,30 @@ interface GetStoresResponse {
     name: string;
     image: string;
   }
+
+  interface OrderResponse {
+    id: string;
+    status: string;
+    createdAt: string;
+    total: string;
+    note: string;
+    address: {
+      location: string;
+      fullName: string;
+    };
+    restaurant: {
+      name: string;
+      location: string;
+    };
+    orderDetails: {
+      food: {
+        name: string;
+      };
+      quantity: string;
+      price: string;
+      note: string;
+    }[];
+  }
   
 
 /**
@@ -334,6 +358,28 @@ export const adminService = {
           }
         },
       },
-      
+      Order: {
+        async getOrdersByUser(token: string, userId: string): Promise<OrderResponse[]> {
+          try {
+            return await apiRequest<OrderResponse[]>(`/orders/user/${userId}`, 'GET', { token });
+          } catch (error) {
+            console.error('Lỗi khi lấy danh sách đơn hàng theo user:', error);
+            throw error;
+          }
+        },
+    
+        async getOrderById(token: string, id: string): Promise<OrderResponse> {
+          try {
+            return await apiRequest<OrderResponse>(`/orders/${id}`, 'GET', { token });
+          } catch (error) {
+            console.error('Lỗi khi lấy chi tiết đơn hàng:', error);
+            throw error;
+          }
+        },
+
+        async getMyOrders(token: string): Promise<OrderResponse[]> {
+          return await apiRequest<OrderResponse[]>('/orders/my', 'GET', { token });
+        },
+      }
       
 };
