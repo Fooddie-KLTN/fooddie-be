@@ -39,7 +39,8 @@ const sampleFoods: FoodDetail[] = [
     restaurant: {
       id: "r1",
       name: "Nhà hàng Hương Việt",
-      deliveryTime: "30"
+      deliveryTime: "30",
+      owner: undefined
     },
     soldCount: 100,
     rating: 4.7,
@@ -61,7 +62,8 @@ const sampleFoods: FoodDetail[] = [
     restaurant: {
       id: "r2",
       name: "Pizza Express",
-      deliveryTime: "45"
+      deliveryTime: "45",
+      owner: undefined
     },
     soldCount: 150,
     rating: 4.9,
@@ -83,7 +85,8 @@ const sampleFoods: FoodDetail[] = [
     restaurant: {
       id: "r3",
       name: "Chicken & Chips",
-      deliveryTime: "25"
+      deliveryTime: "25",
+      owner: undefined
     },
     soldCount: 75,
     rating: 4.5,
@@ -105,7 +108,8 @@ const sampleFoods: FoodDetail[] = [
     restaurant: {
       id: "r1",
       name: "Nhà hàng Hương Việt",
-      deliveryTime: "30"
+      deliveryTime: "30",
+      owner: undefined
     },
     soldCount: 120,
     rating: 4.8,
@@ -127,7 +131,8 @@ const sampleFoods: FoodDetail[] = [
     restaurant: {
       id: "r1",
       name: "Nhà hàng Hương Việt",
-      deliveryTime: "30"
+      deliveryTime: "30",
+      owner: undefined
     },
     soldCount: 80,
     rating: 4.6,
@@ -149,7 +154,8 @@ const sampleFoods: FoodDetail[] = [
     restaurant: {
       id: "r2",
       name: "Pizza Express",
-      deliveryTime: "45"
+      deliveryTime: "45",
+      owner: undefined
     },
     soldCount: 70,
     rating: 4.5,
@@ -171,7 +177,8 @@ const sampleFoods: FoodDetail[] = [
     restaurant: {
       id: "r3",
       name: "Chicken & Chips",
-      deliveryTime: "25"
+      deliveryTime: "25",
+      owner: undefined
     },
     soldCount: 95,
     rating: 4.6,
@@ -193,7 +200,8 @@ const sampleFoods: FoodDetail[] = [
     restaurant: {
       id: "r4",
       name: "Tiệm Bánh Việt Nam",
-      deliveryTime: "20"
+      deliveryTime: "20",
+      owner: undefined
     },
     soldCount: 110,
     rating: 4.7,
@@ -215,7 +223,8 @@ const sampleFoods: FoodDetail[] = [
     restaurant: {
       id: "r2",
       name: "Pizza Express",
-      deliveryTime: "45"
+      deliveryTime: "45",
+      owner: undefined
     },
     soldCount: 45,
     rating: 4.4,
@@ -267,18 +276,10 @@ export default function FoodDetailPage() {
   };
 
   const handleAddToCart = () => {
-    if (food) {
-      // Convert to cart item format defined in your app
-      const cartItem = {
-        id: food.id,
-        name: food.name,
-        price: Number(food.price),
-        image: food.image,
-        quantity: quantity,
-        restaurantId: food.restaurant.id,
-        restaurantName: food.restaurant.name
-      };
-      addToCart(cartItem);
+    if (food && food.id) {
+      
+      // Passing the food ID as expected by addToCart
+      addToCart(food.id);
     }
   };
 

@@ -21,6 +21,7 @@ export class GoogleCloudStorageService {
         universe_domain: process.env.FIREBASE_UNIVERSE_DOMAIN || 'googleapis.com'
       }
     });
+    
 
     const bucketName = process.env.GOOGLE_CLOUD_STORAGE_BUCKET_NAME;
     if (!bucketName) {

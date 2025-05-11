@@ -51,6 +51,7 @@ export interface UserProfile {
   currentAddress?: Address; // Optional: Current address for quick access
 }
 export interface Restaurant {
+  owner?: UserProfile; // Owner of the restaurant
   id: string;
   name: string;
   phoneNumber?: string;

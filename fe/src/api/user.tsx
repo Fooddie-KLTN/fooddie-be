@@ -1,25 +1,27 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { apiRequest } from "./base-api";
 
- 
+/**
+ * Interface for updating user information
+ * Matches the backend UpdateUserDto structure
+ */
 interface UpdateUserDto {
   username?: string;
   password?: string;
   email?: string;
   name?: string;
-  address?: string;
   phone?: string;
   avatar?: string;
   isActive?: boolean;
   birthday?: Date;
-
+  // Remove address as string since it's an entity relationship in backend
 }
 
 /**
  * Dịch vụ API cho người dùng đã xác thực
  * 
  * Cung cấp các phương thức để thực hiện các thao tác liên quan đến tài khoản người dùng
- * và tương tác với nội dung khóa học như cập nhật thông tin cá nhân, theo dõi tiến độ học tập,
- * đánh dấu hoàn thành bài học, và truy cập chi tiết khóa học.
+ * như lấy thông tin và cập nhật thông tin cá nhân.
  * 
  * @namespace
  */
@@ -30,15 +32,6 @@ export const userApi = {
    * @param {string} token - Token xác thực của người dùng
    * @returns {Promise<any>} Thông tin chi tiết của người dùng đã đăng nhập
    * @throws {Error} Khi không thể kết nối với máy chủ hoặc token không hợp lệ
-   * 
-   * @example
-   * // Lấy thông tin của người dùng đang đăng nhập
-   * try {
-   *   const userInfo = await userApi.getMe(currentToken);
-   *   console.log('Thông tin người dùng:', userInfo);
-   * } catch (error) {
-   *   console.error('Không thể lấy thông tin người dùng:', error);
-   * }
    */
   async getMe(token: string) {
     try {
@@ -56,18 +49,6 @@ export const userApi = {
    * @param {UpdateUserDto} data - Thông tin cần cập nhật
    * @returns {Promise<any>} Thông tin người dùng sau khi cập nhật
    * @throws {Error} Khi không thể kết nối với máy chủ, token không hợp lệ hoặc dữ liệu không hợp lệ
-   * 
-   * @example
-   * // Cập nhật họ tên và số điện thoại của người dùng
-   * try {
-   *   const updatedUser = await userApi.updateMe(currentToken, {
-   *     name: 'Nguyễn Văn A',
-   *     phone: '0987654321'
-   *   });
-   *   console.log('Cập nhật thành công:', updatedUser);
-   * } catch (error) {
-   *   console.error('Không thể cập nhật thông tin:', error);
-   * }
    */
   async updateMe(token: string, data: UpdateUserDto) {
     try {
@@ -79,85 +60,153 @@ export const userApi = {
   },
 
   /**
-   * Đánh dấu một nội dung khóa học là đã hoàn thành
+   * Lấy danh sách tất cả người dùng (chỉ admin)
    * 
-   * @param {string} token - Token xác thực của người dùng
-   * @param {string} courseId - Mã định danh của khóa học
-   * @param {string} contentId - Mã định danh của nội dung cần đánh dấu hoàn thành
-   * @returns {Promise<any>} Thông tin tiến độ sau khi cập nhật
-   * @throws {Error} Khi không thể kết nối với máy chủ hoặc token không hợp lệ
-   * 
-   * @example
-   * // Đánh dấu một bài học là đã hoàn thành
-   * try {
-   *   const progress = await userApi.completeContent(
-   *     currentToken,
-   *     'course-123',
-   *     'content-456'
-   *   );
-   *   console.log('Đã hoàn thành nội dung:', progress);
-   * } catch (error) {
-   *   console.error('Không thể đánh dấu hoàn thành:', error);
-   * }
+   * @param {string} token - Token xác thực của admin
+   * @returns {Promise<any>} Danh sách người dùng
+   * @throws {Error} Khi không thể kết nối với máy chủ hoặc không có quyền
    */
-  async completeContent(token: string, courseId: string, contentId: string) {
+  async getAll(token: string) {
     try {
-      return await apiRequest(`/courses/${courseId}/content/${contentId}/complete`, 'POST', { token });
+      return await apiRequest('users', 'GET', { token });
     } catch (error) {
-      console.error('Course API error:', error);
+      console.error('User API error:', error);
       throw error;
     }
   },
 
   /**
-   * Lấy thông tin tiến độ học tập của người dùng trong một khóa học
+   * Lấy thông tin chi tiết của một người dùng theo ID (chỉ admin)
    * 
-   * @param {string} token - Token xác thực của người dùng
-   * @param {string} courseId - Mã định danh của khóa học cần kiểm tra tiến độ
-   * @returns {Promise<any>} Chi tiết tiến độ học tập của người dùng trong khóa học
-   * @throws {Error} Khi không thể kết nối với máy chủ hoặc token không hợp lệ
-   * 
-   * @example
-   * // Kiểm tra tiến độ của người dùng trong một khóa học
-   * try {
-   *   const progressInfo = await userApi.getProgress(currentToken, 'course-123');
-   *   console.log('Tiến độ học tập:', progressInfo);
-   * } catch (error) {
-   *   console.error('Không thể lấy tiến độ học tập:', error);
-   * }
+   * @param {string} token - Token xác thực của admin
+   * @param {string} id - ID của người dùng cần xem
+   * @returns {Promise<any>} Thông tin chi tiết của người dùng
+   * @throws {Error} Khi không thể kết nối với máy chủ hoặc không có quyền
    */
-  async getProgress(token: string, courseId: string) {
+  async getUserById(token: string, id: string) {
     try {
-      return await apiRequest(`/courses/${courseId}/progress`, 'GET', { token });
+      return await apiRequest(`users/${id}`, 'GET', { token });
     } catch (error) {
-      console.error('Course API error:', error);
+      console.error('User API error:', error);
       throw error;
     }
   },
 
   /**
-   * Lấy thông tin chi tiết của khóa học bao gồm các chương và nội dung
+   * Tạo người dùng mới (chỉ admin)
    * 
-   * @param {string} token - Token xác thực của người dùng
-   * @param {string} id - Mã định danh của khóa học cần lấy chi tiết
-   * @returns {Promise<any>} Thông tin chi tiết của khóa học bao gồm danh sách chương và nội dung
-   * @throws {Error} Khi không thể kết nối với máy chủ hoặc token không hợp lệ
-   * 
-   * @example
-   * // Lấy chi tiết đầy đủ của một khóa học
-   * try {
-   *   const courseDetails = await userApi.getCourseDetails(currentToken, 'course-123');
-   *   console.log('Chi tiết khóa học:', courseDetails);
-   * } catch (error) {
-   *   console.error('Không thể lấy chi tiết khóa học:', error);
-   * }
+   * @param {string} token - Token xác thực của admin
+   * @param {UpdateUserDto} data - Thông tin người dùng mới
+   * @returns {Promise<any>} Thông tin người dùng đã tạo
+   * @throws {Error} Khi không thể kết nối với máy chủ hoặc không có quyền
    */
-  async getCourseDetails(token: string, id: string) {
+  async createUser(token: string, data: UpdateUserDto) {
     try {
-      return await apiRequest(`/courses/${id}/details`, 'GET', { token });
+      return await apiRequest('users', 'POST', { token, data });
     } catch (error) {
-      console.error('Course API error:', error);
+      console.error('User API error:', error);
       throw error;
     }
   },
+
+  /**
+   * Cập nhật thông tin người dùng (chỉ admin)
+   * 
+   * @param {string} token - Token xác thực của admin
+   * @param {string} id - ID của người dùng cần cập nhật
+   * @param {UpdateUserDto} data - Thông tin cần cập nhật
+   * @returns {Promise<any>} Thông tin người dùng sau khi cập nhật
+   * @throws {Error} Khi không thể kết nối với máy chủ hoặc không có quyền
+   */
+  async updateUser(token: string, id: string, data: UpdateUserDto) {
+    try {
+      return await apiRequest(`users/${id}`, 'PUT', { token, data });
+    } catch (error) {
+      console.error('User API error:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Xóa người dùng (chỉ admin)
+   * 
+   * @param {string} token - Token xác thực của admin
+   * @param {string} id - ID của người dùng cần xóa
+   * @returns {Promise<any>} Kết quả xóa
+   * @throws {Error} Khi không thể kết nối với máy chủ hoặc không có quyền
+   */
+  async deleteUser(token: string, id: string) {
+    try {
+      return await apiRequest(`users/${id}`, 'DELETE', { token });
+    } catch (error) {
+      console.error('User API error:', error);
+      throw error;
+    }
+  },
+  // Add this to your userApi object if not already present:
+
+  restaurant: {
+    async getMyRestaurant(token: string) {
+      try {
+        return await apiRequest("restaurants/my", "GET", { token });
+      } catch (error) {
+        console.error('Restaurant API error:', error);
+        throw error;
+      }
+    },
+
+    async createRestaurant(token: string, data: any) {
+      try {
+        return await apiRequest("restaurants/request", "POST", { token, data });
+      } catch (error) {
+        console.error('Restaurant API error:', error);
+        throw error;
+      }
+    },
+
+    async createRestaurantWithFiles(token: string, formData: FormData) {
+      try {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/restaurants/request`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            // Don't set Content-Type with FormData - browser will set it with boundary
+          },
+          body: formData
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => null);
+          throw new Error(errorData?.message || 'Failed to create restaurant');
+        }
+
+        return await response.json();
+      } catch (error) {
+        console.error('Restaurant API error:', error);
+        throw error;
+      }
+    },
+
+    async updateRestaurant(token: string, id: string, formData: FormData) {
+      try {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/restaurants/${id}/files`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+          body: formData
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => null);
+          throw new Error(errorData?.message || 'Failed to update restaurant');
+        }
+
+        return await response.json();
+      } catch (error) {
+        console.error('Restaurant API error:', error);
+        throw error;
+      }
+    }
+  }
 };

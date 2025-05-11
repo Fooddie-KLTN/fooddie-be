@@ -56,4 +56,9 @@ export const navigation: NavItem[] = [
       },
     ],
   },
+  {
+    title: "Cửa hàng của tôi",
+    path: "/my-shop",
+    isDropdown: false,
+  },
 ];
