@@ -5,7 +5,7 @@ import { RolesGuard } from 'src/common/guard/role.guard';
 import { Permissions } from 'src/common/decorator/permissions.decorator';
 import { Permission } from 'src/constants/permission.enum';
 import { PaymentDto } from './dto/payment.dto';
-import { FirebaseAuthGuard } from 'src/auth/firebase-auth.guard';
+import { AuthGuard } from 'src/auth/auth.guard';
 
 @Controller('orders')
 export class OrderController {
@@ -17,7 +17,7 @@ export class OrderController {
   }
 
   @Get('my')
-  @UseGuards(FirebaseAuthGuard)
+  @UseGuards(AuthGuard)
   async getMyOrders(@Req() req) {
     const userId = req.user.uid;
     return this.orderService.getOrdersByUser(userId);
