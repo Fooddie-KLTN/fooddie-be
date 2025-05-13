@@ -12,6 +12,7 @@ import { UsersService } from '../users/users.service';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule } from '@nestjs/config';
 import { GoogleCloudStorageService } from 'src/gcs/gcs.service';
+import { GeocodingService } from 'src/services/geocoding.service';
 
 @Module({
     imports: [
@@ -21,7 +22,7 @@ import { GoogleCloudStorageService } from 'src/gcs/gcs.service';
         
     ],
     controllers: [RestaurantController],
-    providers: [RestaurantService, UsersService, GoogleCloudStorageService],
+    providers: [RestaurantService, UsersService, GoogleCloudStorageService, GeocodingService],
     exports: [RestaurantService]
 })
 export class RestaurantModule {}

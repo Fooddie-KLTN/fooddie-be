@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { Restaurant } from "@/interface";
 import { apiRequest } from "./base-api";
 
 /**
@@ -16,6 +17,17 @@ interface UpdateUserDto {
   birthday?: Date;
   // Remove address as string since it's an entity relationship in backend
 }
+
+/**
+ * Interface for restaurant response
+ */
+export interface RestaurantResponse {
+  data: Restaurant | null;
+  message?: string;
+  statusCode?: number;
+}
+
+
 
 /**
  * Dịch vụ API cho người dùng đã xác thực
@@ -143,12 +155,12 @@ export const userApi = {
       throw error;
     }
   },
-  // Add this to your userApi object if not already present:
 
   restaurant: {
-    async getMyRestaurant(token: string) {
+    async getMyRestaurant(token: string): Promise<Restaurant> {
       try {
-        return await apiRequest("restaurants/my", "GET", { token });
+        const response = await apiRequest("/restaurants/my", "GET", { token });
+        return response as Restaurant;
       } catch (error) {
         console.error('Restaurant API error:', error);
         throw error;
@@ -157,7 +169,7 @@ export const userApi = {
 
     async createRestaurant(token: string, data: any) {
       try {
-        return await apiRequest("restaurants/request", "POST", { token, data });
+        return await apiRequest("/restaurants/request", "POST", { token, data });
       } catch (error) {
         console.error('Restaurant API error:', error);
         throw error;

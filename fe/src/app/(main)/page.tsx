@@ -5,7 +5,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 
 import CategorySection from "./_components/ui/category";
 import FoodGrid from "./_components/ui/food-grid";
@@ -356,20 +356,22 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
 
   // Filter by category - updated to handle the new category object structure
-  const filteredFoods = activeCategory === "All"
-    ? foods
-    : foods.filter(food => food.category?.name === activeCategory);
+  const filteredFoods = useMemo(() => 
+    activeCategory === "All" ? foods : foods.filter(food => food.category?.name === activeCategory),
+    [foods, activeCategory]
+  );
 
   const getFoodsByRestaurantId = (restaurantId: string) => {
     return sampleFoodItems.filter(food => food.restaurant.id === restaurantId);
   };
   // Filter by search query
-  const searchedFoods = searchQuery
-    ? filteredFoods.filter(food =>
+  const searchedFoods = useMemo(() => 
+    searchQuery ? filteredFoods.filter(food => 
       food.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       food.description.toLowerCase().includes(searchQuery.toLowerCase())
-    )
-    : filteredFoods;
+    ) : filteredFoods,
+    [filteredFoods, searchQuery]
+  );
 
   // Format price to VND
   const formatPrice = (price: number) => {

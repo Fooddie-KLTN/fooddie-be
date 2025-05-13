@@ -4,18 +4,17 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { UserProfile } from '@/interface';
-import { User } from 'firebase/auth'; // Assuming User type from firebase/auth
+import { BackendUser } from '@/api/auth';
 
 interface PersonalInfoCardProps {
     profile: Partial<Omit<UserProfile, 'addresses'>>;
-    user: User | null; // Pass the auth user for fallback display
+    user: BackendUser | null; // Pass the auth user for fallback display
     onInputChange: (e: ChangeEvent<HTMLInputElement>) => void;
     saving: boolean;
 }
 
 export const PersonalInfoCard: React.FC<PersonalInfoCardProps> = ({
     profile,
-    user,
     onInputChange,
     saving,
 }) => {
@@ -27,8 +26,8 @@ export const PersonalInfoCard: React.FC<PersonalInfoCardProps> = ({
             <CardContent className="space-y-6">
                 <div className="flex items-center space-x-4">
                     <Avatar className="h-20 w-20">
-                        <AvatarImage src={profile.avatar || user?.photoURL || ''} alt={profile.name || user?.displayName || 'User'} />
-                        <AvatarFallback>{(profile.name || user?.displayName || 'U').substring(0, 2).toUpperCase()}</AvatarFallback>
+                        <AvatarImage src={profile.avatar || ''} alt={profile.name || 'User'} />
+                        <AvatarFallback>{(profile.name || 'U').substring(0, 2).toUpperCase()}</AvatarFallback>
                     </Avatar>
                     {/* Consider adding avatar upload functionality here */}
                 </div>

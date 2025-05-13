@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Restaurant, RestaurantStatus } from 'src/entities/restaurant.entity';
@@ -6,21 +6,29 @@ import { CreateRestaurantDto } from './dto/create-restaurant.dto';
 import { UpdateRestaurantDto } from './dto/update-restaurant.dto';
 import { User } from 'src/entities/user.entity';
 import { GoogleCloudStorageService } from 'src/gcs/gcs.service';
+import { GeocodingService } from 'src/services/geocoding.service';
+import { Address } from 'src/entities/address.entity';
 
 @Injectable()
 export class RestaurantService {
+    private readonly logger = new Logger(RestaurantService.name);
+    
     constructor(
         @InjectRepository(Restaurant)
         private restaurantRepository: Repository<Restaurant>,
         @InjectRepository(User)
         private userRepository: Repository<User>,
-        private gcsService: GoogleCloudStorageService
+        @InjectRepository(Address)
+        private addressRepository: Repository<Address>,
+        private gcsService: GoogleCloudStorageService,
+        private geocodingService: GeocodingService
     ) {}
 
     /**
-     * Request to create a new restaurant with file uploads
+     * Request to create a new restaurant with file uploads and address
      * 
      * @param createRestaurantDto Restaurant data
+     * @param addressData Address data
      * @param avatarFile Avatar image file
      * @param backgroundFile Background image file
      * @param certificateFile Certificate image file
@@ -28,6 +36,12 @@ export class RestaurantService {
      */
     async requestRestaurantWithFiles(
         createRestaurantDto: CreateRestaurantDto,
+        addressData: {
+            street: string;
+            ward: string;
+            district: string;
+            city: string;
+        },
         avatarFile?: Express.Multer.File,
         backgroundFile?: Express.Multer.File,
         certificateFile?: Express.Multer.File,
@@ -46,10 +60,37 @@ export class RestaurantService {
                 throw new BadRequestException('Owner not found');
             }
 
-            // Upload files to GCS if provided using existing GCS service
-            let avatarUrl: string = "";
-            let backgroundUrl: string = ''
-            let certificateUrl: string = '';
+            // Create address using frontend coordinates if available
+            const address = this.addressRepository.create(addressData);
+
+            // If frontend provides coordinates, use them directly
+            if (createRestaurantDto.latitude && createRestaurantDto.longitude) {
+                address.latitude = parseFloat(createRestaurantDto.latitude);
+                address.longitude = parseFloat(createRestaurantDto.longitude);
+            } else {
+                // Otherwise, try geocoding with Mapbox service
+                try {
+                    const coordinates = await this.geocodingService.geocode(addressData);
+                    if (coordinates) {
+                        address.latitude = coordinates.lat;
+                        address.longitude = coordinates.lng;
+                        this.logger.log(`Geocoding successful for address: ${addressData.street}, ${addressData.city}`);
+                    } else {
+                        this.logger.warn(`Geocoding returned no results for address: ${addressData.street}, ${addressData.city}`);
+                    }
+                } catch (geoError) {
+                    this.logger.error(`Geocoding failed: ${geoError.message}`, geoError.stack);
+                    // Just continue without coordinates
+                }
+            }
+
+            // Save address even without coordinates
+            await this.addressRepository.save(address);
+
+            // Upload files to GCS if provided
+            let avatarUrl = '';
+            let backgroundUrl = '';
+            let certificateUrl = '';
             
             try {
                 // Upload avatar if provided
@@ -66,19 +107,23 @@ export class RestaurantService {
                 if (certificateFile) {
                     certificateUrl = await this.gcsService.uploadPublicFile(certificateFile, 'restaurant-certificates');
                 }
-            } catch (error) {
-                console.error('Error uploading files:', error);
-                throw new BadRequestException(`File upload failed: ${error.message}`);
+            } catch (uploadError) {
+                this.logger.error('Error uploading files:', uploadError);
+                throw new BadRequestException(`File upload failed: ${uploadError.message}`);
             }
             
-            // Create restaurant with uploaded image URLs
+            // Create restaurant with uploaded image URLs and address
+            const { latitude, longitude, ...restDto } = createRestaurantDto;
             const restaurant = this.restaurantRepository.create({
-                ...createRestaurantDto,
+                ...restDto,
+                latitude: latitude ? parseFloat(latitude) : undefined,
+                longitude: longitude ? parseFloat(longitude) : undefined,
                 avatar: avatarUrl,
                 backgroundImage: backgroundUrl,
                 certificateImage: certificateUrl,
                 owner: owner,
-                status: RestaurantStatus.PENDING
+                address: address,
+                status: RestaurantStatus.APPROVED
             });
 
             return await this.restaurantRepository.save(restaurant);
@@ -171,6 +216,125 @@ export class RestaurantService {
     }
 
     /**
+     * Update restaurant with address and handle geocoding failures gracefully
+     */
+    async updateWithAddressAndFiles(
+        id: string,
+        updateRestaurantDto: UpdateRestaurantDto,
+        addressData?: {
+            street: string;
+            ward: string;
+            district: string;
+            city: string;
+        },
+        avatarFile?: Express.Multer.File,
+        backgroundFile?: Express.Multer.File,
+        certificateFile?: Express.Multer.File,
+    ): Promise<Restaurant> {
+        const restaurant = await this.findOne(id);
+        if (!restaurant) {
+            throw new NotFoundException(`Restaurant with ID ${id} not found`);
+        }
+
+        // Handle owner update if provided
+        if (updateRestaurantDto.ownerId) {
+            const owner = await this.userRepository.findOne({
+                where: { id: updateRestaurantDto.ownerId }
+            });
+
+            if (!owner) {
+                throw new BadRequestException('Owner not found');
+            }
+
+            restaurant.owner = owner;
+            delete updateRestaurantDto.ownerId;
+        }
+
+        // Handle address update if provided
+        if (addressData) {
+            let address: Address;
+            
+            // Update existing address or create new one
+            if (restaurant.address) {
+                address = restaurant.address;
+                Object.assign(address, addressData);
+            } else {
+                address = this.addressRepository.create(addressData);
+            }
+            
+            try {
+                // Try to get coordinates, but don't block if it fails
+                const coordinates = await this.geocodingService.geocode(addressData);
+                if (coordinates) {
+                    address.latitude = coordinates.lat;
+                    address.longitude = coordinates.lng;
+                    this.logger.log(`Geocoding successful for address: ${addressData.street}, ${addressData.city}`);
+                } else {
+                    this.logger.warn(`Geocoding returned no results for address: ${addressData.street}, ${addressData.city}`);
+                }
+            } catch (geoError) {
+                // Log the error but continue without geocoding
+                this.logger.error(`Geocoding failed: ${geoError.message}`, geoError.stack);
+                // We'll proceed without coordinates - no need to rethrow
+            }
+            
+            // Save the address
+            await this.addressRepository.save(address);
+            restaurant.address = address;
+        }
+
+        // The rest of the update logic remains the same
+        // Track old images to clean up after successful update
+        const oldAvatarUrl = restaurant.avatar;
+        const oldBackgroundUrl = restaurant.backgroundImage;
+        const oldCertificateUrl = restaurant.certificateImage;
+
+        try {
+            // Upload new images if provided
+            if (avatarFile) {
+                restaurant.avatar = await this.gcsService.uploadPublicFile(avatarFile, 'restaurant-avatars');
+            }
+            
+            if (backgroundFile) {
+                restaurant.backgroundImage = await this.gcsService.uploadPublicFile(backgroundFile, 'restaurant-backgrounds');
+            }
+            
+            if (certificateFile) {
+                restaurant.certificateImage = await this.gcsService.uploadPublicFile(certificateFile, 'restaurant-certificates');
+            }
+
+            // Update restaurant with remaining fields
+            Object.assign(restaurant, updateRestaurantDto);
+
+            // Save updated restaurant
+            const updatedRestaurant = await this.restaurantRepository.save(restaurant);
+            
+            // Clean up old images if they were replaced
+            if (avatarFile && oldAvatarUrl) {
+                await this.gcsService.deleteFile(oldAvatarUrl).catch(err => {
+                    this.logger.warn(`Failed to delete old avatar: ${err.message}`);
+                });
+            }
+            
+            if (backgroundFile && oldBackgroundUrl) {
+                await this.gcsService.deleteFile(oldBackgroundUrl).catch(err => {
+                    this.logger.warn(`Failed to delete old background image: ${err.message}`);
+                });
+            }
+            
+            if (certificateFile && oldCertificateUrl) {
+                await this.gcsService.deleteFile(oldCertificateUrl).catch(err => {
+                    this.logger.warn(`Failed to delete old certificate: ${err.message}`);
+                });
+            }
+
+            return updatedRestaurant;
+        } catch (error) {
+            throw new BadRequestException(`Failed to update restaurant: ${error.message}`);
+        }
+    }
+
+    /**
      * Create a new restaurant
      * 
      * @param createRestaurantDto The restaurant data to create
@@ -188,12 +352,26 @@ export class RestaurantService {
                     throw new Error('Owner not found');
                 }
 
+                // Create restaurant object without address property first
+                const { address: addressString, latitude, longitude, ...restaurantData } = createRestaurantDto;
+                
                 // Create new restaurant
                 const restaurant = this.restaurantRepository.create({
-                    ...createRestaurantDto,
+                    ...restaurantData,
+                    latitude: latitude ? parseFloat(latitude) : undefined,
+                    longitude: longitude ? parseFloat(longitude) : undefined,
                     owner: owner,
                     status: RestaurantStatus.APPROVED
                 });
+
+                // If address string is provided, create an Address entity
+                if (addressString) {
+                    const address = this.addressRepository.create({
+                        street: addressString
+                    });
+                    await this.addressRepository.save(address);
+                    restaurant.address = address;
+                }
 
                 return await this.restaurantRepository.save(restaurant);
             } else {
@@ -222,12 +400,29 @@ export class RestaurantService {
                     throw new BadRequestException('Owner not found');
                 }
 
+                // Extract address from DTO
+                const { address: addressString, ownerId, ...restaurantData } = createRestaurantDto;
+                
+                // Parse latitude and longitude to numbers if they exist
+                const { latitude, longitude, ...rest } = restaurantData;
+                
                 // Create new restaurant request
                 const restaurant = this.restaurantRepository.create({
-                    ...createRestaurantDto,
+                    ...rest,
+                    latitude: latitude ? parseFloat(latitude) : undefined,
+                    longitude: longitude ? parseFloat(longitude) : undefined,
                     owner: owner,
                     status: RestaurantStatus.PENDING
                 });
+
+                // If address string is provided, create an Address entity
+                if (addressString) {
+                    const address = this.addressRepository.create({
+                        street: addressString
+                    });
+                    await this.addressRepository.save(address);
+                    restaurant.address = address;
+                }
 
                 return await this.restaurantRepository.save(restaurant);
             } else {

@@ -12,9 +12,9 @@ import { Address } from 'src/entities/address.entity';
 
 // Use the same enum from user entity
 enum AuthProvider {
-    EMAIL = 'email',
-    GOOGLE = 'google',
-    FACEBOOK = 'facebook',
+  EMAIL = 'email',
+  GOOGLE = 'google',
+  FACEBOOK = 'facebook',
 }
 
 @Injectable()
@@ -31,7 +31,7 @@ export class AdminSeedService implements OnModuleInit {
     private permissionRepository: Repository<Permission>,
     @InjectRepository(Address)
     private addressRepository: Repository<Address>,
-  ) {}
+  ) { }
 
   async onModuleInit() {
     await this.seedPermissions();
@@ -42,24 +42,24 @@ export class AdminSeedService implements OnModuleInit {
   async seedPermissions() {
     // Create standard permission groups if they don't exist
     const standardGroups = [
-      'user', 'role', 'permission', 'restaurant', 'food', 
+      'user', 'role', 'permission', 'restaurant', 'food',
       'order', 'promotion', 'category', 'payment', 'review'
     ];
-    
+
     // Track created permissions for reporting
     const createdPermissions: string[] = [];
 
     // Create CRUD permissions for each resource
     for (const group of standardGroups) {
       const operations = ['CREATE', 'READ', 'UPDATE', 'DELETE', 'LIST'];
-      
+
       for (const operation of operations) {
         const name = `${group.toUpperCase()}_${operation}`;
         const description = `Permission to ${operation.toLowerCase()} ${group}`;
-        
+
         // Check if permission already exists
         let permission = await this.permissionRepository.findOne({ where: { name } });
-        
+
         if (!permission) {
           permission = this.permissionRepository.create({
             name,
@@ -72,16 +72,16 @@ export class AdminSeedService implements OnModuleInit {
         }
       }
     }
-    
+
     // Also add special permissions from enum
     if (PermissionEnum) {
       Object.entries(PermissionEnum).forEach(async ([group, permissions]) => {
         Object.values(permissions).forEach(async (permissionName) => {
           // Check if permission already exists
           let permission = await this.permissionRepository.findOne({ where: { name: permissionName } });
-          
+
           if (!permission) {
-              permission = this.permissionRepository.create({
+            permission = this.permissionRepository.create({
               name: permissionName,
               description: `Permission to ${permissionName.replace(/_/g, ' ').toLowerCase()}`,
               isActive: true
@@ -93,25 +93,25 @@ export class AdminSeedService implements OnModuleInit {
         });
       });
     }
-    
+
     if (createdPermissions.length > 0) {
       this.logger.log(`Created ${createdPermissions.length} new permissions: ${createdPermissions.join(', ')}`);
     } else {
       this.logger.log('No new permissions needed to be created');
     }
-    
+
     this.logger.log('Permission seeding completed successfully');
   }
 
   async seedRoles() {
     // Create SUPER_ADMIN role
-    let superAdminRole = await this.roleRepository.findOne({ 
+    let superAdminRole = await this.roleRepository.findOne({
       where: { name: DefaultRole.SUPER_ADMIN }
     });
-    
+
     // Get all permissions
     const allPermissions = await this.permissionRepository.find();
-    
+
     if (!superAdminRole) {
       superAdminRole = this.roleRepository.create({
         name: DefaultRole.SUPER_ADMIN,
@@ -130,10 +130,10 @@ export class AdminSeedService implements OnModuleInit {
     }
 
     // Create ADMINISTRATOR role
-    let adminRole = await this.roleRepository.findOne({ 
+    let adminRole = await this.roleRepository.findOne({
       where: { name: DefaultRole.ADMINISTRATOR }
     });
-    
+
     if (!adminRole) {
       adminRole = this.roleRepository.create({
         name: DefaultRole.ADMINISTRATOR,
@@ -147,16 +147,16 @@ export class AdminSeedService implements OnModuleInit {
     }
 
     // Create USER role
-    let userRole = await this.roleRepository.findOne({ 
+    let userRole = await this.roleRepository.findOne({
       where: { name: DefaultRole.USER }
     });
-    
+
     if (!userRole) {
       // Get basic user permissions only
-      const userPermissions = allPermissions.filter(p => 
+      const userPermissions = allPermissions.filter(p =>
         p.name.includes('USER_READ') || p.name.includes('PROFILE_')
       );
-      
+
       userRole = this.roleRepository.create({
         name: DefaultRole.USER,
         displayName: 'Standard User',
@@ -171,11 +171,11 @@ export class AdminSeedService implements OnModuleInit {
 
   async seedAdmin() {
     // Get admin role
-    const superAdminRole = await this.roleRepository.findOne({ 
+    const superAdminRole = await this.roleRepository.findOne({
       where: { name: DefaultRole.SUPER_ADMIN },
       relations: ['permissions']
     });
-    
+
     if (!superAdminRole) {
       this.logger.error('Super Admin role not found. Cannot create admin user.');
       return;
@@ -184,27 +184,25 @@ export class AdminSeedService implements OnModuleInit {
     // Create default admin address
     const adminAddress = this.addressRepository.create({
       street: 'Admin Street',
-      city: 'Admin City',
-      state: 'Admin State',
-      postalCode: '00000',
-      phone: '0123456789',
-      country: 'Vietnam'
+      ward: 'Admin Ward',
+      district: 'Admin District',
+      city: 'Admin City'
     });
     await this.addressRepository.save(adminAddress);
 
     // Create admin user if it doesn't exist
-    let adminUser = await this.userRepository.findOne({ 
+    let adminUser = await this.userRepository.findOne({
       where: { username: 'admin' },
       relations: ['address']
     });
-    
+
     if (!adminUser) {
       // Generate UUID for admin user (28 characters)
       const adminId = uuidv4().substring(0, 28);
-      
+
       // Hash default password 'admin123' for admin
       const hashedPassword = await bcrypt.hash('admin123', 10);
-      
+
       adminUser = this.userRepository.create({
         id: adminId,
         username: 'admin',
@@ -216,22 +214,22 @@ export class AdminSeedService implements OnModuleInit {
         authProvider: AuthProvider.EMAIL,
         isActive: true
       });
-      
+
       // Save user first to get ID
       adminUser = await this.userRepository.save(adminUser);
-      
+
       // Now set up address relationship
       adminAddress.user = adminUser;
       await this.addressRepository.save(adminAddress);
-      
+
       this.logger.log(`Admin user created with ID: ${adminId} and default password: admin123`);
     } else {
       this.logger.log('Admin user already exists.');
-      
+
       // Update admin's address if needed
       if (!adminUser.address) {
-        adminAddress.user = adminUser;
-        await this.addressRepository.save(adminAddress);
+        adminUser.address = adminAddress;
+        await this.userRepository.save(adminUser);
         this.logger.log('Added address to existing admin user');
       }
     }

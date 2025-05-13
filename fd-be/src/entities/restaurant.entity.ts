@@ -4,6 +4,7 @@ import { Entity, Column, ManyToOne, JoinColumn, PrimaryColumn, OneToMany, OneToO
 import { User } from './user.entity';
 import { Food } from './food.entity';
 import { Order } from './order.entity';
+import { Address } from './address.entity';
 
 
 export enum RestaurantStatus {
@@ -26,8 +27,11 @@ export class Restaurant {
     @Column({ nullable: true })
     backgroundImage: string;
 
-    @Column({ nullable: true })
-    address: string;
+    @ManyToOne(() => Address, address => address.restaurants, { 
+        cascade: true,
+        eager: true 
+      })
+      address: Address;
 
     @Column({ nullable: true })
     avatar: string;
@@ -69,5 +73,6 @@ export class Restaurant {
 
     @OneToMany(() => Order, (order) => order.restaurant)
     orders: Order[];
+
 
 }

@@ -7,28 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { useRouter, useParams } from 'next/navigation';
+import { userApi } from '@/api/user';
 
-// --- API Functions ---
-async function fetchRestaurantById(token: string, id: string): Promise<Restaurant | null> {
-    try {
-        const response = await fetch(`/api/restaurants/${id}`, {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json',
-            },
-        });
-
-        if (!response.ok) {
-            throw new Error(`Failed to fetch restaurant: ${response.statusText}`);
-        }
-
-        return await response.json();
-    } catch (error) {
-        console.error('Error fetching restaurant:', error);
-        return null;
-    }
-}
 // --- End API Functions ---
 
 export default function EditRestaurantPage() {
@@ -37,7 +17,7 @@ export default function EditRestaurantPage() {
     const params = useParams();
     const restaurantId = Array.isArray(params.id) ? params.id[0] : params.id;
     
-    const [, setRestaurant] = useState<Partial<Restaurant>>({});
+    const [restaurant, setRestaurant] = useState<Partial<Restaurant>>({});
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [navigated, setNavigated] = useState(false);
@@ -68,7 +48,7 @@ export default function EditRestaurantPage() {
                     router.push('/not-found');
                     return;
                 }   
-                const fetchedRestaurant = await fetchRestaurantById(token, restaurantId);
+                const fetchedRestaurant = await userApi.restaurant.getMyRestaurant(token);
                 
                 if (!fetchedRestaurant) {
                     toast.error("Restaurant not found");
@@ -84,12 +64,6 @@ export default function EditRestaurantPage() {
                 }
                 
                 setRestaurant(fetchedRestaurant);
-                
-                // Navigate to statistics page after verifying ownership
-                if (!navigated) {
-                    setNavigated(true);
-                    router.push(`${window.location.pathname}/statistics`);
-                }
             } catch (err) {
                 console.error("Failed to fetch restaurant:", err);
                 setError(err instanceof Error ? err.message : "An unknown error occurred.");
@@ -100,7 +74,14 @@ export default function EditRestaurantPage() {
         };
 
         loadRestaurant();
-    }, [user, getToken, router, authLoading, navigated, restaurantId]);
+    }, [user, getToken, router, authLoading, restaurantId]);
+
+    useEffect(() => {
+        if (restaurant && !navigated) {
+            setNavigated(true);
+            router.push(`${window.location.pathname}/statistics`);
+        }
+    }, [restaurant, navigated, router]);
 
     // Loading state
     if (loading || authLoading) {

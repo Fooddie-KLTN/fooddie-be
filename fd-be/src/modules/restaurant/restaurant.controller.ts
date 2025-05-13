@@ -22,41 +22,71 @@ export class RestaurantController {
   }
 
   @Post('request')
-  //@UseGuards(FirebaseAuthGuard)
-  async requestRestaurant(@Body() createRestaurantDto: CreateRestaurantDto): Promise<Restaurant> {
-    return await this.restaurantService.requestRestaurant(createRestaurantDto);
-  }
-
-  @Post('request')
   @UseGuards(AuthGuard)
   @UseInterceptors(
     FileFieldsInterceptor([
       { name: 'avatar', maxCount: 1 },
       { name: 'backgroundImage', maxCount: 1 },
       { name: 'certificateImage', maxCount: 1 },
-    ], {
-      limits: {
-        fileSize: 5 * 1024 * 1024, // 5MB limit per file
-      }
-    })
+    ])
   )
   async requestRestaurantWithFiles(
-    @Body() createRestaurantDto: CreateRestaurantDto,
+    @Body() createDto: any,
     @UploadedFiles() files: {
       avatar?: Express.Multer.File[],
       backgroundImage?: Express.Multer.File[],
       certificateImage?: Express.Multer.File[],
     }
   ): Promise<Restaurant> {
-    const avatarFile = files?.avatar?.[0];
-    const backgroundFile = files?.backgroundImage?.[0];
-    const certificateFile = files?.certificateImage?.[0];
-    
+    // Extract restaurant data
+    const restaurantData: CreateRestaurantDto = {
+      name: createDto.name,
+      description: createDto.description,
+      phoneNumber: createDto.phoneNumber,
+      openTime: createDto.openTime,
+      closeTime: createDto.closeTime,
+      licenseCode: createDto.licenseCode,
+      ownerId: createDto.ownerId,
+      latitude: createDto.latitude,
+      longitude: createDto.longitude
+    };
+  
+    // Extract address data based on what's provided
+    let addressData: {
+      street: string;
+      ward: string;
+      district: string;
+      city: string;
+    };
+  
+    // Check if we have a full address from Mapbox
+    if (createDto.address) {
+      // Parse the address into components - assuming format like "street, ward, district, city"
+      const addressParts = createDto.address.split(',').map(part => part.trim());
+      
+      addressData = {
+        // Use as many parts as available, with fallbacks
+        street: addressParts[0] || 'Unknown street',
+        ward: addressParts[1] || 'Unknown ward',
+        district: addressParts[2] || 'Unknown district', 
+        city: addressParts[3] || 'Unknown city'
+      };
+    } else {
+      // Use the individual fields if provided
+      addressData = {
+        street: createDto.addressStreet || 'Unknown street',
+        ward: createDto.addressWard || 'Unknown ward',
+        district: createDto.addressDistrict || 'Unknown district',
+        city: createDto.addressCity || 'Unknown city'
+      };
+    }
+  
     return await this.restaurantService.requestRestaurantWithFiles(
-      createRestaurantDto,
-      avatarFile,
-      backgroundFile,
-      certificateFile
+      restaurantData,
+      addressData,
+      files.avatar?.[0],
+      files.backgroundImage?.[0],
+      files.certificateImage?.[0]
     );
   }
 

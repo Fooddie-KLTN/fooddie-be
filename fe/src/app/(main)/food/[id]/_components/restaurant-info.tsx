@@ -3,7 +3,7 @@ import { MapPin, Clock } from 'lucide-react';
 
 interface RestaurantInfoProps {
   restaurantName: string;
-  deliveryTime?: string;
+  deliveryTime?: string | number;
 }
 
 const RestaurantInfo = ({ restaurantName, deliveryTime }: RestaurantInfoProps) => {
