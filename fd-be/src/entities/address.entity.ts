@@ -1,38 +1,35 @@
 /* eslint-disable prettier/prettier */
 // src/users/entities/user.entity.ts
-import { Entity, Column, ManyToOne, JoinColumn, PrimaryColumn, PrimaryGeneratedColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, OneToMany, OneToOne, ManyToOne } from 'typeorm';
+import { Restaurant } from './restaurant.entity';
 import { User } from './user.entity';
 
-@Entity({ name: 'adresses' })
+@Entity()
 export class Address {
-    @PrimaryGeneratedColumn("uuid")
-    id: string;
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
-    @Column({ type: 'decimal', precision: 10, scale: 7, nullable: true })
-    latitude: number;
+  @Column()
+  street: string;
 
-    @Column({ type: 'decimal', precision: 10, scale: 7, nullable: true })
-    longitude: number;
+  @Column()
+  ward: string;
 
-    @Column({ nullable: true })
-    street: string;
+  @Column()
+  district: string;
 
-    @Column({ nullable: true })
-    city: string;
+  @Column()
+  city: string;
 
-    @ManyToOne(() => User, { eager: true })
-    @JoinColumn({ name: 'user_id' })
-    user: User;
+  @Column({ type: 'double precision', nullable: true })
+  latitude: number;
 
-    @Column({ nullable: true })
-    state: string;
+  @Column({ type: 'double precision', nullable: true })
+  longitude: number;
 
-    @Column({ nullable: true })
-    postalCode: string;
+  @OneToMany(() => Restaurant, restaurant => restaurant.address)
+  restaurants: Restaurant[];
 
-    @Column({ nullable: true })
-    phone: string;
-
-    @Column({ nullable: true })
-    country: string;
+  @ManyToOne(() => User, user => user.address)
+  user: User;
 }

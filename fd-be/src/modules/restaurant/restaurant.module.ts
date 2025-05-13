@@ -9,12 +9,20 @@ import { Promotion } from 'src/entities/promotion.entity';
 import { Restaurant } from 'src/entities/restaurant.entity';
 import { Role } from 'src/entities/role.entity';
 import { UsersService } from '../users/users.service';
+import { JwtModule } from '@nestjs/jwt';
+import { ConfigModule } from '@nestjs/config';
+import { GoogleCloudStorageService } from 'src/gcs/gcs.service';
+import { GeocodingService } from 'src/services/geocoding.service';
 
 @Module({
-    imports: [ TypeOrmModule.forFeature([Restaurant, User, Role, Address, Food, Promotion])
+    imports: [
+        TypeOrmModule.forFeature([Restaurant, User, Role, Address, Food, Promotion]),
+        JwtModule,
+        ConfigModule,
+        
     ],
     controllers: [RestaurantController],
-    providers: [RestaurantService, UsersService],
+    providers: [RestaurantService, UsersService, GoogleCloudStorageService, GeocodingService],
     exports: [RestaurantService]
 })
 export class RestaurantModule {}

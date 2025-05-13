@@ -6,6 +6,7 @@ import { Address } from './address.entity';
 import { ShipperCertificateInfo } from './shipperCertificateInfo.entity';
 import { Checkout } from './checkout.entity';
 import { Order } from './order.entity';
+import { Restaurant } from './restaurant.entity';
 
 
 enum AuthProvider {
@@ -83,4 +84,7 @@ export class User {
 
     @OneToMany(()=> Order, order=> order.user)
     orders: Order[]; // Danh sách các đơn hàng của người dùng
+
+    @OneToMany(()=> Restaurant, restaurant=> restaurant.owner)
+    restaurants: Restaurant[]; // Danh sách các nhà hàng của người dùng (nếu là chủ nhà hàng)
 }

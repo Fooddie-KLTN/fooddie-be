@@ -50,21 +50,52 @@ export interface UserProfile {
   addresses?: Address[]; // Changed to array
   currentAddress?: Address; // Optional: Current address for quick access
 }
+/**
+ * Interface for restaurant details
+ */
 export interface Restaurant {
   id: string;
   name: string;
-  phoneNumber?: string;
-  backgroundImage?: string;
-  address?: string;
   avatar?: string;
   description?: string;
+  status?: string;
+  phoneNumber?: string;
   openTime?: string;
   closeTime?: string;
-  status?: RestaurantStatus;
-  latitude?: number;
-  longitude?: number;
-  distance?: string; // Frontend-only calculated field
-  deliveryTime?: string; // Frontend-only calculated field
+  licenseCode?: string;
+  distance?: number | string; // Distance in km
+  deliveryTime?: number | string; // Delivery time in minutes
+  rating?: number; // Average rating
+  certificateImage?: string;
+  backgroundImage?: string;
+  latitude?: string | number;  // It appears as string in your data
+  longitude?: string | number; // It appears as string in your data
+  foods?: FoodPreview[];
+  owner?: {
+    id: string;
+    name: string;
+    username?: string;
+    email?: string;
+    phone?: string | null;
+    avatar?: string | null;
+    isActive?: boolean;
+    role?: {
+      id: string;
+      name: string;
+      displayName: string;
+      description: string;
+      isSystem: boolean;
+    }
+  };
+  address?: {
+    id?: string;
+    street: string;
+    ward: string;
+    district: string;
+    city: string;
+    latitude?: number;
+    longitude?: number;
+  };
 }
 
 /**
