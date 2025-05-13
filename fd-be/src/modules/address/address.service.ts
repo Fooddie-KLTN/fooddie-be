@@ -28,10 +28,11 @@ export class AddressService {
     }
 
     async getAddressesByUser(userId: string) {
-        return await this.addressRepository.find({
-            where: { user: { id: userId } },
-            relations: ['user'],
-        });
+        return await this.addressRepository
+            .createQueryBuilder('address')
+            .innerJoin('address.users', 'user')
+            .where('user.id = :userId', { userId })
+            .getMany();
     }
 
     async updateAddress(id: string, data: UpdateAddressDto) {

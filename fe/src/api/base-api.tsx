@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Thực hiện yêu cầu HTTP đến API backend và xử lý phản hồi.
  * 
@@ -22,9 +23,9 @@
  * @param {string} [options.token] - Token xác thực JWT sẽ được gửi trong header 'Authorization'.
  *                                  Nếu được cung cấp, header sẽ có định dạng: 'Bearer {token}'.
  * 
- * @param {Record<string, string|number>} [options.query] - Các tham số truy vấn sẽ được thêm vào URL.
- *                                                         Đối tượng này sẽ được chuyển đổi thành chuỗi query.
- *                                                         Ví dụ: { page: 1, size: 10 } → '?page=1&size=10'.
+ * @param {FormData} [options.formData] - Dữ liệu FormData sẽ được gửi trong phần thân của yêu cầu.
+ *                                       Chủ yếu được sử dụng cho các phương thức 'POST', 'PUT', 'PATCH'.
+ *                                       Không cần đặt Content-Type, trình duyệt sẽ tự động xử lý.
  * 
  * @returns {Promise<T>} Promise giải quyết thành dữ liệu trả về từ API sau khi đã được phân tích từ JSON.
  *                       Kiểu dữ liệu trả về được chỉ định bởi tham số kiểu T.
@@ -87,30 +88,36 @@ export async function apiRequest<T>(
      * Ví dụ: { page: 1, size: 10 } → '?page=1&size=10'
      */
     query?: Record<string, string | number>;
+
+    /**
+     * Dữ liệu FormData sẽ được gửi trong phần thân của yêu cầu.
+     * Không cần đặt Content-Type, trình duyệt sẽ tự động xử lý.
+     */
+    formData?: FormData;
   }
 ): Promise<T> {
+  const { token, data, formData } = options || {};
+
   // Tạo URL đầy đủ cho yêu cầu
   let url = `${process.env.NEXT_PUBLIC_API_URL}${endpoint}`;
 
   // Tạo headers cho yêu cầu
-  const headers: HeadersInit = {
-    'Content-Type': 'application/json',
-  };
+  const headers: HeadersInit = {};
 
   // Thêm token vào headers nếu có
-  if (options?.token) {
-    headers['Authorization'] = `Bearer ${options.token}`;
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
   }
 
-  // Tạo các tùy chọn cho yêu cầu
-  const requestOptions: RequestInit = {
-    method,
-    headers,
-  };
+  // Tạo body cho yêu cầu
+  let body: any = undefined;
 
-  // Thêm dữ liệu vào body của yêu cầu nếu có
-  if (options?.data) {
-    requestOptions.body = JSON.stringify(options.data);
+  if (formData) {
+    // Đối với FormData, không cần đặt Content-Type
+    body = formData;
+  } else if (data) {
+    headers['Content-Type'] = 'application/json';
+    body = JSON.stringify(data);
   }
 
   // Thêm tham số query vào URL nếu có
@@ -124,12 +131,16 @@ export async function apiRequest<T>(
   }
 
   // Thực hiện yêu cầu
-  const response = await fetch(url, requestOptions);
+  const response = await fetch(url, {
+    method,
+    headers,
+    body,
+  });
 
   // Kiểm tra xem có lỗi xảy ra không
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.message || 'Yêu cầu thất bại');
+    const errorData = await response.json().catch(() => null);
+    throw new Error(errorData?.message || `API request failed with status ${response.status}`);
   }
 
   // Trả về dữ liệu trả về
