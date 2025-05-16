@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Food } from 'src/entities/food.entity';
@@ -6,6 +6,7 @@ import { CreateFoodDto } from './dto/create-food.dto';
 import { UpdateFoodDto } from './dto/update-food.dto';
 import { Restaurant } from 'src/entities/restaurant.entity';
 import { Category } from 'src/entities/category.entity';
+import { GoogleCloudStorageService } from 'src/gcs/gcs.service'; // Add this import
 
 @Injectable()
 export class FoodService {
@@ -16,70 +17,85 @@ export class FoodService {
         private restaurantRepository: Repository<Restaurant>,
         @InjectRepository(Category)
         private categoryRepository: Repository<Category>,
+        private readonly gcsService: GoogleCloudStorageService, // Inject GCS service
     ) { }
 
-/**
- * Create a new food item
- * 
- * @param createFoodDto The food data to create
- * @returns The created food
- */
-async create(createFoodDto: CreateFoodDto): Promise<Food> {
-    try {
-      // Validate restaurant exists
-      const restaurant = await this.restaurantRepository.findOne({
-        where: { id: createFoodDto.restaurantId }
-      });
-      
-      if (!restaurant) {
-        throw new BadRequestException(`Restaurant with ID ${createFoodDto.restaurantId} not found`);
-      }
-      
-      const category = await this.categoryRepository.findOne({
-        where: { id: createFoodDto.categoryId }
-        });
-        if (!category) {
-            throw new BadRequestException(`Category with ID ${createFoodDto.categoryId} not found`);
-        }
-      // Validate category if provided
+    /**
+     * Create a new food item
+     * 
+     * @param createFoodDto The food data to create
+     * @returns The created food
+     */
+    async create(createFoodDto: CreateFoodDto): Promise<Food> {
+        try {
+            // Validate restaurant exists
+            const restaurant = await this.restaurantRepository.findOne({
+                where: { id: createFoodDto.restaurantId }
+            });
 
-      
-      // Create a new Food entity with proper type conversions
-      const food = new Food();
-      food.name = createFoodDto.name;
-      food.description = createFoodDto.description || "";
-      food.price = createFoodDto.price ? parseFloat(createFoodDto.price) : 0;
-      food.image = createFoodDto.image || "";
-      food.discountPercent = createFoodDto.discountPercent ? parseFloat(createFoodDto.discountPercent) : 0;
-      food.status = createFoodDto.status || 'available';
-      food.purchasedNumber = createFoodDto.purchasedNumber ? parseInt(createFoodDto.purchasedNumber, 10) : 0;
-      food.soldCount = 0;
-      food.rating = 0;
-      food.imageUrls = [];
-      food.tag = "";
-      food.preparationTime = createFoodDto.preparationTime ? parseInt(createFoodDto.preparationTime, 10) : 0;
-      food.restaurant = restaurant;
-      
-      // Only assign category if it exists (undefined is safer than null for TypeScript)
-      if (category) {
-        food.category = category;
-      }
-      
-      // Save the entity
-      const savedFood = await this.foodRepository.save(food);
-      return savedFood;
-      
-    } catch (error) {
-      if (error instanceof BadRequestException) {
-        throw error;
-      }
-      
-      console.error('Food creation error:', error);
-      throw new BadRequestException(
-        `Failed to create food: ${error.message || 'Unknown error'}`
-      );
+            if (!restaurant) {
+                throw new BadRequestException(`Restaurant with ID ${createFoodDto.restaurantId} not found`);
+            }
+
+            let category: Category | undefined = undefined;
+            if (createFoodDto.categoryId) {
+                const foundCategory = await this.categoryRepository.findOne({
+                    where: { id: createFoodDto.categoryId }
+                });
+                if (!foundCategory) {
+                    throw new BadRequestException(`Category with ID ${createFoodDto.categoryId} not found`);
+                }
+                category = foundCategory;
+            }
+
+            // Create a new Food entity with proper type conversions
+            const food = new Food();
+            food.name = createFoodDto.name;
+            food.description = createFoodDto.description || "";
+            food.price = createFoodDto.price ? parseFloat(createFoodDto.price) : 0;
+            food.image = createFoodDto.image || "";
+            food.discountPercent = createFoodDto.discountPercent ? parseFloat(createFoodDto.discountPercent) : 0;
+            food.status = createFoodDto.status || 'available';
+            food.purchasedNumber = createFoodDto.purchasedNumber ? parseInt(createFoodDto.purchasedNumber, 10) : 0;
+            food.soldCount = 0;
+            food.rating = 0;
+            food.imageUrls = [];
+            food.tag = "";
+            food.preparationTime = createFoodDto.preparationTime ? parseInt(createFoodDto.preparationTime, 10) : 0;
+            food.restaurant = restaurant;
+
+            // Only assign category if it exists
+            if (category) {
+                food.category = category;
+            }
+
+            // Save the entity
+            const savedFood = await this.foodRepository.save(food);
+            return savedFood;
+
+        } catch (error) {
+            if (error instanceof BadRequestException) {
+                throw error;
+            }
+
+            console.error('Food creation error:', error);
+            throw new BadRequestException(
+                `Failed to create food: ${error.message || 'Unknown error'}`
+            );
+        }
     }
-  }
+
+    async createIfOwner(createFoodDto: CreateFoodDto, userId: string): Promise<Food> {
+        const restaurant = await this.restaurantRepository.findOne({
+            where: { id: createFoodDto.restaurantId },
+            relations: ['owner'],
+        });
+        if (!restaurant) throw new BadRequestException('Restaurant not found');
+        if (restaurant.owner.id !== userId) {
+            throw new UnauthorizedException('You are not the owner of this restaurant');
+        }
+        return this.create(createFoodDto);
+    }
 
     /**
      * Get all foods with pagination
@@ -224,12 +240,12 @@ async create(createFoodDto: CreateFoodDto): Promise<Food> {
 
 
     /**
- * Get newest foods with pagination
- * 
- * @param page The page number
- * @param pageSize The number of items per page
- * @returns List of newest foods with pagination metadata
- */
+     * Get newest foods with pagination
+     * 
+     * @param page The page number
+     * @param pageSize The number of items per page
+     * @returns List of newest foods with pagination metadata
+     */
     async findNewest(page = 1, pageSize = 10): Promise<{
         items: Food[];
         totalItems: number;
@@ -463,6 +479,7 @@ async create(createFoodDto: CreateFoodDto): Promise<Food> {
             totalPages: Math.ceil(totalItems / pageSize),
         };
     }
+
     /**
      * Get a specific food by ID
      * 
@@ -491,6 +508,33 @@ async create(createFoodDto: CreateFoodDto): Promise<Food> {
      */
     async update(id: string, updateFoodDto: UpdateFoodDto): Promise<Food> {
         const food = await this.findOne(id);
+
+        // --- Handle old image deletion ---
+        // Delete old cover image if changed
+        if (updateFoodDto.image && updateFoodDto.image !== food.image && food.image) {
+            await this.gcsService.deleteFile(food.image).catch(err => {
+                // Log and ignore error if file doesn't exist
+                console.warn('Failed to delete old food image:', err?.message || err);
+            });
+        }
+
+        // Delete old gallery images if changed
+        if (
+            updateFoodDto.imageUrls &&
+            Array.isArray(updateFoodDto.imageUrls) &&
+            food.imageUrls &&
+            Array.isArray(food.imageUrls)
+        ) {
+            // Find images that are in old but not in new
+            const removedImages = food.imageUrls.filter(
+                (oldUrl) => !(updateFoodDto.imageUrls || []).includes(oldUrl)
+            );
+            for (const url of removedImages) {
+                await this.gcsService.deleteFile(url).catch(err => {
+                    console.warn('Failed to delete old food gallery image:', err?.message || err);
+                });
+            }
+        }
 
         // Handle restaurant update if provided
         if (updateFoodDto.restaurantId) {
@@ -528,6 +572,18 @@ async create(createFoodDto: CreateFoodDto): Promise<Food> {
         return await this.foodRepository.save(food);
     }
 
+    async updateIfOwner(id: string, updateFoodDto: UpdateFoodDto, userId: string): Promise<Food> {
+        const food = await this.foodRepository.findOne({
+            where: { id },
+            relations: ['restaurant', 'restaurant.owner'],
+        });
+        if (!food) throw new NotFoundException('Food not found');
+        if (!food.restaurant || food.restaurant.owner.id !== userId) {
+            throw new UnauthorizedException('You are not the owner of this restaurant');
+        }
+        return this.update(id, updateFoodDto);
+    }
+
     /**
      * Delete a food
      * 
@@ -539,5 +595,30 @@ async create(createFoodDto: CreateFoodDto): Promise<Food> {
         if (result.affected === 0) {
             throw new NotFoundException(`Food with ID ${id} not found`);
         }
+    }
+
+    async removeIfOwner(id: string, userId: string): Promise<void> {
+        const food = await this.foodRepository.findOne({
+            where: { id },
+            relations: ['restaurant', 'restaurant.owner'],
+        });
+        if (!food) throw new NotFoundException('Food not found');
+        if (!food.restaurant || food.restaurant.owner.id !== userId) {
+            throw new UnauthorizedException('You are not the owner of this restaurant');
+        }
+        return this.remove(id);
+    }
+
+    async updateStatusIfOwner(foodId: string, status: string, userId: string): Promise<Food> {
+        const food = await this.foodRepository.findOne({
+            where: { id: foodId },
+            relations: ['restaurant'],
+        });
+        if (!food) throw new NotFoundException('Food not found');
+        if (!food.restaurant || food.restaurant.owner.id !== userId) {
+            throw new UnauthorizedException('You are not the owner of this restaurant');
+        }
+        food.status = status;
+        return await this.foodRepository.save(food);
     }
 }

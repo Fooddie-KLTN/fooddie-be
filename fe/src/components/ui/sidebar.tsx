@@ -204,6 +204,7 @@ const Sidebar = () => {
     // For other paths
     const normalizedTabPath = tabPath.replace(/\/$/, "");
     const normalizedCurrentPath = currentPath.replace(/\/$/, "");
+    if (normalizedTabPath === "/admin" && normalizedCurrentPath !== "/admin") return false;
     return normalizedCurrentPath.startsWith(normalizedTabPath);
   };
 
@@ -211,17 +212,17 @@ const Sidebar = () => {
     <>
       {(isMobile || isTablet) && !sidebarOpen && !state && (
         <button
-          title="close"
-          className="fixed top-1/2 -left-1 z-50 p-2 bg-white rounded-md shadow-md hover:bg-gray-100 transition-colors"
+          title="open menu"
+          className="fixed top-1/2 -left-1 z-50 p-2 bg-primary text-white rounded-md shadow-md hover:bg-primary/80 transition-colors"
           onClick={handleToggle}
         >
-          <MenuIcon className="w-6 h-6 text-gray-600" />
+          <MenuIcon className="w-6 h-6" />
         </button>
       )}
 
       <aside
         className={`
-    fixed h-screen z-50 flex flex-col bg-white shadow-lg
+    fixed h-screen z-50 flex flex-col bg-primary shadow-lg text-white
     transition-all duration-300 ease-in-out
     ${
       isMobile || isTablet
@@ -233,18 +234,18 @@ const Sidebar = () => {
   `}
       >
         {/* Header with close button */}
-        <div className="flex items-center justify-between p-4 border-b">
+        <div className="flex items-center justify-between p-4 border-b border-primary/50">
           <NavbarBrand state={state} setState={setState} showButton={false} />
           <div className="flex items-center gap-2">
             <button
-              className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
+              className="p-2 text-primary-100 hover:text-white hover:bg-primary/50 rounded-full transition-colors"
               title="notification"
             >
               <BellRingIcon className="h-5 w-5" />
             </button>
             {(isMobile || isTablet) && (
               <button
-                className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
+                className="p-2 text-primary-100 hover:text-white hover:bg-primary/50 rounded-full transition-colors"
                 onClick={() => {
                   setSidebarOpen(false);
                   setState(false);
@@ -269,9 +270,9 @@ const Sidebar = () => {
                     href={dashboardTab.path}
                     onClick={handleNavigation}
                     className={`flex items-center p-2 rounded-md transition-colors ${
-                      pathname === "/admin" // Direct comparison for dashboard
-                        ? "bg-blue-500 text-white hover:bg-blue-600"
-                        : "text-gray-700 hover:bg-gray-100"
+                      pathname === "/admin"
+                        ? "bg-primary/70 text-white"
+                        : "text-primary-100 hover:bg-primary/50 hover:text-white"
                     }`}
                   >
                     {dashboardTab.icon && (
@@ -279,14 +280,14 @@ const Sidebar = () => {
                         className={`w-5 h-5 min-w-[1.25rem] mr-2 ${
                           pathname === "/admin"
                             ? "text-white"
-                            : "text-gray-500"
+                            : "text-primary-200"
                         }`}
                       />
                     )}
                     <span className="truncate">{dashboardTab.label}</span>
                   </Link>
                 </li>
-              )}{" "}
+              )}
               {renderedTabs.map((tab) => {
                 const isActive =
                   tab.path && isPathActive(`/admin${tab.path}`, pathname);
@@ -301,14 +302,14 @@ const Sidebar = () => {
                           onClick={handleNavigation}
                           className={`flex items-center p-2 rounded-md flex-1 transition-colors ${
                             isActive
-                              ? "bg-blue-500 text-white hover:bg-blue-600"
-                              : "text-gray-700 hover:bg-gray-100"
+                              ? "bg-primary/70 text-white"
+                              : "text-primary-100 hover:bg-primary/50 hover:text-white"
                           }`}
                         >
                           {tab.icon && (
                             <tab.icon
                               className={`w-5 h-5 min-w-[1.25rem] mr-2 ${
-                                isActive ? "text-white" : "text-gray-500"
+                                isActive ? "text-white" : "text-primary-200"
                               }`}
                             />
                           )}
@@ -316,22 +317,22 @@ const Sidebar = () => {
                         </Link>
                       ) : (
                         <span
-                          className={`flex items-center p-2 rounded-md text-gray-700 flex-1 cursor-pointer hover:bg-gray-100 ${
-                            openTabs.includes(tab.label) ? "bg-gray-50" : ""
+                          className={`flex items-center p-2 rounded-md text-primary-100 flex-1 cursor-pointer hover:bg-primary/50 hover:text-white ${
+                            openTabs.includes(tab.label) ? "bg-primary/50" : ""
                           }`}
                           onClick={() =>
                             hasChildren && toggleTab(tab.label)
                           }
                         >
                           {tab.icon && (
-                            <tab.icon className="w-5 h-5 min-w-[1.25rem] mr-2 text-gray-500" />
+                            <tab.icon className="w-5 h-5 min-w-[1.25rem] mr-2 text-primary-200" />
                           )}
                           <span className="truncate">{tab.label}</span>
                         </span>
                       )}
                       {hasChildren && (
                         <ChevronDownIcon
-                          className={`w-5 h-5 transform transition-transform text-gray-500 ${
+                          className={`w-5 h-5 transform transition-transform text-primary-200 ${
                             openTabs.includes(tab.label) ? "rotate-180" : ""
                           }`}
                           onClick={() => toggleTab(tab.label)}
@@ -358,8 +359,8 @@ const Sidebar = () => {
                                     onClick={handleNavigation}
                                     className={`flex items-center p-2 rounded-md transition-colors ${
                                       isChildActive
-                                        ? "bg-blue-500 text-white hover:bg-blue-600"
-                                        : "text-gray-600 hover:bg-gray-100"
+                                        ? "bg-primary/70 text-white"
+                                        : "text-primary-100 hover:bg-primary/50 hover:text-white"
                                     }`}
                                   >
                                     <span className="truncate">
@@ -390,14 +391,14 @@ const Sidebar = () => {
                       onClick={handleNavigation}
                       className={`flex items-center p-2 rounded-md transition-colors ${
                         isActive
-                          ? "bg-blue-500 text-white hover:bg-blue-600"
-                          : "text-gray-700 hover:bg-gray-100"
+                          ? "bg-primary/70 text-white"
+                          : "text-primary-100 hover:bg-primary/50 hover:text-white"
                       }`}
                     >
                       {tab.icon && (
                         <tab.icon
                           className={`w-5 h-5 min-w-[1.25rem] mr-2 ${
-                            isActive ? "text-white" : "text-gray-500"
+                            isActive ? "text-white" : "text-primary-200"
                           }`}
                         />
                       )}
@@ -405,29 +406,31 @@ const Sidebar = () => {
                     </Link>
                   </li>
                 );
-              })}{" "}
+              })}
             </ul>
           </div>
         </div>
-        <div className="p-4 border-t border-gray-200">
+        <div className="p-4 border-t border-primary/50">
           <div className="flex items-center">
             <Avatar>
               <AvatarImage src={user?.avatar ?? ""} />
-              <AvatarFallback>ED</AvatarFallback>
+              <AvatarFallback className="bg-primary/40 text-white">
+                {user?.name ? user.name.substring(0, 2).toUpperCase() : "AD"}
+              </AvatarFallback>
             </Avatar>
             <div className="ml-2 overflow-hidden">
-              <p className="font-medium text-gray-800 truncate">
-                Olivia Rhyne
+              <p className="font-medium text-white truncate">
+                {user?.name || "Admin User"}
               </p>
-              <p className="text-sm text-gray-500 truncate">
-                olivia@unitlead.com
+              <p className="text-sm text-primary-200 truncate">
+                {user?.email || "admin@example.com"}
               </p>
             </div>
             <button
               name="logout"
               title="logout"
               onClick={handleLogout}
-              className="p-2 ml-5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
+              className="p-2 ml-5 text-primary-100 hover:text-white hover:bg-primary/50 rounded-full transition-colors"
             >
               <LogOutIcon className="w-5 h-5" />
             </button>

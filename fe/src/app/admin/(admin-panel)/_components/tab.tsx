@@ -44,7 +44,7 @@ const NavigationBar: React.FC<NavigationBarProps> = ({ activeTab, onTabChange, t
                 <li key={tab.key}>
                     <button
                         onClick={() => onTabChange(tab.key)}
-                        className={`px-4 py-2.5 rounded-lg transition-colors text-base ${activeTab === tab.key ? 'bg-white text-blue-500 font-medium' : 'text-gray-600 hover:bg-white/50'
+                        className={`px-4 py-2.5 rounded-lg transition-colors text-base ${activeTab === tab.key ? 'bg-white text-primary font-medium' : 'text-gray-600 hover:bg-white/50'
                             }`}
                     >
                         {tab.label}

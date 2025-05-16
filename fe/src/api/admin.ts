@@ -71,7 +71,7 @@ interface UserResponse {
  * @property {number} total - Tổng số người dùng trong hệ thống
  */
 interface GetUsersResponse {
-    data: UserResponse[];
+    data: UserResponse[]; 
     total: number;
 }
 
@@ -125,12 +125,12 @@ interface GetStoresResponse {
     total: number;
   }
 
-  interface CategoryResponse {
-    id: string;
-    name: string;
-    image: string;
-    foods: any[];
-  }
+  export interface CategoryResponse {
+  id: string;
+  name: string;
+  image: string;
+  foodCount: number; // Changed from foods: any[]
+}
   
   interface GetCategoriesResponse {
     items: CategoryResponse[];
@@ -343,6 +343,22 @@ export const adminService = {
             });
           } catch (error) {
             console.error("Lỗi tạo danh mục:", error);
+            throw error;
+          }
+        },
+
+        async updateCategory(
+          token: string,
+          id: string,
+          data: Partial<{ name: string; image: string }>
+        ): Promise<CategoryResponse> {
+          try {
+            return await apiRequest<CategoryResponse>(`/categories/${id}`, "PUT", {
+              token,
+              data,
+            });
+          } catch (error) {
+            console.error("Lỗi cập nhật danh mục:", error);
             throw error;
           }
         },

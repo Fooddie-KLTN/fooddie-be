@@ -105,7 +105,7 @@ export interface FoodPreview {
   id?: string;
   name: string;
   description: string;
-  price: number;
+  price: number | string; // Price can be a number or string
   image: string;
   discountPercent?: number;
   status?: string;
@@ -172,7 +172,7 @@ export function foodToCartItem(food: FoodPreview, quantity: number = 1): CartIte
     id: food.id || '',
     name: food.name,
     description: food.description,
-    price: food.price,
+    price: food.price ? parseFloat(food.price.toString()) : 0,
     image: food.image,
     quantity: quantity,
     discountPercent: food.discountPercent,

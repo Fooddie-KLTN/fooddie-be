@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { Restaurant } from "@/interface";
+import { Restaurant, FoodDetail } from "@/interface";
 import { apiRequest } from "./base-api";
 
 /**
@@ -149,7 +149,7 @@ export const userApi = {
    */
   async deleteUser(token: string, id: string) {
     try {
-      return await apiRequest(`users/${id}`, 'DELETE', { token });
+      return await apiRequest(`/users/${id}`, 'DELETE', { token });
     } catch (error) {
       console.error('User API error:', error);
       throw error;
@@ -220,5 +220,60 @@ export const userApi = {
         throw error;
       }
     }
+  },
+  food: {
+    async getFoodsByRestaurant(restaurantId: string) {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || ""}/foods/restaurant/${restaurantId}?page=1&pageSize=50`
+      );
+      if (!res.ok) throw new Error("Failed to fetch foods");
+      const data = await res.json();
+      return data.items;
+    },
+
+    async createFood(token: string, data: any) {
+      try {
+        return await apiRequest("/foods", "POST", { token, data });
+      } catch (error) {
+        console.error("Food API error:", error);
+        throw error;
+      }
+    },
+
+    async updateFood(token: string, id: string, data: any) {
+      try {
+        return await apiRequest(`/foods/${id}`, "PUT", { token, data });
+      } catch (error) {
+        console.error("Food API error:", error);
+        throw error;
+      }
+    },
+
+    async getFoodById(token: string, foodId: string): Promise<FoodDetail> {
+      try {
+        return await apiRequest<FoodDetail>(`/foods/${foodId}`, "GET", { token });
+      } catch (error) {
+        console.error("Food API error:", error);
+        throw error;
+      }
+    },
+
+    async deleteFood(token: string, id: string) {
+      try {
+        return await apiRequest(`/foods/${id}`, "DELETE", { token });
+      } catch (error) {
+        console.error("Food API error:", error);
+        throw error;
+      }
+    },
+
+    async updateFoodStatus(token: string, id: string, status: string) {
+      try {
+        return await apiRequest(`/foods/${id}/status`, "PUT", { token, data: { status } });
+      } catch (error) {
+        console.error("Food API error:", error);
+        throw error;
+      }
+    },
   }
 };

@@ -11,25 +11,20 @@ import SearchAndFilters from "@/app/admin/(admin-panel)/_components/search-and-f
 import Table, { Column, Action } from "@/app/admin/(admin-panel)/_components/table";
 import Pagination from "@/app/admin/(admin-panel)/_components/pagination";
 import AddCategoryForm from "./_components/add-category-modal";
-import { adminService } from "@/api/admin";
+import EditCategoryForm from "./_components/edit-category-modal";
+import { adminService, CategoryResponse } from "@/api/admin";
 import { useAuth } from "@/context/auth-context";
-
-interface Category {
-  id: string;
-  name: string;
-  image: string;
-  foods: any[];
-}
 
 type SortDirection = 'asc' | 'desc' | null;
 
 const CategoryAdminPage: React.FC = () => {
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [categories, setCategories] = useState<CategoryResponse[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [sortField, setSortField] = useState<keyof Category | null>(null);
+  const [sortField, setSortField] = useState<keyof CategoryResponse | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [editCategory, setEditCategory] = useState<CategoryResponse | null>(null);
   const [pagination, setPagination] = useState({
     currentPage: 1,
     totalPages: 1,
@@ -92,7 +87,7 @@ const CategoryAdminPage: React.FC = () => {
     pagination.currentPage * pagination.pageSize
   );
 
-  const handleSort = (field: keyof Category, direction: SortDirection) => {
+  const handleSort = (field: keyof CategoryResponse, direction: SortDirection) => {
     setSortField(field);
     setSortDirection(direction);
   };
@@ -125,15 +120,14 @@ const CategoryAdminPage: React.FC = () => {
 
   const handleDelete = async (id: string) => {
     const token = await getToken();
-    if (!token) return; // hoặc throw new Error("Missing token");
-  
+    if (!token) return;
+
     await adminService.Category.deleteCategory(token, id);
     const res = await adminService.Category.getCategories(token, pagination.currentPage, pagination.pageSize);
     setCategories(res.items);
   };
-  
 
-  const categoryColumns: Column<Category>[] = [
+  const categoryColumns: Column<CategoryResponse>[] = [
     { header: "Tên danh mục", accessor: "name", sortable: true },
     {
       header: "Hình ảnh",
@@ -144,9 +138,9 @@ const CategoryAdminPage: React.FC = () => {
     },
     {
       header: "Số món ăn",
-      accessor: "foods",
+      accessor: "foodCount",
       sortable: false,
-      renderCell: (_, row) => row.foods.length,
+      renderCell: (_, row) => row.foodCount,
     }
   ];
 
@@ -154,7 +148,10 @@ const CategoryAdminPage: React.FC = () => {
     {
       label: "Chỉnh sửa",
       icon: <Edit2Icon className="h-4 w-4" />,
-      onClick: (id) => console.log("Edit category", id),
+      onClick: (id) => {
+        const cat = categories.find(c => c.id === id);
+        if (cat) setEditCategory(cat);
+      },
     },
     {
       label: "Xóa",
@@ -222,6 +219,45 @@ const CategoryAdminPage: React.FC = () => {
         onPageSizeChange={handlePageSizeChange}
         pageSizeOptions={[10, 20, 50]}
       />
+
+      {/* Edit Category Modal */}
+      {editCategory && (
+        isDesktop ? (
+          <Dialog open={!!editCategory} onOpenChange={() => setEditCategory(null)}>
+            <DialogContent className="p-0 h-screen w-screen overflow-auto">
+              <DialogTitle className="sr-only">Chỉnh sửa danh mục</DialogTitle>
+              <EditCategoryForm
+                category={editCategory}
+                onClose={() => setEditCategory(null)}
+                onUpdated={async () => {
+                  const token = await getToken();
+                  if (!token) return;
+                  const res = await adminService.Category.getCategories(token, pagination.currentPage, pagination.pageSize);
+                  setCategories(res.items);
+                  setEditCategory(null);
+                }}
+              />
+            </DialogContent>
+          </Dialog>
+        ) : (
+          <Drawer open={!!editCategory} onOpenChange={() => setEditCategory(null)}>
+            <DrawerContent className="h-screen p-0 overflow-auto">
+              <DialogTitle className="sr-only">Chỉnh sửa danh mục</DialogTitle>
+              <EditCategoryForm
+                category={editCategory}
+                onClose={() => setEditCategory(null)}
+                onUpdated={async () => {
+                  const token = await getToken();
+                  if (!token) return;
+                  const res = await adminService.Category.getCategories(token, pagination.currentPage, pagination.pageSize);
+                  setCategories(res.items);
+                  setEditCategory(null);
+                }}
+              />
+            </DrawerContent>
+          </Drawer>
+        )
+      )}
 
       {isDesktop ? (
         <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>

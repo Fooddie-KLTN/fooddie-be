@@ -351,9 +351,9 @@ const Table = <T extends { id: string },>({
                     <div className={`ml-1 transition-all duration-300 ${isAnimating ? 'scale-125' : ''}`}>
                       {isActiveSortColumn ? (
                         sortDirection === 'asc' ? (
-                          <ArrowUp className={`h-3 w-3 ${isAnimating ? 'text-blue-600' : ''}`} />
+                          <ArrowUp className={`h-3 w-3 ${isAnimating ? 'text-primary' : ''}`} />
                         ) : sortDirection === 'desc' ? (
-                          <ArrowDown className={`h-3 w-3 ${isAnimating ? 'text-blue-600' : ''}`} />
+                          <ArrowDown className={`h-3 w-3 ${isAnimating ? 'text-primary' : ''}`} />
                         ) : null
                       ) : (
                         <div className="h-3 w-3 opacity-0 group-hover:opacity-25">

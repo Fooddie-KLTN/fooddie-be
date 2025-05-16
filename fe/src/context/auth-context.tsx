@@ -64,27 +64,48 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState(true); // True until initial token check completes
   const [error, setError] = useState<string | null>(null);
 
+  const setAuthCookie = (tokenValue: string) => {
+    const isSecure = window.location.protocol === "https:";
+    // Set cookie to expire in 7 days, adjust as needed
+    const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toUTCString();
+    document.cookie = `auth_token=${tokenValue}; path=/; expires=${expires}; SameSite=Lax${isSecure ? "; Secure" : ""}`;
+  };
+
+  const removeAuthCookie = () => {
+    const isSecure = window.location.protocol === "https:";
+    document.cookie = `auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax${isSecure ? "; Secure" : ""}`;
+  };
+
   // Effect to check for existing token and fetch user data on initial load
   useEffect(() => {
     const initializeAuth = async () => {
       setLoading(true);
       setError(null); // Clear error on init
-      const storedToken = authService.utils.getAuthToken();
+      const storedToken = authService.utils.getAuthToken(); // This might be from localStorage
 
-      if (storedToken) {
-        setToken(storedToken); // Set token state immediately
+      // Also check cookie if localStorage token is not found, or prioritize cookie
+      const cookieToken = document.cookie.split('; ').find(row => row.startsWith('auth_token='))?.split('=')[1];
+
+      const activeToken = storedToken || cookieToken;
+
+      if (activeToken) {
+        setToken(activeToken); // Set token state immediately
+        if (!storedToken && cookieToken) { // If only cookie token exists, sync to localStorage
+            authService.utils.setAuthToken(cookieToken);
+        }
         try {
-          const currentUser = await authService.getCurrentUser();
+          const currentUser = await authService.getCurrentUser(); // Pass token for verification
           if (currentUser) {
             setUser(currentUser);
           } else {
             setToken(null); // Clear token state if invalid
             authService.utils.removeAuthToken(); // Remove invalid token from storage
+            removeAuthCookie(); // Remove invalid token from cookie
           }
         } catch (err) {
           console.error("Initialization error fetching user:", err);
-          // Clear token if fetching user fails (likely invalid token)
           authService.utils.removeAuthToken();
+          removeAuthCookie();
           setToken(null);
           setUser(null);
         }
@@ -101,30 +122,28 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setError(null);
     try {
       const response = await apiCall;
-      // Backend JWT is stored within the specific authService call (loginWithGoogle, etc.)
       if (response.user && response.token) {
         setUser(response.user);
         setToken(response.token);
         authService.utils.setAuthToken(response.token); // Store token in local storage
+        setAuthCookie(response.token); // Store token in cookie
         setLoading(false);
-        // Success: Reload the window or use router navigation
         window.location.reload();
       } else {
-        // This case indicates an issue with the backend response structure
         throw new Error("Invalid login response from server (missing user or token).");
       }
     } catch (err: any) {
       const errorMessage = err?.message || "An authentication error occurred.";
       console.error("Auth operation failed:", err);
       setError(errorMessage);
-      setUser(null); // Clear user/token state on failure
+      setUser(null);
       setToken(null);
-      authService.utils.removeAuthToken(); // Ensure token is removed from storage
+      authService.utils.removeAuthToken();
+      removeAuthCookie(); // Clear cookie on failure
       setLoading(false);
-      throw err; // Re-throw for component-level error handling if needed
+      throw err;
     }
   }, []);
-
 
   // Handler for Google registration/linking
   const handleGoogleRegister = useCallback(async (googleData: GoogleRegisterData): Promise<RegisterResponse> => {
@@ -133,35 +152,32 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       const response = await authService.registerWithGoogle(googleData);
       console.log("Google registration/linking successful:", response.message);
-      // Registration doesn't log in, so no state change here.
       setLoading(false);
       if (response.user) {
         setUser(response.user);
       }
       if (response.token) {
         setToken(response.token);
-        authService.utils.removeAuthToken(); // Ensure token is removed from storage
         authService.utils.setAuthToken(response.token); // Store token in local storage
+        setAuthCookie(response.token); // Store token in cookie
       }
-      return response; // Return response for component-level handling
+      return response;
     } catch (err: any) {
       const errorMessage = err?.message || "Google registration failed.";
       console.error("Google registration failed:", err);
       setError(errorMessage);
       setLoading(false);
-      throw err; // Re-throw for component-level handling
+      throw err;
     }
-  }, []); // No dependencies needed here
+  }, []);
 
   // Handler for Facebook login
   const handleFacebookLogin = useCallback(async (accessToken: string) => {
-    // handleApiLogin will handle state updates, error handling, and reload
     await handleApiLogin(authService.loginWithFacebook(accessToken));
   }, [handleApiLogin]);
 
   // Handler for Email/Password login
   const handleEmailLogin = useCallback(async (email: string, password: string) => {
-    // handleApiLogin will handle state updates, error handling, and reload
     await handleApiLogin(authService.loginWithEmailPassword(email, password));
   }, [handleApiLogin]);
 
@@ -172,15 +188,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
      try {
        const response = await authService.register(userData);
        console.log("Registration successful:", response.message);
-       // Registration doesn't log in, so no state change here.
        setLoading(false);
-       // Let the component handle success (e.g., show message, switch to login)
      } catch (err: any) {
        const errorMessage = err?.message || "Registration failed.";
        console.error("Registration failed:", err);
        setError(errorMessage);
        setLoading(false);
-       throw err; // Re-throw for component-level handling
+       throw err;
      }
   }, []);
 
@@ -189,53 +203,52 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setLoading(true);
     setError(null);
     try {
-      await authService.logout(); // Calls backend logout
-      setUser(null); // Clear user state
-      setToken(null); // Clear token state
-      authService.utils.removeAuthToken(); // Remove token from local storage
-      // Token is removed from local storage within authService.logout
+      await authService.logout();
+      setUser(null);
+      setToken(null);
+      authService.utils.removeAuthToken();
+      removeAuthCookie(); // Clear cookie on logout
     } catch (err: any) {
       const errorMessage = err?.message || "Logout failed.";
       console.error("Logout failed:", err);
       setError(errorMessage);
-      // Clear state even if backend fails, as session is likely broken
       setUser(null);
       setToken(null);
-      authService.utils.removeAuthToken(); // Ensure token is removed from storage
+      authService.utils.removeAuthToken();
+      removeAuthCookie(); // Ensure cookie is cleared even if backend logout fails
     } finally {
       setLoading(false);
-      window.location.reload(); // Reload after logout attempt
+      window.location.reload();
     }
   }, []);
 
   // Function to retrieve the current token from state
   const getToken = useCallback((): string | null => {
-    return authService.utils.getAuthToken(); // Get token from local storage
-  }, []);
+    if (token) return token;
+    const cookieToken = document.cookie.split('; ').find(row => row.startsWith('auth_token='))?.split('=')[1];
+    if (cookieToken) return cookieToken;
+    return authService.utils.getAuthToken();
+  }, [token]);
 
   // Function to get user role/permissions using the stored token
   const getRole = useCallback(async (): Promise<RoleResponse | null> => {
-    if (!token) {
-        // Don't set error here, just return null if not authenticated
-        // setError("Cannot get role: User not authenticated.");
+    const currentToken = getToken();
+    if (!currentToken) {
         return null;
     }
     try {
-      // Pass the backend JWT token to the admin service method
-      const roleInfo = await adminService.getMyRole(token);
+      const roleInfo = await adminService.getMyRole(currentToken);
       return roleInfo;
     } catch (error: any) {
       console.error("Get user role error:", error);
       setError("Failed to get user role information.");
-      // If role fetching fails due to auth error, log out
       if ((error as any)?.response?.status === 401 || (error as any)?.response?.status === 403) {
-        await logout(); // Logout if token is invalid for fetching roles
+        await logout();
       }
       return null;
     }
-  }, [token, logout]); // Added logout dependency
+  }, [getToken, logout]);
 
-  // Provide the context value to children components
   return (
     <AuthContext.Provider
       value={{
@@ -243,7 +256,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         token,
         loading,
         error,
-        handleGoogleRegister, // Added
+        handleGoogleRegister,
         handleFacebookLogin,
         handleEmailLogin,
         handleRegister,

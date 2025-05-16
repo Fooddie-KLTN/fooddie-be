@@ -1,7 +1,6 @@
-import { IsNotEmpty, IsOptional, IsString, IsNumber, IsUUID, IsNumberString } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString, IsNumberString, IsArray } from 'class-validator';
 
 export class CreateFoodDto {
-
   @IsString()
   @IsNotEmpty()
   name: string;
@@ -17,6 +16,11 @@ export class CreateFoodDto {
   @IsString()
   @IsOptional()
   image?: string;
+
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  imageUrls?: string[];
 
   @IsNumberString()
   @IsOptional()
@@ -41,4 +45,8 @@ export class CreateFoodDto {
   @IsString()
   @IsOptional()
   preparationTime?: string;
+
+  @IsString()
+  @IsOptional()
+  tag?: string;
 }

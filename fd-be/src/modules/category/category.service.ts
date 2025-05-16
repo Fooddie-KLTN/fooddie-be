@@ -28,27 +28,35 @@ export class CategoryService {
     }
 
     /**
-     * Get all categories with pagination
+     * Get all categories with pagination and food count
      * 
      * @param page The page number
      * @param pageSize The number of items per page
-     * @returns List of all categories with pagination metadata
+     * @returns List of all categories with pagination metadata and food count
      */
     async findAll(page = 1, pageSize = 10): Promise<{
-        items: Category[];
+        items: (Category & { foodCount: number })[]; // Category items will now have a foodCount property
         totalItems: number;
         page: number;
         pageSize: number;
         totalPages: number;
     }> {
-        const [items, totalItems] = await this.categoryRepository.findAndCount({
-            relations: ['foods'],
-            skip: (page - 1) * pageSize,
-            take: pageSize,
-        });
+        const skip = (page - 1) * pageSize;
 
+        const [categories, totalItems] = await this.categoryRepository
+            .createQueryBuilder("category")
+            // This maps the count of 'foods' relation to 'category.foodCount'
+            .loadRelationCountAndMap("category.foodCount", "category.foods")
+            // You can add default ordering if desired, e.g., by name
+            .orderBy("category.name", "ASC") 
+            .skip(skip)
+            .take(pageSize)
+            .getManyAndCount();
+
+        // The 'foods' relation itself will not be loaded on the category objects,
+        // only its count will be available as 'foodCount'.
         return {
-            items,
+            items: categories as (Category & { foodCount: number })[], // Cast to include foodCount
             totalItems,
             page,
             pageSize,

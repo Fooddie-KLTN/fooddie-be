@@ -639,4 +639,35 @@ export class RolesService {
 
     return await this.roleRepository.remove(role);
   }
+
+  /**
+   * Get the authenticated user's role status (normal or not) and their role name.
+   *
+   * @param userId - The ID of the user.
+   * @returns A promise that resolves to an object indicating if the user is normal and their role name.
+   * @throws NotFoundException if the user is not found.
+   */
+  async getUserRoleStatus(userId: string): Promise<{ isNormal: boolean; roleName?: DefaultRole }> {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      relations: ['role'],
+    });
+
+    if (!user) {
+      throw new NotFoundException(`User with id ${userId} not found.`);
+    }
+
+    if (!user.role) {
+      // If user has no role, consider them as a normal user for this check.
+      // The roleName can be undefined or explicitly DefaultRole.USER depending on desired middleware behavior.
+      return { isNormal: true, roleName: undefined };
+    }
+
+    if (user.role.name === DefaultRole.USER) {
+      return { isNormal: true, roleName: user.role.name };
+    } else {
+      // Any other role (e.g., SUPER_ADMIN, ADMINISTRATOR) is not considered 'normal'.
+      return { isNormal: false, roleName: user.role.name };
+    }
+  }
 }

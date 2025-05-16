@@ -30,10 +30,6 @@ interface VerifyLectureAccessResponse {
   }
 }
 
-interface VerifyCourseAccessResponse {
-  message: string;
-  isAccessible: boolean;
-}
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const token = request.cookies.get('auth_token')?.value;
@@ -44,7 +40,7 @@ export async function middleware(request: NextRequest) {
   // --- Admin Route Check ---
   if (pathname.startsWith('/admin')) {
     console.log('Middleware: Checking admin route:', pathname);
-    const backendVerifyRoleUrl = `${apiBaseUrl}/roles/user-role-and-permission`;
+    const backendVerifyRoleUrl = `${apiBaseUrl}/role/user-role-and-permission`;
 
     // Early return if no token
     if (!token) {
@@ -72,9 +68,9 @@ export async function middleware(request: NextRequest) {
       const verificationData = (await response.json()) as VerifyRoleResponse;
       const roleName = verificationData.role?.name?.toLowerCase();
 
-      // Early return if role is unauthorized
-      if (!roleName || roleName !== DefaultRole.ADMINISTRATOR) {
-        console.log(`Middleware (Admin): Role '${roleName || 'none'}' is unauthorized, redirecting.`);
+      // Early return if role is unauthorized for admin section
+      if (!roleName || (roleName !== DefaultRole.ADMINISTRATOR && roleName !== DefaultRole.SUPER_ADMIN)) {
+        console.log(`Middleware (Admin): Role '${roleName || 'none'}' is unauthorized for admin access, redirecting.`);
         return NextResponse.redirect(unauthorizedUrl);
       }
 
@@ -92,23 +88,11 @@ export async function middleware(request: NextRequest) {
 
   if (pathname.startsWith('/api/gcs-delete') || pathname.startsWith('/api/gcs-upload')) {
     try {
-      const response = await fetch(`${apiBaseUrl}/courses/check-permission`, {
-        method: request.method,
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: request.method === 'POST' ? JSON.stringify(request.body) : undefined,
-      });
-      const responseData = await response.json() as VerifyCourseAccessResponse;
-      if (responseData.isAccessible)
-        return NextResponse.next(); // Allow access if the user has permission
-      if (!response.ok) {
-        console.error(`Middleware (API): Backend permission check failed with status ${response.status}`);
-        const responseRedirect = NextResponse.redirect(unauthorizedUrl);
-        responseRedirect.cookies.delete('auth_token'); // Clear potentially invalid cookie
-        return responseRedirect;
+      if (!token) {
+        console.log('Middleware (GCS): No token found, redirecting to unauthorized.');
+        return NextResponse.redirect(unauthorizedUrl);
       }
+      return NextResponse.next(); // Allow access to GCS API routes
     }
     catch (error) {
       console.error('Error in API middleware during backend verification:', error);

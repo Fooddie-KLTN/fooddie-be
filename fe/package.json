@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@google-cloud/storage": "^7.16.0",
     "@heroicons/react": "^2.2.0",
     "@mapbox/mapbox-gl-geocoder": "^5.0.3",
     "@radix-ui/react-alert-dialog": "^1.1.6",

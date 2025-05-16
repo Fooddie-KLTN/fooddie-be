@@ -21,15 +21,15 @@ const Header: React.FC<HeaderProps> = ({ title, description, actions }) => (
       {actions.map((action, index) => (
         <button
           key={index}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-lg transition-colors ${
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-lg transition-colors text-base font-medium ${
             action.variant === 'primary'
-              ? 'text-white bg-blue-500 hover:bg-blue-600'
-              : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
+              ? 'text-white bg-primary hover:bg-primary/90 hover:text-primary hover:border-primary/90 shadow-sm'
+              : 'text-primary bg-white border border-primary hover:bg-primary/10'
           }`}
           onClick={action.onClick}
         >
           {action.icon}
-          <span className="text-base font-medium">{action.label}</span>
+          <span>{action.label}</span>
         </button>
       ))}
     </div>

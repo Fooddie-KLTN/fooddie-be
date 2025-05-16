@@ -140,10 +140,15 @@ export class AdminSeedService implements OnModuleInit {
         displayName: 'Administrator',
         description: 'Restaurant system administration',
         isSystem: true,
-        permissions: allPermissions.filter(p => !p.name.includes('SUPER_'))
+        // Administrators get all permissions except those specifically for SUPER_ADMIN (if any)
+        permissions: allPermissions.filter(p => !p.name.startsWith('SUPER_'))
       });
       await this.roleRepository.save(adminRole);
       this.logger.log('Administrator role created with standard admin permissions.');
+    } else {
+      adminRole.permissions = allPermissions.filter(p => !p.name.startsWith('SUPER_'));
+      await this.roleRepository.save(adminRole);
+      this.logger.log('Administrator role already exists, updated permissions.');
     }
 
     // Create USER role
@@ -154,7 +159,13 @@ export class AdminSeedService implements OnModuleInit {
     if (!userRole) {
       // Get basic user permissions only
       const userPermissions = allPermissions.filter(p =>
-        p.name.includes('USER_READ') || p.name.includes('PROFILE_')
+        p.name.includes('USER_READ') || // General user read
+        p.name.includes('PROFILE_') || // Manage own profile
+        p.name.startsWith('ORDER_CREATE') || // Create orders
+        p.name.startsWith('ORDER_READ') || // Read their own orders
+        p.name.startsWith('REVIEW_CREATE') || // Create reviews
+        p.name.startsWith('RESTAURANT_READ') || // View restaurants
+        p.name.startsWith('FOOD_READ') // View food items
       );
 
       userRole = this.roleRepository.create({
@@ -166,6 +177,57 @@ export class AdminSeedService implements OnModuleInit {
       });
       await this.roleRepository.save(userRole);
       this.logger.log('User role created with basic permissions.');
+    } else {
+      const userPermissions = allPermissions.filter(p =>
+        p.name.includes('USER_READ') ||
+        p.name.includes('PROFILE_') ||
+        p.name.startsWith('ORDER_CREATE') ||
+        p.name.startsWith('ORDER_READ') ||
+        p.name.startsWith('REVIEW_CREATE') ||
+        p.name.startsWith('RESTAURANT_READ') ||
+        p.name.startsWith('FOOD_READ')
+      );
+      userRole.permissions = userPermissions;
+      await this.roleRepository.save(userRole);
+      this.logger.log('User role already exists, updated permissions.');
+    }
+
+    // Create SHOP_OWNER role
+    let shopOwnerRole = await this.roleRepository.findOne({
+      where: { name: DefaultRole.SHOP_OWNER }
+    });
+
+    // Define permissions for Shop Owner
+    // They can manage their own restaurant, food, orders, promotions.
+    // They can read categories.
+    const shopOwnerPermissions = allPermissions.filter(p =>
+      p.name.startsWith('RESTAURANT_') || // Full CRUD for their restaurant (logic handled in services)
+      p.name.startsWith('FOOD_') ||       // Full CRUD for their food items
+      p.name.startsWith('ORDER_READ') ||   // Read orders for their restaurant
+      p.name.startsWith('ORDER_UPDATE') || // Update order status for their restaurant
+      p.name.startsWith('PROMOTION_CREATE') || // Create promotions for their restaurant
+      p.name.startsWith('PROMOTION_READ') ||   // Read promotions for their restaurant
+      p.name.startsWith('PROMOTION_UPDATE') || // Update promotions for their restaurant
+      p.name.startsWith('PROMOTION_DELETE') || // Delete promotions for their restaurant
+      p.name.startsWith('CATEGORY_READ') ||  // Read categories
+      p.name.startsWith('PROFILE_') // Manage own profile
+    );
+
+    if (!shopOwnerRole) {
+      shopOwnerRole = this.roleRepository.create({
+        name: DefaultRole.SHOP_OWNER,
+        displayName: 'Shop Owner',
+        description: 'Manages their own restaurant and related operations',
+        isSystem: false, // Typically not a system role like admin/super_admin
+        permissions: shopOwnerPermissions
+      });
+      await this.roleRepository.save(shopOwnerRole);
+      this.logger.log('Shop Owner role created with relevant permissions.');
+    } else {
+      // Optionally update permissions if the role exists
+      shopOwnerRole.permissions = shopOwnerPermissions;
+      await this.roleRepository.save(shopOwnerRole);
+      this.logger.log('Shop Owner role already exists, updated permissions.');
     }
   }
 

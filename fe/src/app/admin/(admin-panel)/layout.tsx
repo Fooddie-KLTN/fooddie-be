@@ -125,7 +125,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                       <button 
                         title="dashboard" 
                         onClick={() => router.push('/admin')}
-                        className="hover:text-blue-500 transition-colors"
+                        className="hover:text-primary transition-colors"
                       >
                         <HomeIcon className="w-5 h-5" />
                       </button>
