@@ -19,7 +19,25 @@ export class FoodService {
         private categoryRepository: Repository<Category>,
         private readonly gcsService: GoogleCloudStorageService, // Inject GCS service
     ) { }
+/**
+     * Get top foods by sold count for a restaurant
+     */
+    async getTopFoodsByRestaurant(restaurantId: string, limit = 5): Promise<any[]> {
+        const foods = await this.foodRepository.find({
+            where: { restaurant: { id: restaurantId } },
+            order: { soldCount: 'DESC' },
+            take: limit,
+        });
 
+        // Optionally, calculate revenue for each food
+        return foods.map(food => ({
+            id: food.id,
+            name: food.name,
+            image: food.image,
+            soldCount: food.soldCount,
+            revenue: food.soldCount * food.price,
+        }));
+    }
     /**
      * Create a new food item
      * 

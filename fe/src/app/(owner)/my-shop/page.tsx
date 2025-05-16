@@ -372,271 +372,275 @@ export default function MyShopPage() {
       </div>
     );
   }
-  
-  // If no restaurant found or after form submission (waiting for refresh)
-  return (
-    <div className="container mx-auto px-4 py-10 max-w-3xl">
-      <Card className="p-8 shadow-lg border border-gray-100">
-        <CardHeader>
-          <CardTitle className="text-2xl font-bold mb-2">Tạo cửa hàng mới</CardTitle>
-          <p className="text-gray-500">Điền thông tin để đăng ký cửa hàng của bạn</p>
-        </CardHeader>
-        
-        <CardContent>
-          {refreshingData ? (
-            <div className="py-8 flex flex-col items-center justify-center">
-              <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
-              <h3 className="text-lg font-medium">Đang xử lý...</h3>
-              <p className="text-muted-foreground text-center mt-2">
-                Chúng tôi đang cập nhật thông tin cửa hàng của bạn.
-                Vui lòng đợi trong giây lát.
-              </p>
-            </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-6 mt-2">
-              {/* Basic Information Section */}
-              <div>
-                <h3 className="text-lg font-medium mb-3">Thông tin cơ bản</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Tên cửa hàng <span className="text-red-500">*</span></label>
-                    <Input 
-                      name="name" 
-                      value={form.name} 
-                      onChange={handleChange} 
-                      required 
-                      placeholder="Nhập tên cửa hàng" 
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Số điện thoại</label>
-                    <Input 
-                      name="phoneNumber" 
-                      value={form.phoneNumber} 
-                      onChange={handleChange}
-                      placeholder="Số điện thoại liên hệ"
-                    />
-                  </div>
-                </div>
-                
-                {/* Enhanced Address Section with Mapbox */}
-                <div className="mt-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <MapPinIcon className="h-5 w-5 text-gray-500" />
-                    <h3 className="text-lg font-medium">Địa chỉ cửa hàng <span className="text-red-500">*</span></h3>
-                  </div>
-                  
-                  <div className="p-4 bg-gray-50 rounded-md">
-                    {/* Mapbox Search */}
-                    <MapboxSearch 
-                      key="mapbox-search" // Add stable key to prevent re-renders
-                      onAddressSelect={handleAddressSelect}
-                      placeholder="Tìm địa chỉ cửa hàng của bạn..."
-                      className="mb-3"
-                      debounceTime={1500}
-                    />
-                    
-                    {/* Display selected address */}
-                    {form.address && (
-                      <div className="mt-3">
-                        <label className="block text-sm font-medium mb-1">Địa chỉ đã chọn</label>
-                        <div className="p-3 bg-white border rounded-md text-sm">
-                          <p>{form.address}</p>
-                          {form.latitude && form.longitude && (
-                            <p className="text-xs text-gray-500 mt-1">
-                              <span className="font-medium">Tọa độ:</span> {form.latitude.toFixed(6)}, {form.longitude.toFixed(6)}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                    
-                    {/* Manual override */}
-                    <div className="mt-3">
-                      <label className="block text-sm font-medium mb-1">Chỉnh sửa địa chỉ (nếu cần)</label>
+
+  // Only show create shop section if NOT loading and restaurant is null
+  if (!restaurant) {
+    return (
+      <div className="container mx-auto px-4 py-10 max-w-3xl">
+        <Card className="p-8 shadow-lg border border-gray-100">
+          <CardHeader>
+            <CardTitle className="text-2xl font-bold mb-2">Tạo cửa hàng mới</CardTitle>
+            <p className="text-gray-500">Điền thông tin để đăng ký cửa hàng của bạn</p>
+          </CardHeader>
+          
+          <CardContent>
+            {refreshingData ? (
+              <div className="py-8 flex flex-col items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+                <h3 className="text-lg font-medium">Đang xử lý...</h3>
+                <p className="text-muted-foreground text-center mt-2">
+                  Chúng tôi đang cập nhật thông tin cửa hàng của bạn.
+                  Vui lòng đợi trong giây lát.
+                </p>
+              </div>
+            ) : (
+              <form onSubmit={handleSubmit} className="space-y-6 mt-2">
+                {/* Basic Information Section */}
+                <div>
+                  <h3 className="text-lg font-medium mb-3">Thông tin cơ bản</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Tên cửa hàng <span className="text-red-500">*</span></label>
                       <Input 
-                        name="address" 
-                        value={form.address} 
+                        name="name" 
+                        value={form.name} 
                         onChange={handleChange} 
                         required 
-                        placeholder="Địa chỉ cửa hàng" 
+                        placeholder="Nhập tên cửa hàng" 
                       />
-                      <p className="text-xs text-gray-500 mt-1">
-                        *Bạn có thể chỉnh sửa địa chỉ nếu dữ liệu từ bản đồ không chính xác
-                      </p>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Số điện thoại</label>
+                      <Input 
+                        name="phoneNumber" 
+                        value={form.phoneNumber} 
+                        onChange={handleChange}
+                        placeholder="Số điện thoại liên hệ"
+                      />
                     </div>
                   </div>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4 mt-3">
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Giờ mở cửa</label>
+                  
+                  {/* Enhanced Address Section with Mapbox */}
+                  <div className="mt-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <MapPinIcon className="h-5 w-5 text-gray-500" />
+                      <h3 className="text-lg font-medium">Địa chỉ cửa hàng <span className="text-red-500">*</span></h3>
+                    </div>
+                    
+                    <div className="p-4 bg-gray-50 rounded-md">
+                      {/* Mapbox Search */}
+                      <MapboxSearch 
+                        key="mapbox-search" // Add stable key to prevent re-renders
+                        onAddressSelect={handleAddressSelect}
+                        placeholder="Tìm địa chỉ cửa hàng của bạn..."
+                        className="mb-3"
+                        debounceTime={1500}
+                      />
+                      
+                      {/* Display selected address */}
+                      {form.address && (
+                        <div className="mt-3">
+                          <label className="block text-sm font-medium mb-1">Địa chỉ đã chọn</label>
+                          <div className="p-3 bg-white border rounded-md text-sm">
+                            <p>{form.address}</p>
+                            {form.latitude && form.longitude && (
+                              <p className="text-xs text-gray-500 mt-1">
+                                <span className="font-medium">Tọa độ:</span> {form.latitude.toFixed(6)}, {form.longitude.toFixed(6)}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Manual override */}
+                      <div className="mt-3">
+                        <label className="block text-sm font-medium mb-1">Chỉnh sửa địa chỉ (nếu cần)</label>
+                        <Input 
+                          name="address" 
+                          value={form.address} 
+                          onChange={handleChange} 
+                          required 
+                          placeholder="Địa chỉ cửa hàng" 
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          *Bạn có thể chỉnh sửa địa chỉ nếu dữ liệu từ bản đồ không chính xác
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4 mt-3">
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Giờ mở cửa</label>
+                      <Input 
+                        type="time" 
+                        name="openTime" 
+                        value={form.openTime} 
+                        onChange={handleChange}
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Giờ đóng cửa</label>
+                      <Input 
+                        type="time" 
+                        name="closeTime" 
+                        value={form.closeTime} 
+                        onChange={handleChange}
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="mt-3">
+                    <label className="block text-sm font-medium mb-1">Mã giấy phép kinh doanh</label>
                     <Input 
-                      type="time" 
-                      name="openTime" 
-                      value={form.openTime} 
+                      name="licenseCode" 
+                      value={form.licenseCode} 
                       onChange={handleChange}
+                      placeholder="Mã giấy phép kinh doanh"
                     />
                   </div>
                   
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Giờ đóng cửa</label>
-                    <Input 
-                      type="time" 
-                      name="closeTime" 
-                      value={form.closeTime} 
-                      onChange={handleChange}
+                  <div className="mt-3">
+                    <label className="block text-sm font-medium mb-1">Mô tả cửa hàng</label>
+                    <textarea 
+                      name="description" 
+                      value={form.description} 
+                      onChange={handleChange} 
+                      placeholder="Mô tả về cửa hàng của bạn" 
+                      className="w-full border rounded px-3 py-2 text-sm min-h-[100px]" 
                     />
                   </div>
                 </div>
                 
-                <div className="mt-3">
-                  <label className="block text-sm font-medium mb-1">Mã giấy phép kinh doanh</label>
-                  <Input 
-                    name="licenseCode" 
-                    value={form.licenseCode} 
-                    onChange={handleChange}
-                    placeholder="Mã giấy phép kinh doanh"
-                  />
-                </div>
-                
-                <div className="mt-3">
-                  <label className="block text-sm font-medium mb-1">Mô tả cửa hàng</label>
-                  <textarea 
-                    name="description" 
-                    value={form.description} 
-                    onChange={handleChange} 
-                    placeholder="Mô tả về cửa hàng của bạn" 
-                    className="w-full border rounded px-3 py-2 text-sm min-h-[100px]" 
-                  />
-                </div>
-              </div>
-              
-              {/* Image Upload Section */}
-              <div className="border-t pt-6">
-                <h3 className="text-lg font-medium mb-3">Hình ảnh cửa hàng</h3>
-                
-                <div className="space-y-4">
-                  {/* Avatar upload */}
-                  <div className="p-4 bg-gray-50 rounded">
-                    <label className="block text-sm font-medium mb-2">Logo cửa hàng</label>
-                    <div className="flex items-center gap-3">
-                      <div className="flex-1">
-                        <Input 
-                          ref={avatarInputRef}
-                          type="file" 
-                          accept="image/*"
-                          onChange={(e) => handleFileChange(e, setAvatarFile, setAvatarPreview)}
-                          className="flex-1"
-                        />
+                {/* Image Upload Section */}
+                <div className="border-t pt-6">
+                  <h3 className="text-lg font-medium mb-3">Hình ảnh cửa hàng</h3>
+                  
+                  <div className="space-y-4">
+                    {/* Avatar upload */}
+                    <div className="p-4 bg-gray-50 rounded">
+                      <label className="block text-sm font-medium mb-2">Logo cửa hàng</label>
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1">
+                          <Input 
+                            ref={avatarInputRef}
+                            type="file" 
+                            accept="image/*"
+                            onChange={(e) => handleFileChange(e, setAvatarFile, setAvatarPreview)}
+                            className="flex-1"
+                          />
+                        </div>
+                        {avatarPreview && (
+                          <Button 
+                            type="button" 
+                            variant="outline" 
+                            size="icon" 
+                            onClick={() => handleRemoveFile(setAvatarFile, setAvatarPreview, avatarInputRef)}
+                            className="shrink-0"
+                          >
+                            ×
+                          </Button>
+                        )}
                       </div>
                       {avatarPreview && (
-                        <Button 
-                          type="button" 
-                          variant="outline" 
-                          size="icon" 
-                          onClick={() => handleRemoveFile(setAvatarFile, setAvatarPreview, avatarInputRef)}
-                          className="shrink-0"
-                        >
-                          ×
-                        </Button>
+                        <ImagePreview 
+                          src={avatarPreview} 
+                          alt="Logo Preview" 
+                          className="mt-2 relative w-20 h-20 rounded-full overflow-hidden border"
+                        />
                       )}
                     </div>
-                    {avatarPreview && (
-                      <ImagePreview 
-                        src={avatarPreview} 
-                        alt="Logo Preview" 
-                        className="mt-2 relative w-20 h-20 rounded-full overflow-hidden border"
-                      />
-                    )}
-                  </div>
-                  
-                  {/* Background image upload */}
-                  <div className="p-4 bg-gray-50 rounded">
-                    <label className="block text-sm font-medium mb-2">Ảnh bìa</label>
-                    <div className="flex items-center gap-3">
-                      <div className="flex-1">
-                        <Input 
-                          ref={backgroundInputRef}
-                          type="file" 
-                          accept="image/*"
-                          onChange={(e) => handleFileChange(e, setBackgroundFile, setBackgroundPreview)}
-                          className="flex-1"
-                        />
+                    
+                    {/* Background image upload */}
+                    <div className="p-4 bg-gray-50 rounded">
+                      <label className="block text-sm font-medium mb-2">Ảnh bìa</label>
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1">
+                          <Input 
+                            ref={backgroundInputRef}
+                            type="file" 
+                            accept="image/*"
+                            onChange={(e) => handleFileChange(e, setBackgroundFile, setBackgroundPreview)}
+                            className="flex-1"
+                          />
+                        </div>
+                        {backgroundPreview && (
+                          <Button 
+                            type="button" 
+                            variant="outline" 
+                            size="icon" 
+                            onClick={() => handleRemoveFile(setBackgroundFile, setBackgroundPreview, backgroundInputRef)}
+                            className="shrink-0"
+                          >
+                            ×
+                          </Button>
+                        )}
                       </div>
                       {backgroundPreview && (
-                        <Button 
-                          type="button" 
-                          variant="outline" 
-                          size="icon" 
-                          onClick={() => handleRemoveFile(setBackgroundFile, setBackgroundPreview, backgroundInputRef)}
-                          className="shrink-0"
-                        >
-                          ×
-                        </Button>
+                        <ImagePreview 
+                          src={backgroundPreview} 
+                          alt="Background Preview" 
+                          className="mt-2 relative w-full h-24 rounded overflow-hidden border"
+                        />
                       )}
                     </div>
-                    {backgroundPreview && (
-                      <ImagePreview 
-                        src={backgroundPreview} 
-                        alt="Background Preview" 
-                        className="mt-2 relative w-full h-24 rounded overflow-hidden border"
-                      />
-                    )}
-                  </div>
-                  
-                  {/* Certificate image upload */}
-                  <div className="p-4 bg-gray-50 rounded">
-                    <label className="block text-sm font-medium mb-2">Ảnh giấy phép kinh doanh</label>
-                    <div className="flex items-center gap-3">
-                      <div className="flex-1">
-                        <Input 
-                          ref={certificateInputRef}
-                          type="file" 
-                          accept="image/*"
-                          onChange={(e) => handleFileChange(e, setCertificateFile, setCertificatePreview)}
-                          className="flex-1"
-                        />
+                    
+                    {/* Certificate image upload */}
+                    <div className="p-4 bg-gray-50 rounded">
+                      <label className="block text-sm font-medium mb-2">Ảnh giấy phép kinh doanh</label>
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1">
+                          <Input 
+                            ref={certificateInputRef}
+                            type="file" 
+                            accept="image/*"
+                            onChange={(e) => handleFileChange(e, setCertificateFile, setCertificatePreview)}
+                            className="flex-1"
+                          />
+                        </div>
+                        {certificatePreview && (
+                          <Button 
+                            type="button" 
+                            variant="outline" 
+                            size="icon" 
+                            onClick={() => handleRemoveFile(setCertificateFile, setCertificatePreview, certificateInputRef)}
+                            className="shrink-0"
+                          >
+                            ×
+                          </Button>
+                        )}
                       </div>
                       {certificatePreview && (
-                        <Button 
-                          type="button" 
-                          variant="outline" 
-                          size="icon" 
-                          onClick={() => handleRemoveFile(setCertificateFile, setCertificatePreview, certificateInputRef)}
-                          className="shrink-0"
-                        >
-                          ×
-                        </Button>
+                        <ImagePreview 
+                          src={certificatePreview} 
+                          alt="Certificate Preview" 
+                          className="mt-2 relative w-full h-40 rounded overflow-hidden border"
+                          objectFit="contain"
+                        />
                       )}
                     </div>
-                    {certificatePreview && (
-                      <ImagePreview 
-                        src={certificatePreview} 
-                        alt="Certificate Preview" 
-                        className="mt-2 relative w-full h-40 rounded overflow-hidden border"
-                        objectFit="contain"
-                      />
-                    )}
                   </div>
                 </div>
-              </div>
-              
-              <Button 
-                type="submit" 
-                className="w-full py-6 text-lg mt-6" 
-                disabled={submitting}
-                size="lg"
-              >
-                {submitting ? "Đang xử lý..." : "Gửi yêu cầu tạo cửa hàng"}
-              </Button>
-            </form>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  );
+                
+                <Button 
+                  type="submit" 
+                  className="w-full py-6 text-lg mt-6" 
+                  disabled={submitting}
+                  size="lg"
+                >
+                  {submitting ? "Đang xử lý..." : "Gửi yêu cầu tạo cửa hàng"}
+                </Button>
+              </form>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Optionally: handle other statuses if needed
 }
 
 // Memoize image previews to prevent unnecessary renders

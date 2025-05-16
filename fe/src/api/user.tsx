@@ -219,7 +219,36 @@ export const userApi = {
         console.error('Restaurant API error:', error);
         throw error;
       }
-    }
+    },
+    async getOrderCountByMonth(token: string,month?: string) {
+      return await apiRequest<number>(
+        "/restaurants/my/order-count-by-month",
+        "GET",
+        {
+          token,
+          query: month ? { month } : undefined,
+        }
+      );
+    },
+
+    async getRevenueByMonth(token: string,month?: string) {
+      return await apiRequest<number>(
+        "/restaurants/my/revenue-by-month",
+        "GET",
+        {
+          token,
+          query: month ? { month } : undefined,
+        }
+      );
+    },
+
+    async getTopFoods(restaurantId: string) {
+      // You need to implement this endpoint in your backend!
+      const url = `${process.env.NEXT_PUBLIC_API_URL || ""}/foods/top?restaurantId=${restaurantId}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Failed to fetch top foods");
+      return await res.json();
+    },
   },
   food: {
     async getFoodsByRestaurant(restaurantId: string) {

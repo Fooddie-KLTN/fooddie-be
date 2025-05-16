@@ -691,4 +691,22 @@ export class RestaurantService {
             throw new Error(`Restaurant with ID ${id} not found`);
         }
     }
+
+    async getOrderCountByOwner(ownerId: string, month?: string): Promise<number> {
+        const restaurant = await this.findByOwnerId(ownerId);
+        if (!restaurant) throw new Error('No restaurant found for this owner');
+        // Implement your logic to count orders for this restaurant in the given month
+        // Example:
+        // return this.orderRepository.count({ where: { restaurant: { id: restaurant.id }, createdAt: ... } });
+        return 0; // Replace with real logic
+    }
+
+    async getRevenueByOwner(ownerId: string, month?: string): Promise<number> {
+        const restaurant = await this.findByOwnerId(ownerId);
+        if (!restaurant) throw new Error('No restaurant found for this owner');
+        // Implement your logic to sum revenue for this restaurant in the given month
+        // Example:
+        // return this.orderRepository.sum('total', { where: { restaurant: { id: restaurant.id }, createdAt: ... } });
+        return 0; // Replace with real logic
+    }
 }

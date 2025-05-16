@@ -81,7 +81,16 @@ export class FoodController {
   ) {
     return await this.foodService.searchFoods(query, page, pageSize);
   }
-
+  @Get('top')
+  async getTopFoodsByRestaurant(
+    @Query('restaurantId') restaurantId: string,
+    @Query('limit', new DefaultValuePipe(5), ParseIntPipe) limit: number,
+  ) {
+    if (!restaurantId) {
+      throw new UnauthorizedException('restaurantId is required');
+    }
+    return await this.foodService.getTopFoodsByRestaurant(restaurantId, limit);
+  }
   @Get('restaurant/:restaurantId')
   async findByRestaurant(
     @Param('restaurantId') restaurantId: string,

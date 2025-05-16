@@ -11,7 +11,7 @@ import { AuthGuard } from 'src/auth/auth.guard';
 
 @Controller('restaurants')
 export class RestaurantController {
-  constructor(private readonly restaurantService: RestaurantService) {}
+  constructor(private readonly restaurantService: RestaurantService) { }
 
   // 1. Fixed, exact paths first (no path parameters)
   @Post()
@@ -50,7 +50,7 @@ export class RestaurantController {
       latitude: createDto.latitude,
       longitude: createDto.longitude
     };
-  
+
     // Extract address data based on what's provided
     let addressData: {
       street: string;
@@ -58,17 +58,17 @@ export class RestaurantController {
       district: string;
       city: string;
     };
-  
+
     // Check if we have a full address from Mapbox
     if (createDto.address) {
       // Parse the address into components - assuming format like "street, ward, district, city"
       const addressParts = createDto.address.split(',').map(part => part.trim());
-      
+
       addressData = {
         // Use as many parts as available, with fallbacks
         street: addressParts[0] || 'Unknown street',
         ward: addressParts[1] || 'Unknown ward',
-        district: addressParts[2] || 'Unknown district', 
+        district: addressParts[2] || 'Unknown district',
         city: addressParts[3] || 'Unknown city'
       };
     } else {
@@ -80,7 +80,7 @@ export class RestaurantController {
         city: createDto.addressCity || 'Unknown city'
       };
     }
-  
+
     return await this.restaurantService.requestRestaurantWithFiles(
       restaurantData,
       addressData,
@@ -140,6 +140,7 @@ export class RestaurantController {
     return restaurant;
   }
 
+
   // 2. Routes with specific ID patterns that include additional path segments
   @Put(':id/approve')
   //@UseGuards(RolesGuard)
@@ -187,7 +188,7 @@ export class RestaurantController {
     const avatarFile = files?.avatar?.[0];
     const backgroundFile = files?.backgroundImage?.[0];
     const certificateFile = files?.certificateImage?.[0];
-    
+
     return await this.restaurantService.updateWithFiles(
       id,
       updateRestaurantDto,
@@ -218,5 +219,27 @@ export class RestaurantController {
   //@Permissions(Permission.RESTAURANT.DELETE)
   async remove(@Param('id') id: string): Promise<void> {
     return await this.restaurantService.remove(id);
+  }
+
+  @Get('my/order-count-by-month')
+  @UseGuards(AuthGuard)
+  async getMyOrderCountByMonth(
+    @Req() req: any,
+    @Query('month') month?: string // format: YYYY-MM
+  ) {
+    const userId = req.user?.id;
+    if (!userId) throw new BadRequestException('Not authenticated');
+    return this.restaurantService.getOrderCountByOwner(userId, month);
+  }
+
+  @Get('my/revenue-by-month')
+  @UseGuards(AuthGuard)
+  async getMyRevenueByMonth(
+    @Req() req: any,
+    @Query('month') month?: string // format: YYYY-MM
+  ) {
+    const userId = req.user?.id;
+    if (!userId) throw new BadRequestException('Not authenticated');
+    return this.restaurantService.getRevenueByOwner(userId, month);
   }
 }
