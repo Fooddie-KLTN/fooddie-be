@@ -1,17 +1,14 @@
-// src/app/admin/(admin-panel)/store/_components/approve-store-modal.tsx
+// src/app/admin/(admin-panel)/store/_components/view-store-modal.tsx
 "use client";
 
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Store } from "../page";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 
-interface ApproveStoreModalProps {
+interface Props {
   store: Store;
   onClose: () => void;
-  onApprove: (storeId: string) => void;
-  onReject: (storeId: string) => void;
 }
 
 const statusColorMap: Record<string, string> = {
@@ -20,17 +17,12 @@ const statusColorMap: Record<string, string> = {
   rejected: "text-red-600 bg-red-100",
 };
 
-const ApproveStoreModal: React.FC<ApproveStoreModalProps> = ({
-  store,
-  onClose,
-  onApprove,
-  onReject,
-}) => {
+const ViewStoreModal: React.FC<Props> = ({ store, onClose }) => {
   return (
     <Dialog open={!!store} onOpenChange={onClose}>
       <DialogContent className="max-w-3xl p-6 overflow-y-auto max-h-[90vh]">
         <DialogTitle className="text-2xl font-bold mb-6">
-          Xem xét duyệt cửa hàng: {store.name}
+          Chi tiết cửa hàng: {store.name}
         </DialogTitle>
 
         {/* Ảnh đại diện & Ảnh nền */}
@@ -90,7 +82,12 @@ const ApproveStoreModal: React.FC<ApproveStoreModalProps> = ({
           <div><strong className="w-40 inline-block">Số điện thoại:</strong> {store.phoneNumber || "Chưa có"}</div>
           <div>
             <strong className="w-40 inline-block">Địa chỉ:</strong>
-            {[store.address?.street, store.address?.ward, store.address?.district, store.address?.city].filter(Boolean).join(", ") || "Không rõ"}
+            {[
+              store.address?.street,
+              store.address?.ward,
+              store.address?.district,
+              store.address?.city,
+            ].filter(Boolean).join(", ") || "Không rõ"}
           </div>
           <div>
             <strong className="w-40 inline-block">Tọa độ:</strong>
@@ -108,25 +105,15 @@ const ApproveStoreModal: React.FC<ApproveStoreModalProps> = ({
         </div>
 
         {/* Chủ sở hữu */}
-        <div className="space-y-3 mb-6">
+        <div className="space-y-3">
           <h3 className="text-lg font-semibold text-gray-700 border-b pb-1">Chủ sở hữu</h3>
-          <div><strong className="w-40 inline-block">Tên:</strong> {store.owner?.name || "Không rõ"}</div>
+          <div><strong className="w-40 inline-block">Tên chủ cửa hàng:</strong> {store.owner?.name || "Không rõ"}</div>
           <div><strong className="w-40 inline-block">Email:</strong> {store.owner?.email}</div>
           {store.owner?.phone && <div><strong className="w-40 inline-block">SĐT:</strong> {store.owner.phone}</div>}
-        </div>
-
-        {/* Nút duyệt từ chối */}
-        <div className="flex justify-end gap-3">
-          <Button variant="destructive" onClick={() => onReject(store.id)}>
-            Từ chối
-          </Button>
-          <Button variant="default" onClick={() => onApprove(store.id)}>
-            Duyệt
-          </Button>
         </div>
       </DialogContent>
     </Dialog>
   );
 };
 
-export default ApproveStoreModal;
+export default ViewStoreModal;

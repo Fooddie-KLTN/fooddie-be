@@ -1,6 +1,6 @@
 /* eslint-disable prettier/prettier */
 // src/users/entities/user.entity.ts
-import { Entity, Column, ManyToOne, JoinColumn, PrimaryColumn, OneToMany, OneToOne, PrimaryGeneratedColumn } from 'typeorm';
+import { Entity, Column, ManyToOne, JoinColumn, PrimaryColumn, OneToMany, OneToOne, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
 import { User } from './user.entity';
 import { Food } from './food.entity';
 import { Order } from './order.entity';
@@ -74,5 +74,10 @@ export class Restaurant {
     @OneToMany(() => Order, (order) => order.restaurant)
     orders: Order[];
 
+    @UpdateDateColumn()
+    updatedAt: Date;
+
+    @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+    createdAt: Date;
 
 }
