@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -12,7 +13,7 @@ export default function BasicInfoPage() {
     const { getToken, loading: authLoading } = useAuth();
     const params = useParams();
     const restaurantId = Array.isArray(params.id) ? params.id[0] : params.id;
-    
+
     const [restaurant, setRestaurant] = useState<Partial<Restaurant>>({});
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -21,25 +22,25 @@ export default function BasicInfoPage() {
     // Fetch restaurant data
     useEffect(() => {
         if (authLoading) return;
-        
+
         const loadRestaurant = async () => {
             setLoading(true);
             setError(null);
-            
+
             try {
                 const token = await getToken() ?? '';
                 if (!token) {
                     setError("Failed to retrieve authentication token");
                     return;
                 }
-                
+
                 const fetchedRestaurant = await userApi.restaurant.getMyRestaurant(token);
-                
+
                 if (!fetchedRestaurant) {
                     setError("Restaurant not found");
                     return;
                 }
-                
+
                 setRestaurant(fetchedRestaurant);
             } catch (err) {
                 console.error("Failed to fetch restaurant:", err);
@@ -53,25 +54,39 @@ export default function BasicInfoPage() {
         loadRestaurant();
     }, [getToken, authLoading]);
 
+    // Utility to split address string
+    function parseAddress(full: string) {
+        // Split by comma and trim spaces
+        const parts = full.split(',').map(p => p.trim());
+        // Example: ["Ngõ 107a Tôn Đức Thắng", "Hàng Bột", "11500", "Đống Đa", "Hà Nội", "Việt Nam"]
+
+        return {
+            street: parts[0] || '',
+            ward: parts[1] && parts[2] ? `${parts[1]}, ${parts[2]}` : (parts[1] || ''),
+            district: parts[3] || '',
+            city: parts[4] || '',
+        };
+    }
+
     // Handle address selection from MapboxSearch
-    const handleAddressSelect = useCallback((addressData: { full: string; latitude: number; longitude: number }) => {
-        const addressParts = addressData.full.split(', ');
-        const cityIndex = addressParts.length > 2 ? addressParts.length - 1 : addressParts.length - 1;
-        const districtIndex = addressParts.length > 3 ? addressParts.length - 2 : 0;
-        const wardIndex = addressParts.length > 4 ? addressParts.length - 3 : 0;
-        
+    const handleAddressSelect = useCallback((addressData: any) => {
+        const { full, latitude, longitude } = addressData;
+        const { street, ward, district, city } = parseAddress(full);
+
         setRestaurant(prev => ({
             ...prev,
             address: {
-                street: addressParts.slice(0, wardIndex > 0 ? wardIndex : 0).join(', ') || addressData.full,
-                ward: addressParts[wardIndex] || '',
-                district: addressParts[districtIndex] || '',
-                city: addressParts[cityIndex] || '',
-                latitude: addressData.latitude,
-                longitude: addressData.longitude
+                street,
+                ward,
+                district,
+                city,
             },
-            latitude: addressData.latitude,
-            longitude: addressData.longitude
+            addressStreet: street,
+            addressWard: ward,
+            addressDistrict: district,
+            addressCity: city,
+            latitude,
+            longitude
         }));
     }, []);
 
@@ -88,22 +103,29 @@ export default function BasicInfoPage() {
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         setSaving(true);
-        
+
         try {
             const token = await getToken() ?? '';
             if (!token) {
                 toast.error("Authentication token required");
                 return;
             }
-            
+
             const formData = new FormData();
-            
+
             Object.entries(restaurant).forEach(([key, value]) => {
-                if (key !== 'avatar' && key !== 'backgroundImage' && value !== undefined) {
+                if (
+                    key !== 'id' &&
+                    key !== 'owner' &&
+                    key !== 'foods' &&
+                    value !== undefined
+                ) {
+                    // Prevent sending address object as string
+                    if (key === 'address' && typeof value === 'object') return;
                     formData.append(key, String(value));
                 }
             });
-            
+
             await userApi.restaurant.updateRestaurant(token, restaurantId!, formData);
             toast.success("Restaurant information updated successfully");
         } catch (err) {

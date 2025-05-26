@@ -22,6 +22,7 @@ interface CommonInfoFormProps {
     authLoading: boolean;
     hideAddressInput?: boolean;
     handleAddressSelect?: (address: { full: string; latitude: number; longitude: number }) => void;
+    addressSelects?: React.ReactNode; // <-- Add this line
 }
 
 export function CommonInfoForm({

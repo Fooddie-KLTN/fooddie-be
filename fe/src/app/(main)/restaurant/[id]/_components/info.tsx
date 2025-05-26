@@ -24,7 +24,7 @@ export function RestaurantInfo({ restaurant }: RestaurantInfoProps) {
           <MapPinIcon className="h-5 w-5 text-primary" />
           <div>
             <p className="text-sm text-gray-500">Địa chỉ</p>
-            <p className="font-medium">{restaurant.address}</p>
+            <p className="font-medium">{`${restaurant.address?.street }, ${restaurant.address?.ward}, ${restaurant.address?.district}, ${restaurant.address?.city}`}</p>
           </div>
         </div>
         

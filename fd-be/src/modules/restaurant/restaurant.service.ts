@@ -8,11 +8,12 @@ import { User } from 'src/entities/user.entity';
 import { GoogleCloudStorageService } from 'src/gcs/gcs.service';
 import { GeocodingService } from 'src/services/geocoding.service';
 import { Address } from 'src/entities/address.entity';
+import { haversineDistance } from 'src/common/utils/helper';
 
 @Injectable()
 export class RestaurantService {
     private readonly logger = new Logger(RestaurantService.name);
-    
+
     constructor(
         @InjectRepository(Restaurant)
         private restaurantRepository: Repository<Restaurant>,
@@ -22,7 +23,7 @@ export class RestaurantService {
         private addressRepository: Repository<Address>,
         private gcsService: GoogleCloudStorageService,
         private geocodingService: GeocodingService
-    ) {}
+    ) { }
 
     /**
      * Request to create a new restaurant with file uploads and address
@@ -51,7 +52,7 @@ export class RestaurantService {
             if (!createRestaurantDto.ownerId) {
                 throw new BadRequestException('Owner ID is required');
             }
-            
+
             const owner = await this.userRepository.findOne({
                 where: { id: createRestaurantDto.ownerId }
             });
@@ -91,18 +92,18 @@ export class RestaurantService {
             let avatarUrl = '';
             let backgroundUrl = '';
             let certificateUrl = '';
-            
+
             try {
                 // Upload avatar if provided
                 if (avatarFile) {
                     avatarUrl = await this.gcsService.uploadPublicFile(avatarFile, 'restaurant-avatars');
                 }
-                
+
                 // Upload background image if provided
                 if (backgroundFile) {
                     backgroundUrl = await this.gcsService.uploadPublicFile(backgroundFile, 'restaurant-backgrounds');
                 }
-                
+
                 // Upload certificate image if provided
                 if (certificateFile) {
                     certificateUrl = await this.gcsService.uploadPublicFile(certificateFile, 'restaurant-certificates');
@@ -111,7 +112,7 @@ export class RestaurantService {
                 this.logger.error('Error uploading files:', uploadError);
                 throw new BadRequestException(`File upload failed: ${uploadError.message}`);
             }
-            
+
             // Create restaurant with uploaded image URLs and address
             const { latitude, longitude, ...restDto } = createRestaurantDto;
             const restaurant = this.restaurantRepository.create({
@@ -171,6 +172,80 @@ export class RestaurantService {
             delete updateRestaurantDto.ownerId;
         }
 
+        this.logger.log(`[updateWithFiles] Updating restaurant with ID ${id} with data:`, updateRestaurantDto);
+        // --- Address update logic ---
+        // Only update address if new address fields are provided
+        if (
+            updateRestaurantDto.addressStreet ||
+            updateRestaurantDto.addressWard ||
+            updateRestaurantDto.addressDistrict ||
+            updateRestaurantDto.addressCity
+        ) {
+            this.logger.log(`[updateWithFiles] Address fields detected in DTO:`, {
+                address: updateRestaurantDto.address,
+                addressStreet: updateRestaurantDto.addressStreet,
+                addressWard: updateRestaurantDto.addressWard,
+                addressDistrict: updateRestaurantDto.addressDistrict,
+                addressCity: updateRestaurantDto.addressCity,
+            });
+
+            // Remove old address if exists
+            if (restaurant.address) {
+                const oldAddressId = restaurant.address.id;
+                this.logger.log(`[updateWithFiles] Removing old address with id: ${oldAddressId}`);
+                restaurant.address = null as any;
+                await this.restaurantRepository.save(restaurant); // Break the FK
+                await this.addressRepository.delete(oldAddressId); // Now safe to delete
+            }
+
+            // Create new address
+            let addressData: {
+                street: string;
+                ward: string;
+                district: string;
+                city: string;
+            };
+
+            if (updateRestaurantDto.address) {
+                // Parse address string: "street, ward, district, city"
+                const addressParts = updateRestaurantDto.address.split(',').map(part => part.trim());
+                addressData = {
+                    street: addressParts[0] || 'Unknown street',
+                    ward: addressParts[1] || 'Unknown ward',
+                    district: addressParts[2] || 'Unknown district',
+                    city: addressParts[3] || 'Unknown city'
+                };
+                this.logger.log(`[updateWithFiles] Parsed addressData from address string:`, addressData);
+            } else {
+                addressData = {
+                    street: updateRestaurantDto.addressStreet || 'Unknown street',
+                    ward: updateRestaurantDto.addressWard || 'Unknown ward',
+                    district: updateRestaurantDto.addressDistrict || 'Unknown district',
+                    city: updateRestaurantDto.addressCity || 'Unknown city'
+                };
+                this.logger.log(`[updateWithFiles] Built addressData from split fields:`, addressData);
+            }
+
+            const address = this.addressRepository.create(addressData);
+
+            // Set coordinates if provided
+            if (updateRestaurantDto.latitude && updateRestaurantDto.longitude) {
+                address.latitude = parseFloat(updateRestaurantDto.latitude);
+                address.longitude = parseFloat(updateRestaurantDto.longitude);
+                this.logger.log(`[updateWithFiles] Set address coordinates:`, {
+                    latitude: address.latitude,
+                    longitude: address.longitude,
+                });
+            }
+
+            await this.addressRepository.save(address);
+            restaurant.address = address;
+            await this.restaurantRepository.save(restaurant); // Save restaurant with new addresss
+            this.logger.log(`[updateWithFiles] New address saved and assigned to restaurant:`, address);
+        } else {
+            this.logger.log(`[updateWithFiles] No address fields provided in DTO, skipping address update.`);
+        }
+
         // Track old images to clean up after successful update
         const oldAvatarUrl = restaurant.avatar;
         const oldBackgroundUrl = restaurant.backgroundImage;
@@ -181,11 +256,9 @@ export class RestaurantService {
             if (avatarFile) {
                 restaurant.avatar = await this.gcsService.uploadPublicFile(avatarFile, 'restaurant-avatars');
             }
-            
             if (backgroundFile) {
                 restaurant.backgroundImage = await this.gcsService.uploadPublicFile(backgroundFile, 'restaurant-backgrounds');
             }
-            
             if (certificateFile) {
                 restaurant.certificateImage = await this.gcsService.uploadPublicFile(certificateFile, 'restaurant-certificates');
             }
@@ -195,16 +268,14 @@ export class RestaurantService {
 
             // Save updated restaurant
             const updatedRestaurant = await this.restaurantRepository.save(restaurant);
-            
+
             // Clean up old images if they were replaced
             if (avatarFile && oldAvatarUrl) {
                 await this.gcsService.deleteFile(oldAvatarUrl);
             }
-            
             if (backgroundFile && oldBackgroundUrl) {
                 await this.gcsService.deleteFile(oldBackgroundUrl);
             }
-            
             if (certificateFile && oldCertificateUrl) {
                 await this.gcsService.deleteFile(oldCertificateUrl);
             }
@@ -253,7 +324,7 @@ export class RestaurantService {
         // Handle address update if provided
         if (addressData) {
             let address: Address;
-            
+
             // Update existing address or create new one
             if (restaurant.address) {
                 address = restaurant.address;
@@ -261,7 +332,7 @@ export class RestaurantService {
             } else {
                 address = this.addressRepository.create(addressData);
             }
-            
+
             try {
                 // Try to get coordinates, but don't block if it fails
                 const coordinates = await this.geocodingService.geocode(addressData);
@@ -277,7 +348,7 @@ export class RestaurantService {
                 this.logger.error(`Geocoding failed: ${geoError.message}`, geoError.stack);
                 // We'll proceed without coordinates - no need to rethrow
             }
-            
+
             // Save the address
             await this.addressRepository.save(address);
             restaurant.address = address;
@@ -294,11 +365,11 @@ export class RestaurantService {
             if (avatarFile) {
                 restaurant.avatar = await this.gcsService.uploadPublicFile(avatarFile, 'restaurant-avatars');
             }
-            
+
             if (backgroundFile) {
                 restaurant.backgroundImage = await this.gcsService.uploadPublicFile(backgroundFile, 'restaurant-backgrounds');
             }
-            
+
             if (certificateFile) {
                 restaurant.certificateImage = await this.gcsService.uploadPublicFile(certificateFile, 'restaurant-certificates');
             }
@@ -308,20 +379,20 @@ export class RestaurantService {
 
             // Save updated restaurant
             const updatedRestaurant = await this.restaurantRepository.save(restaurant);
-            
+
             // Clean up old images if they were replaced
             if (avatarFile && oldAvatarUrl) {
                 await this.gcsService.deleteFile(oldAvatarUrl).catch(err => {
                     this.logger.warn(`Failed to delete old avatar: ${err.message}`);
                 });
             }
-            
+
             if (backgroundFile && oldBackgroundUrl) {
                 await this.gcsService.deleteFile(oldBackgroundUrl).catch(err => {
                     this.logger.warn(`Failed to delete old background image: ${err.message}`);
                 });
             }
-            
+
             if (certificateFile && oldCertificateUrl) {
                 await this.gcsService.deleteFile(oldCertificateUrl).catch(err => {
                     this.logger.warn(`Failed to delete old certificate: ${err.message}`);
@@ -354,7 +425,7 @@ export class RestaurantService {
 
                 // Create restaurant object without address property first
                 const { address: addressString, latitude, longitude, ...restaurantData } = createRestaurantDto;
-                
+
                 // Create new restaurant
                 const restaurant = this.restaurantRepository.create({
                     ...restaurantData,
@@ -402,10 +473,10 @@ export class RestaurantService {
 
                 // Extract address from DTO
                 const { address: addressString, ownerId, ...restaurantData } = createRestaurantDto;
-                
+
                 // Parse latitude and longitude to numbers if they exist
                 const { latitude, longitude, ...rest } = restaurantData;
-                
+
                 // Create new restaurant request
                 const restaurant = this.restaurantRepository.create({
                     ...rest,
@@ -708,5 +779,45 @@ export class RestaurantService {
         // Example:
         // return this.orderRepository.sum('total', { where: { restaurant: { id: restaurant.id }, createdAt: ... } });
         return 0; // Replace with real logic
+    }
+    async searchRestaurants({
+        page = 1,
+        pageSize = 10,
+        name = '',
+        lat,
+        lng,
+        radius = 5
+    }: { page?: number; pageSize?: number; name?: string; lat?: number; lng?: number; radius?: number }) {
+        const queryBuilder = this.restaurantRepository.createQueryBuilder('restaurant');
+
+        if (name) {
+            queryBuilder.where('restaurant.name ILIKE :name', { name: `%${name}%` });
+        }
+
+        let [items, totalItems] = await queryBuilder.getManyAndCount();
+
+        // If lat/lng provided, filter and sort by distance
+        if (lat && lng) {
+            items = items
+                .map(r => ({
+                    ...r,
+                    distance: haversineDistance(lat, lng, Number(r.latitude), Number(r.longitude))
+                }))
+                .filter(r => r.distance <= radius)
+                .sort((a, b) => a.distance - b.distance);
+
+            totalItems = items.length;
+            items = items.slice((page - 1) * pageSize, page * pageSize);
+        } else {
+            items = items.slice((page - 1) * pageSize, page * pageSize);
+        }
+
+        return {
+            items,
+            totalItems,
+            page,
+            pageSize,
+            totalPages: Math.ceil(totalItems / pageSize),
+        };
     }
 }

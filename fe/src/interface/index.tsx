@@ -113,6 +113,7 @@ export interface FoodPreview {
   preparationTime?: number;
   rating?: number;
   popular?: boolean;
+  distance?: number; // Distance in km
   purchasedNumber?: number; // Renamed to match backend
   createdAt?: Date;
   updatedAt?: Date;

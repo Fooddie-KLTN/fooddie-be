@@ -7,6 +7,7 @@ import { UpdateFoodDto } from './dto/update-food.dto';
 import { Restaurant } from 'src/entities/restaurant.entity';
 import { Category } from 'src/entities/category.entity';
 import { GoogleCloudStorageService } from 'src/gcs/gcs.service'; // Add this import
+import { haversineDistance } from 'src/common/utils/helper';
 
 @Injectable()
 export class FoodService {
@@ -122,8 +123,8 @@ export class FoodService {
      * @param pageSize The number of items per page
      * @returns List of all foods with pagination metadata
      */
-    async findAll(page = 1, pageSize = 10): Promise<{
-        items: Food[];
+    async findAll(page = 1, pageSize = 10, lat?: number, lng?: number): Promise<{
+        items: any[];
         totalItems: number;
         page: number;
         pageSize: number;
@@ -135,8 +136,21 @@ export class FoodService {
             take: pageSize,
         });
 
+        const itemsWithDistance = items.map(food => {
+            let distance: number | null = null;
+            if (lat && lng && food.restaurant?.latitude && food.restaurant?.longitude) {
+                distance = haversineDistance(
+                    lat,
+                    lng,
+                    Number(food.restaurant.latitude),
+                    Number(food.restaurant.longitude)
+                );
+            }
+            return { ...food, distance };
+        });
+
         return {
-            items,
+            items: itemsWithDistance,
             totalItems,
             page,
             pageSize,
@@ -152,14 +166,13 @@ export class FoodService {
      * @param pageSize The number of items per page
      * @returns List of foods for a specific restaurant with pagination metadata
      */
-    async findByRestaurant(restaurantId: string, page = 1, pageSize = 10): Promise<{
-        items: Food[];
+    async findByRestaurant(restaurantId: string, page = 1, pageSize = 10, lat?: number, lng?: number): Promise<{
+        items: any[];
         totalItems: number;
         page: number;
         pageSize: number;
         totalPages: number;
     }> {
-        // Check if restaurant exists
         const restaurant = await this.restaurantRepository.findOne({
             where: { id: restaurantId }
         });
@@ -175,8 +188,21 @@ export class FoodService {
             take: pageSize,
         });
 
+        const itemsWithDistance = items.map(food => {
+            let distance : number | null = null;
+            if (lat && lng && restaurant.latitude && restaurant.longitude) {
+                distance = haversineDistance(
+                    lat,
+                    lng,
+                    Number(restaurant.latitude),
+                    Number(restaurant.longitude)
+                );
+            }
+            return { ...food, distance };
+        });
+
         return {
-            items,
+            items: itemsWithDistance,
             totalItems,
             page,
             pageSize,
@@ -192,14 +218,13 @@ export class FoodService {
      * @param pageSize The number of items per page
      * @returns List of foods for a specific category with pagination metadata
      */
-    async findByCategory(categoryId: string, page = 1, pageSize = 10): Promise<{
-        items: Food[];
+    async findByCategory(categoryId: string, page = 1, pageSize = 10, lat?: number, lng?: number): Promise<{
+        items: any[];
         totalItems: number;
         page: number;
         pageSize: number;
         totalPages: number;
     }> {
-        // Check if category exists
         const category = await this.categoryRepository.findOne({
             where: { id: categoryId }
         });
@@ -215,8 +240,21 @@ export class FoodService {
             take: pageSize,
         });
 
+        const itemsWithDistance = items.map(food => {
+            let distance : number | null = null;
+            if (lat && lng && food.restaurant?.latitude && food.restaurant?.longitude) {
+                distance = haversineDistance(
+                    lat,
+                    lng,
+                    Number(food.restaurant.latitude),
+                    Number(food.restaurant.longitude)
+                );
+            }
+            return { ...food, distance };
+        });
+
         return {
-            items,
+            items: itemsWithDistance,
             totalItems,
             page,
             pageSize,
@@ -231,8 +269,8 @@ export class FoodService {
      * @param pageSize The number of items per page
      * @returns List of top selling foods with pagination metadata
      */
-    async findTopSelling(page = 1, pageSize = 10): Promise<{
-        items: Food[];
+    async findTopSelling(page = 1, pageSize = 10, lat?: number, lng?: number): Promise<{
+        items: any[];
         totalItems: number;
         page: number;
         pageSize: number;
@@ -247,8 +285,21 @@ export class FoodService {
             take: pageSize,
         });
 
+        const itemsWithDistance = items.map(food => {
+            let distance : number | null = null;
+            if (lat && lng && food.restaurant?.latitude && food.restaurant?.longitude) {
+                distance = haversineDistance(
+                    lat,
+                    lng,
+                    Number(food.restaurant.latitude),
+                    Number(food.restaurant.longitude)
+                );
+            }
+            return { ...food, distance };
+        });
+
         return {
-            items,
+            items: itemsWithDistance,
             totalItems,
             page,
             pageSize,
@@ -264,8 +315,8 @@ export class FoodService {
      * @param pageSize The number of items per page
      * @returns List of newest foods with pagination metadata
      */
-    async findNewest(page = 1, pageSize = 10): Promise<{
-        items: Food[];
+    async findNewest(page = 1, pageSize = 10, lat?: number, lng?: number): Promise<{
+        items: any[];
         totalItems: number;
         page: number;
         pageSize: number;
@@ -280,8 +331,21 @@ export class FoodService {
             take: pageSize,
         });
 
+        const itemsWithDistance = items.map(food => {
+            let distance : number | null = null;
+            if (lat && lng && food.restaurant?.latitude && food.restaurant?.longitude) {
+                distance = haversineDistance(
+                    lat,
+                    lng,
+                    Number(food.restaurant.latitude),
+                    Number(food.restaurant.longitude)
+                );
+            }
+            return { ...food, distance };
+        });
+
         return {
-            items,
+            items: itemsWithDistance,
             totalItems,
             page,
             pageSize,
@@ -297,14 +361,13 @@ export class FoodService {
      * @param pageSize The number of items per page
      * @returns List of top selling foods for a specific restaurant with pagination metadata
      */
-    async findTopSellingByRestaurant(restaurantId: string, page = 1, pageSize = 10): Promise<{
-        items: Food[];
+    async findTopSellingByRestaurant(restaurantId: string, page = 1, pageSize = 10, lat?: number, lng?: number): Promise<{
+        items: any[];
         totalItems: number;
         page: number;
         pageSize: number;
         totalPages: number;
     }> {
-        // Check if restaurant exists
         const restaurant = await this.restaurantRepository.findOne({
             where: { id: restaurantId }
         });
@@ -323,8 +386,21 @@ export class FoodService {
             take: pageSize,
         });
 
+        const itemsWithDistance = items.map(food => {
+            let distance : number | null = null;
+            if (lat && lng && restaurant.latitude && restaurant.longitude) {
+                distance = haversineDistance(
+                    lat,
+                    lng,
+                    Number(restaurant.latitude),
+                    Number(restaurant.longitude)
+                );
+            }
+            return { ...food, distance };
+        });
+
         return {
-            items,
+            items: itemsWithDistance,
             totalItems,
             page,
             pageSize,
@@ -341,14 +417,13 @@ export class FoodService {
      * @param pageSize The number of items per page
      * @returns List of foods for a specific category and restaurant with pagination metadata
      */
-    async findByCategoryAndRestaurant(categoryId: string, restaurantId: string, page = 1, pageSize = 10): Promise<{
-        items: Food[];
+    async findByCategoryAndRestaurant(categoryId: string, restaurantId: string, page = 1, pageSize = 10, lat?: number, lng?: number): Promise<{
+        items: any[];
         totalItems: number;
         page: number;
         pageSize: number;
         totalPages: number;
     }> {
-        // Check if category exists
         const category = await this.categoryRepository.findOne({
             where: { id: categoryId }
         });
@@ -357,7 +432,6 @@ export class FoodService {
             throw new NotFoundException(`Category with ID ${categoryId} not found`);
         }
 
-        // Check if restaurant exists
         const restaurant = await this.restaurantRepository.findOne({
             where: { id: restaurantId }
         });
@@ -375,8 +449,21 @@ export class FoodService {
             take: pageSize,
         });
 
+        const itemsWithDistance = items.map(food => {
+            let distance : number | null = null;
+            if (lat && lng && restaurant.latitude && restaurant.longitude) {
+                distance = haversineDistance(
+                    lat,
+                    lng,
+                    Number(restaurant.latitude),
+                    Number(restaurant.longitude)
+                );
+            }
+            return { ...food, distance };
+        });
+
         return {
-            items,
+            items: itemsWithDistance,
             totalItems,
             page,
             pageSize,
@@ -391,8 +478,8 @@ export class FoodService {
      * @param pageSize The number of items per page
      * @returns List of foods with discount with pagination metadata
      */
-    async findWithDiscount(page = 1, pageSize = 10): Promise<{
-        items: Food[];
+    async findWithDiscount(page = 1, pageSize = 10, lat?: number, lng?: number): Promise<{
+        items: any[];
         totalItems: number;
         page: number;
         pageSize: number;
@@ -410,8 +497,21 @@ export class FoodService {
         const totalItems = await queryBuilder.getCount();
         const items = await queryBuilder.getMany();
 
+        const itemsWithDistance = items.map(food => {
+            let distance : number | null = null;
+            if (lat && lng && food.restaurant?.latitude && food.restaurant?.longitude) {
+                distance = haversineDistance(
+                    lat,
+                    lng,
+                    Number(food.restaurant.latitude),
+                    Number(food.restaurant.longitude)
+                );
+            }
+            return { ...food, distance };
+        });
+
         return {
-            items,
+            items: itemsWithDistance,
             totalItems,
             page,
             pageSize,
@@ -427,14 +527,13 @@ export class FoodService {
      * @param pageSize The number of items per page
      * @returns List of foods with discount for a specific restaurant with pagination metadata
      */
-    async findWithDiscountByRestaurant(restaurantId: string, page = 1, pageSize = 10): Promise<{
-        items: Food[];
+    async findWithDiscountByRestaurant(restaurantId: string, page = 1, pageSize = 10, lat?: number, lng?: number): Promise<{
+        items: any[];
         totalItems: number;
         page: number;
         pageSize: number;
         totalPages: number;
     }> {
-        // Check if restaurant exists
         const restaurant = await this.restaurantRepository.findOne({
             where: { id: restaurantId }
         });
@@ -455,8 +554,21 @@ export class FoodService {
         const totalItems = await queryBuilder.getCount();
         const items = await queryBuilder.getMany();
 
+        const itemsWithDistance = items.map(food => {
+            let distance : number | null = null;
+            if (lat && lng && restaurant.latitude && restaurant.longitude) {
+                distance = haversineDistance(
+                    lat,
+                    lng,
+                    Number(restaurant.latitude),
+                    Number(restaurant.longitude)
+                );
+            }
+            return { ...food, distance };
+        });
+
         return {
-            items,
+            items: itemsWithDistance,
             totalItems,
             page,
             pageSize,
@@ -464,58 +576,80 @@ export class FoodService {
         };
     }
 
-    /**
-     * Search foods by name or description with pagination
-     * 
-     * @param query The search query
-     * @param page The page number
-     * @param pageSize The number of items per page
-     * @returns List of foods matching the search with pagination metadata
-     */
-    async searchFoods(query: string, page = 1, pageSize = 10): Promise<{
-        items: Food[];
-        totalItems: number;
-        page: number;
-        pageSize: number;
-        totalPages: number;
-    }> {
-        const queryBuilder = this.foodRepository.createQueryBuilder('food')
-            .leftJoinAndSelect('food.restaurant', 'restaurant')
-            .leftJoinAndSelect('food.category', 'category')
-            .where('food.name LIKE :query OR food.description LIKE :query', { query: `%${query}%` })
-            .skip((page - 1) * pageSize)
-            .take(pageSize);
+async searchFoods(
+  query: string,
+  page = 1,
+  pageSize = 10,
+  lat?: number,
+  lng?: number,
+  radius = 5
+): Promise<{
+  items: any[]; // Use any[] to allow distance property
+  totalItems: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}> {
+  const queryBuilder = this.foodRepository.createQueryBuilder('food')
+    .leftJoinAndSelect('food.restaurant', 'restaurant')
+    .leftJoinAndSelect('food.category', 'category');
 
-        const totalItems = await queryBuilder.getCount();
-        const items = await queryBuilder.getMany();
+  if (query) {
+    queryBuilder.where('food.name ILIKE :query OR food.description ILIKE :query', { query: `%${query}%` });
+  }
 
-        return {
-            items,
-            totalItems,
-            page,
-            pageSize,
-            totalPages: Math.ceil(totalItems / pageSize),
-        };
-    }
+  let [items, totalItems] = await queryBuilder.getManyAndCount();
 
+  // Add distance if lat/lng provided
+  if (lat && lng) {
+    items = items
+      .filter(f => f.restaurant?.latitude && f.restaurant?.longitude)
+      .map(f => ({
+        ...f,
+        distance: haversineDistance(lat, lng, Number(f.restaurant.latitude), Number(f.restaurant.longitude))
+      }))
+      .filter(f => f.distance <= radius)
+      .sort((a, b) => a.distance - b.distance);
+
+    totalItems = items.length;
+    items = items.slice((page - 1) * pageSize, page * pageSize);
+  } else {
+    items = items.slice((page - 1) * pageSize, page * pageSize);
+  }
+
+  return {
+    items,
+    totalItems,
+    page,
+    pageSize,
+    totalPages: Math.ceil(totalItems / pageSize),
+  };
+}
     /**
      * Get a specific food by ID
      * 
      * @param id The food ID
      * @returns The food details
      */
-    async findOne(id: string): Promise<Food> {
-        const food = await this.foodRepository.findOne({
-            where: { id },
-            relations: ['restaurant', 'category']
-        });
+async findOne(id: string, lat?: number, lng?: number): Promise<any> {
+    const food = await this.foodRepository.findOne({
+        where: { id },
+        relations: ['restaurant', 'category']
+    });
 
-        if (!food) {
-            throw new NotFoundException(`Food with ID ${id} not found`);
-        }
-
-        return food;
+    if (!food) {
+        throw new NotFoundException(`Food with ID ${id} not found`);
     }
+
+    let result: any = food;
+    if (lat && lng && food.restaurant?.latitude && food.restaurant?.longitude) {
+        result = {
+            ...food,
+            distance: haversineDistance(lat, lng, Number(food.restaurant.latitude), Number(food.restaurant.longitude))
+        };
+    }
+    return result;
+}
 
     /**
      * Update a food
@@ -640,3 +774,4 @@ export class FoodService {
         return await this.foodRepository.save(food);
     }
 }
+

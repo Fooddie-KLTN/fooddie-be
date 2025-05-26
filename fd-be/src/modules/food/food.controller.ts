@@ -11,7 +11,8 @@ import {
   ParseIntPipe,
   UseGuards,
   UnauthorizedException,
-  Req
+  Req,
+  ParseFloatPipe
 } from '@nestjs/common';
 import { FoodService } from './food.service';
 import { CreateFoodDto } from './dto/create-food.dto';
@@ -45,42 +46,54 @@ export class FoodController {
   async findAll(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('pageSize', new DefaultValuePipe(10), ParseIntPipe) pageSize: number,
+    @Query('lat') lat?: number,
+    @Query('lng') lng?: number,
   ) {
-    return await this.foodService.findAll(page, pageSize);
+    return await this.foodService.findAll(page, pageSize, lat ? Number(lat) : undefined, lng ? Number(lng) : undefined);
   }
 
   @Get('top-selling')
   async findTopSelling(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('pageSize', new DefaultValuePipe(10), ParseIntPipe) pageSize: number,
+    @Query('lat') lat?: number,
+    @Query('lng') lng?: number,
   ) {
-    return await this.foodService.findTopSelling(page, pageSize);
+    return await this.foodService.findTopSelling(page, pageSize, lat ? Number(lat) : undefined, lng ? Number(lng) : undefined);
   }
 
   @Get('newest')
   async findNewest(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('pageSize', new DefaultValuePipe(10), ParseIntPipe) pageSize: number,
+    @Query('lat') lat?: number,
+    @Query('lng') lng?: number,
   ) {
-    return await this.foodService.findNewest(page, pageSize);
+    return await this.foodService.findNewest(page, pageSize, lat ? Number(lat) : undefined, lng ? Number(lng) : undefined);
   }
 
   @Get('with-discount')
   async findWithDiscount(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('pageSize', new DefaultValuePipe(10), ParseIntPipe) pageSize: number,
+    @Query('lat') lat?: number,
+    @Query('lng') lng?: number,
   ) {
-    return await this.foodService.findWithDiscount(page, pageSize);
+    return await this.foodService.findWithDiscount(page, pageSize, lat ? Number(lat) : undefined, lng ? Number(lng) : undefined);
   }
 
-  @Get('search')
-  async searchFoods(
-    @Query('query') query: string,
-    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
-    @Query('pageSize', new DefaultValuePipe(10), ParseIntPipe) pageSize: number,
-  ) {
-    return await this.foodService.searchFoods(query, page, pageSize);
-  }
+@Get('search')
+async searchFoods(
+  @Query('query') query: string,
+  @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+  @Query('pageSize', new DefaultValuePipe(10), ParseIntPipe) pageSize: number,
+  @Query('lat', new DefaultValuePipe(10.7769), ParseFloatPipe) lat: number = 10.7769, // HCM default
+  @Query('lng', new DefaultValuePipe(106.7009), ParseFloatPipe) lng: number = 106.7009,
+  @Query('radius', new DefaultValuePipe(5), ParseIntPipe) radius: number = 5 // km
+) {
+  return await this.foodService.searchFoods(query, page, pageSize, lat, lng, radius);
+}
+
   @Get('top')
   async getTopFoodsByRestaurant(
     @Query('restaurantId') restaurantId: string,
@@ -96,8 +109,10 @@ export class FoodController {
     @Param('restaurantId') restaurantId: string,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('pageSize', new DefaultValuePipe(10), ParseIntPipe) pageSize: number,
+    @Query('lat') lat?: number,
+    @Query('lng') lng?: number,
   ) {
-    return await this.foodService.findByRestaurant(restaurantId, page, pageSize);
+    return await this.foodService.findByRestaurant(restaurantId, page, pageSize, lat ? Number(lat) : undefined, lng ? Number(lng) : undefined);
   }
 
   @Get('restaurant/:restaurantId/top-selling')
@@ -105,8 +120,10 @@ export class FoodController {
     @Param('restaurantId') restaurantId: string,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('pageSize', new DefaultValuePipe(10), ParseIntPipe) pageSize: number,
+    @Query('lat') lat?: number,
+    @Query('lng') lng?: number,
   ) {
-    return await this.foodService.findTopSellingByRestaurant(restaurantId, page, pageSize);
+    return await this.foodService.findTopSellingByRestaurant(restaurantId, page, pageSize, lat ? Number(lat) : undefined, lng ? Number(lng) : undefined);
   }
 
   @Get('restaurant/:restaurantId/with-discount')
@@ -114,8 +131,10 @@ export class FoodController {
     @Param('restaurantId') restaurantId: string,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('pageSize', new DefaultValuePipe(10), ParseIntPipe) pageSize: number,
+    @Query('lat') lat?: number,
+    @Query('lng') lng?: number,
   ) {
-    return await this.foodService.findWithDiscountByRestaurant(restaurantId, page, pageSize);
+    return await this.foodService.findWithDiscountByRestaurant(restaurantId, page, pageSize, lat ? Number(lat) : undefined, lng ? Number(lng) : undefined);
   }
 
   @Get('category/:categoryId')
@@ -123,8 +142,10 @@ export class FoodController {
     @Param('categoryId') categoryId: string,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('pageSize', new DefaultValuePipe(10), ParseIntPipe) pageSize: number,
+    @Query('lat') lat?: number,
+    @Query('lng') lng?: number,
   ) {
-    return await this.foodService.findByCategory(categoryId, page, pageSize);
+    return await this.foodService.findByCategory(categoryId, page, pageSize, lat ? Number(lat) : undefined, lng ? Number(lng) : undefined);
   }
 
   @Get('category/:categoryId/restaurant/:restaurantId')
@@ -133,18 +154,26 @@ export class FoodController {
     @Param('restaurantId') restaurantId: string,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('pageSize', new DefaultValuePipe(10), ParseIntPipe) pageSize: number,
+    @Query('lat') lat?: number,
+    @Query('lng') lng?: number,
   ) {
     return await this.foodService.findByCategoryAndRestaurant(
       categoryId,
       restaurantId,
       page,
       pageSize,
+      lat ? Number(lat) : undefined,
+      lng ? Number(lng) : undefined,
     );
   }
 
   @Get(':id')
-  async findOne(@Param('id') id: string) {
-    return await this.foodService.findOne(id);
+  async findOne(
+    @Param('id') id: string,
+    @Query('lat') lat?: number,
+    @Query('lng') lng?: number,
+  ) {
+    return await this.foodService.findOne(id, lat ? Number(lat) : undefined, lng ? Number(lng) : undefined);
   }
 
   @Put(':id')

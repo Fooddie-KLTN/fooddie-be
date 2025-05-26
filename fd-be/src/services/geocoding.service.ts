@@ -30,14 +30,14 @@ export class GeocodingService {
       this.logger.warn('Geocoding skipped - no Mapbox access token provided');
       return null;
     }
-    
+
     try {
       // Format the address for the API
       const address = `${addressParts.street}, ${addressParts.ward}, ${addressParts.district}, ${addressParts.city}, Vietnam`;
-      
+
       // URL encode the address
       const encodedAddress = encodeURIComponent(address);
-      
+
       // Make request to Mapbox Geocoding API
       const response = await axios.get(`${this.baseUrl}/${encodedAddress}.json`, {
         params: {
@@ -51,19 +51,37 @@ export class GeocodingService {
       // Check if we have valid results
       if (response.data && response.data.features && response.data.features.length > 0) {
         const [longitude, latitude] = response.data.features[0].geometry.coordinates;
-        
+
         // Mapbox returns coordinates as [longitude, latitude]
         return {
           lat: latitude,
           lng: longitude
         };
       }
-      
+
       this.logger.warn(`Mapbox geocoding failed for address: ${address}`);
       return null;
     } catch (error) {
       this.logger.error('Error during Mapbox geocoding', error);
       return null;
     }
+  }
+  haversineDistance(
+    lat1: number, lon1: number,
+    lat2: number, lon2: number
+  ): number {
+    const toRad = (x: number) => x * Math.PI / 180;
+    const R = 6371; // Earth radius in km
+
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c; // Distance in km
   }
 }

@@ -34,7 +34,7 @@ export function RestaurantHeader({ restaurant }: RestaurantHeaderProps) {
           <div className="flex flex-wrap gap-3 mb-2">
             <div className="flex items-center gap-1 text-sm">
               <MapPinIcon className="h-4 w-4" />
-              <span>{restaurant.address}</span>
+              <span>{`${restaurant.address?.street }, ${restaurant.address?.ward}, ${restaurant.address?.district}, ${restaurant.address?.city}`}</span>
             </div>
             <div className="flex items-center gap-1 text-sm">
               <ClockIcon className="h-4 w-4" />

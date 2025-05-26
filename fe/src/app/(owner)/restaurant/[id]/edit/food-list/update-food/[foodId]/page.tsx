@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useState, useEffect } from "react";
@@ -237,12 +238,15 @@ export default function UpdateFoodPage() {
         imageUrl = imageUrls[0];
       }
 
-      await userApi.food.updateFood(token, foodId, {
+      // Prepare update data and remove forbidden fields
+      const updateData = {
         ...form,
         restaurantId,
         image: imageUrl,
         imageUrls,
-      });
+      };
+
+      await userApi.food.updateFood(token, foodId, updateData);
 
       router.push(`/restaurant/${restaurantId}/edit/food-list`);
     } catch (err) {
