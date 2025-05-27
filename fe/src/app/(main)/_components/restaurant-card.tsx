@@ -70,20 +70,20 @@ const RestaurantCard: React.FC<RestaurantCardProps> = ({ restaurants, getFoods }
     };
 
     return (
-        <div className="w-full bg-white rounded-xl overflow-hidden shadow-xl border border-gray-100 flex flex-col md:flex-row">
+        <div className="w-full min-h-[500px] bg-white rounded-xl overflow-hidden shadow-xl border border-gray-100 flex flex-col md:flex-row">
             {/* Restaurant Info (Left Side) */}
             <div className="md:w-1/2 relative">
                 {/* Background Image */}
-                <div className="relative h-64 md:h-full">
+                <div className="relative h-96 md:h-full">
                     <div className={`
-            w-full h-full transition-all duration-500 ease-in-out
-            ${isChanging ? 'scale-110 opacity-40' : 'scale-100 opacity-100'}
-          `}>
+                    w-full h-full transition-all duration-500 ease-in-out
+                    ${isChanging ? 'scale-110 opacity-40' : 'scale-100 opacity-100'}
+                `}>
                         <Image
                             src={activeRestaurant.backgroundImage || `https://source.unsplash.com/random/800x600/?restaurant-${activeRestaurant.id}`}
                             alt={activeRestaurant.name}
                             width={800}
-                            height={600}
+                            height={800}
                             className="w-full h-full object-cover"
                         />
                     </div>
@@ -169,7 +169,7 @@ const RestaurantCard: React.FC<RestaurantCardProps> = ({ restaurants, getFoods }
             </div>
 
             {/* Foods (Right Side) */}
-            <div className="md:w-1/2 max-h-[600px] overflow-y-auto p-6">
+            <div className="md:w-1/2 max-h-[800px] overflow-y-auto p-6">
                 <div className="flex justify-between items-center mb-6">
                     <h2 className="text-xl font-bold text-gray-800">Popular Menu</h2>
                     <Link

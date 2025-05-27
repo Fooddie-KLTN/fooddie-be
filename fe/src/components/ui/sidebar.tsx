@@ -16,11 +16,9 @@ import {
   FileTextIcon,
   GraduationCapIcon,
   LibraryBigIcon,
-  LifeBuoyIcon,
   LogOutIcon,
   MenuIcon,
   MessageSquareMoreIcon,
-  ServerIcon,
   SettingsIcon,
   TicketPercentIcon,
   UserPenIcon,
@@ -61,19 +59,9 @@ const tabs: Tab[] = [
     path: "/users",
   },
   {
-    label: "Vai trò & Phân quyền",
-    icon: ServerIcon,
-    path: "/roles",
-  },
-  {
     label: "Quản lý mã giảm giá",
     icon: TicketPercentIcon,
     path: "/promotions",
-  },
-  {
-    label: "Thống kê",
-    icon: ChartNoAxesColumnIcon,
-    path: "/dashboard",
   },
   {
     label: "Quản lý cửa hàng",
@@ -101,14 +89,13 @@ const tabs: Tab[] = [
     path: "/events",
   },
   {
-    label: "Luật hệ thống",
+    label: "Hệ thống",
     icon: GraduationCapIcon,
     path: "/rules",
   },
 ];
 
 const additionalTabs: PublicTab[] = [
-  { label: "Hỗ trợ", icon: LifeBuoyIcon, path: "/support" },
   { label: "Cài đặt", icon: SettingsIcon, path: "/settings" },
 ];
 
