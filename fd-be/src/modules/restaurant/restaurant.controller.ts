@@ -113,22 +113,13 @@ export class RestaurantController {
     @Query('pageSize', new DefaultValuePipe(10), ParseIntPipe) pageSize: number,
     @Query('lat') lat?: number,
     @Query('lng') lng?: number,
+    @Query('status') status?: string // 👈 THÊM DÒNG NÀY
+
   ) {
-    return await this.restaurantService.findAllApproved(page, pageSize, lat, lng);
+    return await this.restaurantService.findAll(page, pageSize,status, lat, lng);
   }
 
-  @Get('all')
-  //@UseGuards(RolesGuard)
-  //@Permissions(Permission.RESTAURANT.READ)
-  async findAllIncludingPending(
-    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
-    @Query('pageSize', new DefaultValuePipe(10), ParseIntPipe) pageSize: number,
-    @Query('lat') lat?: number,
-    @Query('lng') lng?: number,
-  ) {
-    return await this.restaurantService.findAll(page, pageSize, lat, lng);
-  }
-
+  
   @Get('preview')
   async getPreview(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,

@@ -120,9 +120,12 @@ interface StoreResponse {
     owner: string;
   }
   
-interface GetStoresResponse {
-    data: StoreResponse[];
-    total: number;
+  interface GetStoresResponse {
+    items: StoreResponse[];
+    totalItems: number;
+    page: number;
+    pageSize: number;
+    totalPages: number;
   }
 
   export interface CategoryResponse {
@@ -297,23 +300,28 @@ export const adminService = {
         },
     },
     Store: {
-        async getStores(token: string, page: number = 1, pageSize: number = 10): Promise<GetStoresResponse> {
-          try {
-            const response = await apiRequest<StoreResponse[]>('/restaurants', 'GET', {
-              token,
-              query: { page, pageSize }
-            });
-
-            return {
-              data: response,
-              total: response.length // Hoặc response.total nếu có
-            };
-          } catch (error) {
-            console.error("Lỗi API cửa hàng:", error);
-            throw error;
-          }
+      async getStores(
+        token: string,
+        page: number = 1,
+        pageSize: number = 10,
+        status?: string  // <-- thêm tham số lọc status
+      ): Promise<GetStoresResponse> {
+        try {
+          return await apiRequest<GetStoresResponse>('/restaurants', 'GET', {
+            token,
+            query: {
+              page,
+              pageSize,
+              ...(status ? { status } : {})  // chỉ thêm status nếu có
+            }
+          });
+        } catch (error) {
+          console.error("Lỗi API cửa hàng:", error);
+          throw error;
         }
-      },
+      }
+    },
+    
 
       Category: {
         async getCategories(
