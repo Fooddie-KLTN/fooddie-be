@@ -5,8 +5,9 @@ export enum RestaurantStatus {
 }
 
 export interface Category {
-  id?: string;
+  id: string;
   name: string;
+  image: string;
   icon?: string;
 }
 
@@ -25,19 +26,16 @@ export interface Ward {
   id: number;
   name: string;
 }
-
-// Define a specific Address interface
 export interface Address {
-    id: string; // Unique ID for each address (e.g., UUID or DB ID)
+    id?: string; // Unique ID for each address (e.g., UUID or DB ID)
     label?: string; // Optional label like "Home", "Work"
-    street?: string;
-    wardId?: number | null;
-    districtId?: number | null;
-    provinceId?: number | null;
-    wardName?: string;
-    districtName?: string;
-    provinceName?: string;
-    isDefault?: boolean; // Optional: Mark one as default
+    street: string;
+    ward: string;
+    district: string;
+    city: string;
+    isDefault?: boolean; // Mark one as default
+    latitude?: number; // For precise location
+    longitude?: number; // For precise location
 }
 
 export interface UserProfile {
@@ -47,7 +45,8 @@ export interface UserProfile {
   phone?: string;
   avatar?: string;
   birthday?: string;
-  addresses?: Address[]; // Changed to array
+  address?: Address[]; // Changed to array
+
   currentAddress?: Address; // Optional: Current address for quick access
 }
 /**
@@ -103,6 +102,8 @@ export interface Restaurant {
  */
 export interface FoodPreview {
   id?: string;
+    imageUrls: string[]; // Array of image URLs
+
   name: string;
   description: string;
   price: number | string; // Price can be a number or string
@@ -142,7 +143,6 @@ export interface Review {
  * Detailed food information with complete data
  */
 export interface FoodDetail extends FoodPreview {
-  imageUrls: string[]; // Array of image URLs
   soldCount: number; // Number of items sold
   
   // Full related objects

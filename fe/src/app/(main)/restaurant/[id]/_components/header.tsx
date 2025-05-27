@@ -47,8 +47,8 @@ export function RestaurantHeader({ restaurant }: RestaurantHeaderProps) {
           </div>
           
           <div className="flex gap-2">
-            <Badge className="bg-green-500 hover:bg-green-600">Delivery: {restaurant.deliveryTime} mins</Badge>
-            <Badge className="bg-blue-500 hover:bg-blue-600">Distance: {restaurant.distance}</Badge>
+            <Badge className="bg-green-500 hover:bg-green-600">Thời gian giao hàng: {restaurant.deliveryTime} phút</Badge>
+            <Badge className="bg-blue-500 hover:bg-blue-600">Khoảng cách: {restaurant.distance} Km</Badge>
           </div>
         </div>
       </div>

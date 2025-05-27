@@ -11,6 +11,7 @@ import { AuthGuard } from 'src/auth/auth.guard';
 import { plainToInstance } from 'class-transformer';
 import { validateOrReject } from 'class-validator';
 import { Logger } from '@nestjs/common';
+import { estimateDeliveryTime } from 'src/common/utils/helper';
 
 @Controller('restaurants')
 export class RestaurantController {
@@ -26,16 +27,16 @@ export class RestaurantController {
   }
 
   @Get('search')
-async searchRestaurants(
-  @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
-  @Query('pageSize', new DefaultValuePipe(10), ParseIntPipe) pageSize: number,
-  @Query('name') name?: string,
-  @Query('lat', new DefaultValuePipe(10.7769), ParseFloatPipe) lat: number = 10.7769, // Ho Chi Minh City default
-  @Query('lng', new DefaultValuePipe(106.7009), ParseFloatPipe) lng: number = 106.7009,
-  @Query('radius', new DefaultValuePipe(5), ParseIntPipe) radius: number = 5 // km
-) {
-  return await this.restaurantService.searchRestaurants({ page, pageSize, name, lat, lng, radius });
-}
+  async searchRestaurants(
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('pageSize', new DefaultValuePipe(10), ParseIntPipe) pageSize: number,
+    @Query('name') name?: string,
+    @Query('lat', new DefaultValuePipe(10.7769), ParseFloatPipe) lat: number = 10.7769,
+    @Query('lng', new DefaultValuePipe(106.7009), ParseFloatPipe) lng: number = 106.7009,
+    @Query('radius', new DefaultValuePipe(5), ParseIntPipe) radius: number = 5
+  ) {
+    return await this.restaurantService.searchRestaurants({ page, pageSize, name, lat, lng, radius });
+  }
 
   @Post('request')
   @UseGuards(AuthGuard)
@@ -110,8 +111,10 @@ async searchRestaurants(
   async findAll(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('pageSize', new DefaultValuePipe(10), ParseIntPipe) pageSize: number,
+    @Query('lat') lat?: number,
+    @Query('lng') lng?: number,
   ) {
-    return await this.restaurantService.findAllApproved(page, pageSize);
+    return await this.restaurantService.findAllApproved(page, pageSize, lat, lng);
   }
 
   @Get('all')
@@ -120,36 +123,40 @@ async searchRestaurants(
   async findAllIncludingPending(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('pageSize', new DefaultValuePipe(10), ParseIntPipe) pageSize: number,
+    @Query('lat') lat?: number,
+    @Query('lng') lng?: number,
   ) {
-    return await this.restaurantService.findAll(page, pageSize);
+    return await this.restaurantService.findAll(page, pageSize, lat, lng);
   }
 
   @Get('preview')
   async getPreview(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('pageSize', new DefaultValuePipe(10), ParseIntPipe) pageSize: number,
+    @Query('lat') lat?: number,
+    @Query('lng') lng?: number,
   ) {
-    return await this.restaurantService.getPreview(page, pageSize);
+    return await this.restaurantService.getPreview(page, pageSize, lat, lng);
   }
 
   @Get('requests')
-  //@UseGuards(RolesGuard)
-  //@Permissions(Permission.RESTAURANT.READ)
   async getRestaurantRequests(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('pageSize', new DefaultValuePipe(10), ParseIntPipe) pageSize: number,
+    @Query('lat') lat?: number,
+    @Query('lng') lng?: number,
   ) {
-    return await this.restaurantService.getRestaurantRequests(page, pageSize);
+    return await this.restaurantService.getRestaurantRequests(page, pageSize, lat, lng);
   }
 
   @Get('my')
   @UseGuards(AuthGuard)
-  async getMyRestaurant(@Req() req: any): Promise<Restaurant> {
-    const ownerId = req.user.id; // Assuming the user ID is in the request object
+  async getMyRestaurant(@Req() req: any, @Query('lat') lat?: number, @Query('lng') lng?: number) {
+    const ownerId = req.user.id;
     if (!ownerId) {
       throw new BadRequestException('ownerId is required');
     }
-    const restaurant = await this.restaurantService.findByOwnerId(ownerId);
+    const restaurant = await this.restaurantService.findByOwnerId(ownerId, lat, lng);
     if (!restaurant) {
       throw new BadRequestException('No restaurant found for this owner');
     }
@@ -240,8 +247,12 @@ async searchRestaurants(
 
   // 3. Generic ID routes last (these are the most permissive)
   @Get(':id')
-  async findOne(@Param('id') id: string): Promise<Restaurant> {
-    return await this.restaurantService.findOne(id);
+  async findOne(
+    @Param('id') id: string,
+    @Query('lat') lat?: number,
+    @Query('lng') lng?: number
+  ) {
+    return await this.restaurantService.findOne(id, lat, lng);
   }
 
   @Put(':id')

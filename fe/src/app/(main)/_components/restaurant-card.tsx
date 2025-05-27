@@ -20,7 +20,8 @@ const RestaurantCard: React.FC<RestaurantCardProps> = ({ restaurants, getFoods }
     const [showFoods, setShowFoods] = useState(false);
 
     const activeRestaurant = restaurants[activeIndex];
-    const foods = getFoods(activeRestaurant.id);
+
+    const foods = activeRestaurant ? getFoods(activeRestaurant.id) : [];
 
     // Reset animations when restaurant changes
     useEffect(() => {
@@ -30,6 +31,8 @@ const RestaurantCard: React.FC<RestaurantCardProps> = ({ restaurants, getFoods }
         }, 300);
         return () => clearTimeout(timer);
     }, [activeIndex]);
+
+    if (!activeRestaurant) return null; // or a loading state
 
     const nextRestaurant = () => {
         setIsChanging(true);
@@ -202,7 +205,7 @@ const RestaurantCard: React.FC<RestaurantCardProps> = ({ restaurants, getFoods }
                                 <div className="ml-4 flex-grow">
                                     <div className="flex justify-between items-center mt-3">
                                         <p className="text-red-600 font-medium">
-                                            {new Intl.NumberFormat('vi-VN').format(food.price)} VND
+                                            {new Intl.NumberFormat('vi-VN').format(Number(food.price))} VND
                                         </p>
                                         <div className="flex space-x-2">
                                             <button

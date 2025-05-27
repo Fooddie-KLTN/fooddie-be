@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { Restaurant, FoodDetail } from "@/interface";
+import { Restaurant, FoodDetail, UserProfile } from "@/interface";
 import { apiRequest } from "./base-api";
 
 /**
@@ -39,38 +39,22 @@ export interface RestaurantResponse {
  */
 export const userApi = {
   /**
-   * Lấy thông tin của người dùng hiện tại
-   * 
-   * @param {string} token - Token xác thực của người dùng
-   * @returns {Promise<any>} Thông tin chi tiết của người dùng đã đăng nhập
-   * @throws {Error} Khi không thể kết nối với máy chủ hoặc token không hợp lệ
+   * Lấy thông tin của người dùng hiện tại (AuthGuard)
    */
-  async getMe(token: string) {
-    try {
-      return await apiRequest('users/me', 'GET', { token });
-    } catch (error) {
-      console.error('User API error:', error);
-      throw error;
-    }
+  async getMe(token: string): Promise<UserProfile> {
+    const res = await apiRequest<UserProfile>('/users/me', 'GET', { token });
+    if (res && (res as any).data) return (res as any).data as UserProfile;
+    return res as UserProfile;
   },
 
   /**
-   * Cập nhật thông tin của người dùng hiện tại
-   * 
-   * @param {string} token - Token xác thực của người dùng
-   * @param {UpdateUserDto} data - Thông tin cần cập nhật
-   * @returns {Promise<any>} Thông tin người dùng sau khi cập nhật
-   * @throws {Error} Khi không thể kết nối với máy chủ, token không hợp lệ hoặc dữ liệu không hợp lệ
+   * Cập nhật thông tin của người dùng hiện tại (AuthGuard)
    */
-  async updateMe(token: string, data: UpdateUserDto) {
-    try {
-      return await apiRequest('users/me', 'PUT', { token, data });
-    } catch (error) {
-      console.error('User API error:', error);
-      throw error;
-    }
+  async updateMe(token: string, data: Partial<UserProfile>): Promise<UserProfile> {
+    const res = await apiRequest<UserProfile>('/users/me', 'PUT', { token, data });
+    if (res && (res as any).data) return (res as any).data as UserProfile;
+    return res as UserProfile;
   },
-
   /**
    * Lấy danh sách tất cả người dùng (chỉ admin)
    * 

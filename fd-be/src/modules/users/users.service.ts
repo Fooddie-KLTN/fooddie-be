@@ -1,5 +1,5 @@
 /* eslint-disable prettier/prettier */
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User } from 'src/entities/user.entity';
@@ -11,15 +11,18 @@ import * as moment from 'moment';
 import { UserResponse } from './interface/user-response.interface';
 import { v4 as uuidv4 } from 'uuid';
 import { AuthProvider } from 'src/auth/auth.service';
+import { Address } from 'src/entities/address.entity';
 
 @Injectable()
 export class UsersService {
-
+  private readonly logger = new Logger(UsersService.name);
   constructor(
-    @InjectRepository(User)
-    private usersRepository: Repository<User>,
     @InjectRepository(Role)
     private rolesRepository: Repository<Role>,
+    @InjectRepository(Address)
+    private readonly addressRepository: Repository<Address>,
+    @InjectRepository(User)
+    private readonly usersRepository: Repository<User>,
   ) {}
 
   async updateUserProvider(id: string, arg1: { provider: AuthProvider; googleId: string; }): Promise<User> {
@@ -42,18 +45,48 @@ export class UsersService {
 
   // Cập nhật thông tin cá nhân của người dùng hiện tại
   async updateMe(id: string, updateUserDto: UpdateUserDto): Promise<User> {
-    const user = await this.getMe(id);
+    this.logger.log(`Start updating user with id: ${id}`);
+    const user = await this.usersRepository.findOne({
+      where: { id },
+      relations: ['address'],
+    });
+    if (!user) {
+      this.logger.warn(`User not found: ${id}`);
+      throw new Error('User not found');
+    }
 
-    // Loại bỏ trường role nếu có trong payload, vì người dùng không được phép tự thay đổi vai trò
-    const { role, ...updateData } = updateUserDto;
+    const { addresses, ...updateData } = updateUserDto;
+    this.logger.debug(`Update data for user ${id}: ${JSON.stringify(updateData)}`);
 
-    // Nếu có cập nhật password thì băm nó trước khi lưu
+    // Handle password hashing if needed
     if (updateData.password) {
+      this.logger.log(`Hashing password for user: ${id}`);
       updateData.password = await bcrypt.hash(updateData.password, 10);
     }
 
     Object.assign(user, updateData);
-    return await this.usersRepository.save(user);
+
+    // --- Address update logic ---
+    if (addresses) {
+      this.logger.log(`Removing old addresses for user: ${id}`);
+      await this.addressRepository.delete({ user: { id: user.id } });
+
+      this.logger.log(`Adding new addresses for user: ${id}`);
+      const newAddresses = addresses.map(addr => {
+        const address = this.addressRepository.create({
+          ...addr,
+          user: user,
+        });
+        return address;
+      });
+      await this.addressRepository.save(newAddresses);
+      user.address = newAddresses; // update relation for return value
+    }
+
+    this.logger.log(`Saving updated user: ${id}`);
+    await this.usersRepository.save(user);
+    this.logger.log(`User updated successfully: ${id}`);
+    return user;
   }
   async findByUsername(username: string): Promise<User | null> {
     return this.usersRepository.findOne({ where: { username } });
@@ -171,32 +204,8 @@ export class UsersService {
   }
 
   async update(id: string, updateUserDto: UpdateUserDto): Promise<User> {
-    const user = await this.findOne(id);
-
-    // Create update object without role
-    const { role: roleId, ...updateData } = updateUserDto;
-
-    // Handle role update if provided
-    if (roleId) {
-      const role = await this.rolesRepository.findOne({
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-        where: { id: roleId },
-      });
-      if (!role) {
-        throw new Error('Role not found');
-      }
-      user.role = role;
-    }
-
-    // Handle password hashing if provided
-    if (updateData.password) {
-      updateData.password = await bcrypt.hash(updateData.password, 10);
-    }
-
-    // Update user with merged data
-    Object.assign(user, updateData);
-
-    return this.usersRepository.save(user);
+    // Same logic as updateMe, but for admin update
+    return this.updateMe(id, updateUserDto);
   }
 
   async updatePassword(id: string, password: string): Promise<User> {

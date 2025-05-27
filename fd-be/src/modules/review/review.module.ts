@@ -7,9 +7,10 @@ import { Role } from 'src/entities/role.entity';
 import { Restaurant } from 'src/entities/restaurant.entity';
 import { User } from 'src/entities/user.entity';
 import { UsersService } from '../users/users.service';
+import { Address } from 'src/entities/address.entity';
 
 @Module({
-    imports: [TypeOrmModule.forFeature([Review, User, Restaurant, Role])],
+    imports: [TypeOrmModule.forFeature([Review, User, Restaurant, Role, Address])],
     controllers: [ReviewController],
     providers: [ReviewService, UsersService],
     exports: [ReviewService],

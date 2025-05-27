@@ -32,4 +32,10 @@ export class Address {
 
   @ManyToOne(() => User, user => user.address)
   user: User;
+
+  @Column({ nullable: true })
+  isDefault: boolean; // Thêm trường isDefault để đánh dấu địa chỉ mặc định của người dùng
+
+  @Column({ nullable: true })
+  label: string; // Thêm trường label để mô tả địa chỉ (ví dụ: "Nhà riêng", "Công ty", v.v.)
 }

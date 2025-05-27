@@ -12,8 +12,9 @@ const montserrat: NextFont = Montserrat({
   variable: "--font-montserrat"
 });
 export const metadata: Metadata = {
-  title: "Project Beauty Academy",
-  description: "Khóa học làm đẹp, số học",
+  title: "Fooddie - Food Delivery App",
+  description: "Ứng dụng giao đồ ăn trực tuyến, nhanh chóng và tiện lợi.",
+  keywords: "giao đồ ăn, đặt món online, ứng dụng giao hàng, đồ ăn nhanh, dịch vụ giao đồ ăn",
 };
 
 /**

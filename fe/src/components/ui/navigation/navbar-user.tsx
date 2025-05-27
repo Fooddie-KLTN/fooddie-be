@@ -33,8 +33,10 @@ import {
   UserIcon,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 export default function UserActions({ openModal }: UserActionsProps) {
+  const router = useRouter();
   // Get cart context
   const { getToken, logout, user} = useAuth();
   const { cartItems } = useCart(); // Change 'cart' to 'cartItems'
@@ -218,11 +220,13 @@ export default function UserActions({ openModal }: UserActionsProps) {
                 <DropdownMenuLabel className="text-base font-medium px-2 py-3">
                   Tổng quan
                 </DropdownMenuLabel>
-                <DropdownMenuItem className="text-base px-2 py-3 flex gap-2">
+                <DropdownMenuItem className="text-base px-2 py-3 flex gap-2" onClick={() => router.push("/checkout")}>
                   <ShoppingBagIcon className="h-5 w-5" />
                   <span>Giỏ hàng của tôi</span>
+
                 </DropdownMenuItem>
-                <DropdownMenuItem className="text-base px-2 py-3 flex gap-2">
+                <DropdownMenuItem className="text-base px-2 py-3 flex gap-2" onClick={() => router.push("/profile")}>
+
                   <UserIcon className="h-5 w-5" />
                   <span>Chỉnh sửa hồ sơ</span>
                 </DropdownMenuItem>

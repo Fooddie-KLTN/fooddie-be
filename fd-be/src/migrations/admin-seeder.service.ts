@@ -243,14 +243,9 @@ export class AdminSeedService implements OnModuleInit {
       return;
     }
 
-    // Create default admin address
-    const adminAddress = this.addressRepository.create({
-      street: 'Admin Street',
-      ward: 'Admin Ward',
-      district: 'Admin District',
-      city: 'Admin City'
+    const availableAddress = await this.addressRepository.findOne({
+      where: { street: 'Admin Street', ward: 'Admin Ward', district: 'Admin District', city: 'Admin City' }
     });
-    await this.addressRepository.save(adminAddress);
 
     // Create admin user if it doesn't exist
     let adminUser = await this.userRepository.findOne({
@@ -281,19 +276,25 @@ export class AdminSeedService implements OnModuleInit {
       adminUser = await this.userRepository.save(adminUser);
 
       // Now set up address relationship
-      adminAddress.user = adminUser;
+      if (!availableAddress) {
+              // Create default admin address
+      const adminAddress = this.addressRepository.create({
+        street: 'Admin Street',
+        ward: 'Admin Ward',
+        district: 'Admin District',
+        city: 'Admin City'
+      });
       await this.addressRepository.save(adminAddress);
+
+        adminAddress.user = adminUser;
+        await this.addressRepository.save(adminAddress);
+
+      }
 
       this.logger.log(`Admin user created with ID: ${adminId} and default password: admin123`);
     } else {
       this.logger.log('Admin user already exists.');
 
-      // Update admin's address if needed
-      if (!adminUser.address) {
-        adminUser.address = adminAddress;
-        await this.userRepository.save(adminUser);
-        this.logger.log('Added address to existing admin user');
-      }
     }
   }
 }
