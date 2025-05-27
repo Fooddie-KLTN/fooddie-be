@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { ChevronRightIcon } from "lucide-react";
 import { Category } from "@/interface";
+import Image from "next/image";
 
 interface CategorySectionProps {
   categories: Category[];
@@ -43,7 +44,7 @@ export default function CategorySection({
               activeCategory === category.name ? 'bg-primary text-white' : 'bg-gray-100 hover:bg-gray-200'
             }`}
           >
-            <span className="text-xl">{category.icon}</span>
+            <Image src={category.image} alt={category.name} width={40} height={40} className="mb-2 rounded-full" />
             <span className="mt-2 text-sm font-medium">{category.name}</span>
           </button>
         ))}

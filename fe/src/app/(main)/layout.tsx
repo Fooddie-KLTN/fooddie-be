@@ -23,6 +23,7 @@ import { AuthModalProvider } from "@/context/modal-context";
 import type { Metadata } from "next";
 import React from "react";
 import "../../styles/globals.css";
+import { GeoLocationProvider } from "@/context/geolocation-context";
 
 export const metadata: Metadata = {
   title: "Project Beauty Academy",
@@ -40,8 +41,11 @@ export default function RootLayout({
     <>
       <AuthModalProvider>
         <CartProvider>
-          {<Navbar />}
-          {children}
+          <GeoLocationProvider>
+            {<Navbar />}
+            {children}
+          </GeoLocationProvider>
+
         </CartProvider>
       </AuthModalProvider>
       <Footer />

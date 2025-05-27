@@ -17,226 +17,18 @@ import RestaurantInfo from './_components/restaurant-info';
 import RestaurantLink from './_components/restaurant-link';
 import LoadingState from './_components/loading';
 import FoodRow from '../../_components/ui/food-row';
-import { FoodDetail } from '@/interface';
+import { FoodDetail, FoodPreview } from '@/interface';
 import ReviewsSection from './_components/review';
+import { guestService } from '@/api/guest';
 
-// Sample Foods data for mocking API calls
-const sampleFoods: FoodDetail[] = [
-  {
-    id: "1",
-    name: "Bún Bò Huế Đặc Biệt",
-    description: "Bún bò Huế đặc biệt với nước dùng đậm đà, thịt bò mềm, giò heo giòn, chả cua thơm ngon, ăn kèm rau sống và bánh mì.",
-    image: "https://images.unsplash.com/photo-1582878826629-29b7ad1cdc43?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1974&q=80",
-    imageUrls: ["https://images.unsplash.com/photo-1582878826629-29b7ad1cdc43?ixlib=rb-4.0.3", "https://images.unsplash.com/photo-1582878826629-29b7ad1cdc43?ixlib=rb-4.0.3", "https://images.unsplash.com/photo-1582878826629-29b7ad1cdc43?ixlib=rb-4.0.3"],
-    price: 75000,
-    status: "available",
-    category: {
-      id: "c1",
-      name: "Món Việt"
-    },
-    discountPercent: 10,
-    purchasedNumber: 120,
-    restaurant: {
-      id: "r1",
-      name: "Nhà hàng Hương Việt",
-      deliveryTime: "30",
-      owner: undefined
-    },
-    soldCount: 100,
-    rating: 4.7,
-  },
-  {
-    id: "2",
-    name: "Pizza Hải Sản Đặc Biệt",
-    description: "Pizza hải sản với đế bánh mỏng giòn, phủ sốt cà chua đặc biệt, phô mai Mozzarella, tôm, mực và các loại hải sản tươi ngon.",
-    image: "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1014&q=80",
-    imageUrls: ["https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?ixlib=rb-4.0.3"],
-    price: 189000,
-    status: "popular",
-    category: {
-      id: "c2",
-      name: "Pizza"
-    },
-    discountPercent: 15,
-    purchasedNumber: 258,
-    restaurant: {
-      id: "r2",
-      name: "Pizza Express",
-      deliveryTime: "45",
-      owner: undefined
-    },
-    soldCount: 150,
-    rating: 4.9,
-  },
-  {
-    id: "3",
-    name: "Gà Rán Sốt Cay",
-    description: "Gà rán giòn thơm phủ sốt cay Hàn Quốc, ăn kèm khoai tây chiên và salad tươi.",
-    image: "https://images.unsplash.com/photo-1626645738196-c2a7c87a8f58?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1170&q=80",
-    imageUrls: ["https://images.unsplash.com/photo-1626645738196-c2a7c87a8f58?ixlib=rb-4.0.3"],
-    price: 99000,
-    status: "available",
-    category: {
-      id: "c3",
-      name: "Đồ Ăn Nhanh"
-    },
-    discountPercent: 0,
-    purchasedNumber: 198,
-    restaurant: {
-      id: "r3",
-      name: "Chicken & Chips",
-      deliveryTime: "25",
-      owner: undefined
-    },
-    soldCount: 75,
-    rating: 4.5,
-  },
-  {
-    id: "4",
-    name: "Phở Bò Tái Nạm",
-    description: "Phở bò truyền thống với nước dùng xương hầm 24 giờ, bánh phở mềm dai, thịt bò tái và nạm mềm, kèm rau thơm và gia vị.",
-    image: "https://images.unsplash.com/photo-1503764654157-72d979d9af2f?ixlib=rb-4.0.3",
-    imageUrls: ["https://images.unsplash.com/photo-1503764654157-72d979d9af2f?ixlib=rb-4.0.3"],
-    price: 65000,
-    status: "popular",
-    category: {
-      id: "c1",
-      name: "Món Việt"
-    },
-    discountPercent: 5,
-    purchasedNumber: 234,
-    restaurant: {
-      id: "r1",
-      name: "Nhà hàng Hương Việt",
-      deliveryTime: "30",
-      owner: undefined
-    },
-    soldCount: 120,
-    rating: 4.8,
-  },
-  {
-    id: "5",
-    name: "Cơm Tấm Sườn Bì Chả",
-    description: "Cơm tấm với sườn nướng thơm lừng, bì heo giòn dai, chả trứng mềm, kèm đồ chua và nước mắm truyền thống.",
-    image: "https://images.unsplash.com/photo-1569058242253-92a9c755a0ec?ixlib=rb-4.0.3",
-    imageUrls: ["https://images.unsplash.com/photo-1569058242253-92a9c755a0ec?ixlib=rb-4.0.3"],
-    price: 85000,
-    status: "available",
-    category: {
-      id: "c1",
-      name: "Món Việt"
-    },
-    discountPercent: 0,
-    purchasedNumber: 175,
-    restaurant: {
-      id: "r1",
-      name: "Nhà hàng Hương Việt",
-      deliveryTime: "30",
-      owner: undefined
-    },
-    soldCount: 80,
-    rating: 4.6,
-  },
-  {
-    id: "6",
-    name: "Pizza Bò & Phô Mai",
-    description: "Pizza với đế giòn, sốt cà chua đậm đà, phô mai Mozzarella, thịt bò xay, hành tây và ớt chuông.",
-    image: "https://images.unsplash.com/photo-1513104890138-7c749659a591?ixlib=rb-4.0.3",
-    imageUrls: ["https://images.unsplash.com/photo-1513104890138-7c749659a591?ixlib=rb-4.0.3"],
-    price: 169000,
-    status: "available",
-    category: {
-      id: "c2",
-      name: "Pizza"
-    },
-    discountPercent: 10,
-    purchasedNumber: 145,
-    restaurant: {
-      id: "r2",
-      name: "Pizza Express",
-      deliveryTime: "45",
-      owner: undefined
-    },
-    soldCount: 70,
-    rating: 4.5,
-  },
-  {
-    id: "7",
-    name: "Hamburger Bò Phô Mai",
-    description: "Hamburger với bánh mì nướng, thịt bò Úc 100%, phô mai Cheddar, rau xà lách, cà chua và sốt đặc biệt.",
-    image: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?ixlib=rb-4.0.3",
-    imageUrls: ["https://images.unsplash.com/photo-1568901346375-23c9450c58cd?ixlib=rb-4.0.3"],
-    price: 89000,
-    status: "popular",
-    category: {
-      id: "c3",
-      name: "Đồ Ăn Nhanh"
-    },
-    discountPercent: 0,
-    purchasedNumber: 210,
-    restaurant: {
-      id: "r3",
-      name: "Chicken & Chips",
-      deliveryTime: "25",
-      owner: undefined
-    },
-    soldCount: 95,
-    rating: 4.6,
-  },
-  {
-    id: "8",
-    name: "Bánh Mì Thịt Nướng",
-    description: "Bánh mì giòn với thịt heo nướng, pate, rau thơm, đồ chua và sốt tương ớt truyền thống.",
-    image: "https://images.unsplash.com/photo-1633896949673-1eb9d131a9b4?ixlib=rb-4.0.3",
-    imageUrls: ["https://images.unsplash.com/photo-1633896949673-1eb9d131a9b4?ixlib=rb-4.0.3"],
-    price: 45000,
-    status: "available",
-    category: {
-      id: "c1",
-      name: "Món Việt"
-    },
-    discountPercent: 0,
-    purchasedNumber: 256,
-    restaurant: {
-      id: "r4",
-      name: "Tiệm Bánh Việt Nam",
-      deliveryTime: "20",
-      owner: undefined
-    },
-    soldCount: 110,
-    rating: 4.7,
-  },
-  {
-    id: "9",
-    name: "Mì Ý Sốt Bò Bằm",
-    description: "Mì Ý spaghetti với sốt bò bằm thơm ngon, cà chua, hương thảo và phô mai Parmesan.",
-    image: "https://images.unsplash.com/photo-1563379926898-05f4575a45d8?ixlib=rb-4.0.3",
-    imageUrls: ["https://images.unsplash.com/photo-1563379926898-05f4575a45d8?ixlib=rb-4.0.3"],
-    price: 129000,
-    status: "available",
-    category: {
-      id: "c4",
-      name: "Món Ý"
-    },
-    discountPercent: 5,
-    purchasedNumber: 98,
-    restaurant: {
-      id: "r2",
-      name: "Pizza Express",
-      deliveryTime: "45",
-      owner: undefined
-    },
-    soldCount: 45,
-    rating: 4.4,
-  }
-];
+
 
 export default function FoodDetailPage() {
   const params = useParams();
   const foodId = params.id as string;
   const [food, setFood] = useState<FoodDetail | null>(null);
-  const [sameRestaurant, setSameRestaurant] = useState<FoodDetail[]>([]);
-  const [sameCategory, setSameCategory] = useState<FoodDetail[]>([]);
+  const [sameRestaurant, setSameRestaurant] = useState<FoodPreview[]>([]);
+  const [sameCategory, setSameCategory] = useState<FoodPreview[]>([]);
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
   const { addToCart } = useCart();
@@ -249,16 +41,17 @@ export default function FoodDetailPage() {
         await new Promise(resolve => setTimeout(resolve, 800));
 
         // Find food in sample data instead of making API call
-        const foundFood = sampleFoods.find(item => item.id === foodId);
-
+        const foundFood = await guestService.food.getFoodById(foodId);
+        const sameCategoryFoods = await guestService.food.getFoodsByCategory(foundFood.category.id, 1, 4);
+        const sameRestaurantFoods = await guestService.food.getFoodsByRestaurant(foundFood.restaurant.id, 1, 4);
         if (foundFood) {
           setFood(foundFood);
+          setSameCategory(sameCategoryFoods.items || []);
+          setSameRestaurant(sameRestaurantFoods.items || []);
         } else {
           setFood(null);
         }
-        // Set similar foods based on restaurant and category
-        setSameRestaurant(sampleFoods.filter(item => item.restaurant.id === foundFood?.restaurant.id && item.id !== foodId));
-        setSameCategory(sampleFoods.filter(item => item.category.id === foundFood?.category.id && item.id !== foodId));
+        
 
         setLoading(false);
       } catch (error) {
@@ -343,7 +136,7 @@ export default function FoodDetailPage() {
 
           <div className="border-t pt-6">
             <PriceSection
-              price={food.price}
+              price={Number(food.price)}
               discountPercent={food.discountPercent || 0}
               quantity={quantity}
               onIncrement={incrementQuantity}

@@ -8,7 +8,7 @@ import { User } from 'src/entities/user.entity';
 import { GoogleCloudStorageService } from 'src/gcs/gcs.service';
 import { GeocodingService } from 'src/services/geocoding.service';
 import { Address } from 'src/entities/address.entity';
-import { haversineDistance } from 'src/common/utils/helper';
+import { haversineDistance, estimateDeliveryTime } from 'src/common/utils/helper';
 
 @Injectable()
 export class RestaurantService {
@@ -512,8 +512,8 @@ export class RestaurantService {
  * 
  * @returns List of pending restaurant requests
  */
-    async getRestaurantRequests(page = 1, pageSize = 10): Promise<{
-        items: Restaurant[];
+    async getRestaurantRequests(page = 1, pageSize = 10, lat?: number, lng?: number): Promise<{
+        items: (Restaurant & { distance: number | null; deliveryTime: number | null })[];
         totalItems: number;
         page: number;
         pageSize: number;
@@ -526,8 +526,10 @@ export class RestaurantService {
             take: pageSize,
         });
 
+        const itemsWithDistance = this.addDistanceAndDeliveryTimeArray(items, lat, lng);
+
         return {
-            items,
+            items: itemsWithDistance,
             totalItems,
             page,
             pageSize,
@@ -604,13 +606,37 @@ async approveRestaurant(id: string): Promise<Restaurant> {
         return await this.restaurantRepository.save(restaurant);
     }
 
+    // Helper to add distance & deliveryTime to a restaurant
+    private addDistanceAndDeliveryTime(
+        restaurant: Restaurant,
+        lat?: number,
+        lng?: number
+    ): Restaurant & { distance: number | null; deliveryTime: number | null } {
+        let distance: number | null = null;
+        let deliveryTime: number | null = null;
+        if (lat != null && lng != null && restaurant.latitude != null && restaurant.longitude != null) {
+            distance = haversineDistance(lat, lng, Number(restaurant.latitude), Number(restaurant.longitude));
+            deliveryTime = estimateDeliveryTime(distance);
+        }
+        return { ...restaurant, distance, deliveryTime };
+    }
+
+    // Helper for array
+    private addDistanceAndDeliveryTimeArray(
+        items: Restaurant[],
+        lat?: number,
+        lng?: number
+    ): (Restaurant & { distance: number | null; deliveryTime: number | null })[] {
+        return items.map(r => this.addDistanceAndDeliveryTime(r, lat, lng));
+    }
+
     /**
-  * Get approved restaurants only
-  * 
-  * @returns List of all approved restaurants
-  */
-    async findAllApproved(page = 1, pageSize = 10): Promise<{
-        items: Restaurant[];
+     * Get approved restaurants only
+     * 
+     * @returns List of all approved restaurants
+     */
+    async findAllApproved(page = 1, pageSize = 10, lat?: number, lng?: number): Promise<{
+        items: (Restaurant & { distance: number | null; deliveryTime: number | null })[];
         totalItems: number;
         page: number;
         pageSize: number;
@@ -623,8 +649,10 @@ async approveRestaurant(id: string): Promise<Restaurant> {
             take: pageSize,
         });
 
+        const itemsWithDistance = this.addDistanceAndDeliveryTimeArray(items, lat, lng);
+
         return {
-            items,
+            items: itemsWithDistance,
             totalItems,
             page,
             pageSize,
@@ -637,29 +665,50 @@ async approveRestaurant(id: string): Promise<Restaurant> {
      * 
      * @returns List of all restaurants
      */
-    async findAll(page: number, pageSize: number, status?: string) {
-        const query = this.restaurantRepository
-          .createQueryBuilder('restaurant')
-          .leftJoinAndSelect('restaurant.owner', 'owner')
-          .leftJoinAndSelect('restaurant.address', 'address')
-          .skip((page - 1) * pageSize)
-          .take(pageSize);
-      
-        if (status) query.where('restaurant.status = :status', { status });
-      
-        const [items, totalItems] = await query.getManyAndCount();
-        return { items, totalItems };
-      }
-      
+async findAll(
+    page = 1,
+    pageSize = 10,
+    status?: string,
+    lat?: number,
+    lng?: number
+): Promise<{
+    items: (Restaurant & { distance: number | null; deliveryTime: number | null })[];
+    totalItems: number;
+    page: number;
+    pageSize: number;
+    totalPages: number;
+}> {
+    const query = this.restaurantRepository
+        .createQueryBuilder('restaurant')
+        .leftJoinAndSelect('restaurant.owner', 'owner')
+        .leftJoinAndSelect('restaurant.address', 'address')
+        .skip((page - 1) * pageSize)
+        .take(pageSize);
 
+    if (status) {
+        query.where('restaurant.status = :status', { status });
+    }
 
+    const [items, totalItems] = await query.getManyAndCount();
+
+    // Add distance & deliveryTime if lat/lng provided
+    const itemsWithDistance = this.addDistanceAndDeliveryTimeArray(items, lat, lng);
+
+    return {
+        items: itemsWithDistance,
+        totalItems,
+        page,
+        pageSize,
+        totalPages: Math.ceil(totalItems / pageSize),
+    };
+}
     /**
      * Get restaurant preview list with limited information
      * 
      * @returns List of restaurants with basic information
      */
-    async getPreview(page = 1, pageSize = 10): Promise<{
-        items: Partial<Restaurant>[];
+    async getPreview(page = 1, pageSize = 10, lat?: number, lng?: number): Promise<{
+        items: Partial<Restaurant & { distance: number | null; deliveryTime: number | null }>[];
         totalItems: number;
         page: number;
         pageSize: number;
@@ -675,6 +724,8 @@ async approveRestaurant(id: string): Promise<Restaurant> {
                 'restaurant.description',
                 'restaurant.openTime',
                 'restaurant.closeTime',
+                'restaurant.latitude',
+                'restaurant.longitude',
             ]);
 
         const totalItems = await queryBuilder.getCount();
@@ -684,8 +735,10 @@ async approveRestaurant(id: string): Promise<Restaurant> {
             .take(pageSize)
             .getMany();
 
+        const itemsWithDistance = this.addDistanceAndDeliveryTimeArray(items as Restaurant[], lat, lng);
+
         return {
-            items,
+            items: itemsWithDistance,
             totalItems,
             page,
             pageSize,
@@ -699,7 +752,7 @@ async approveRestaurant(id: string): Promise<Restaurant> {
      * @param id The restaurant ID
      * @returns The restaurant details
      */
-    async findOne(id: string): Promise<Restaurant> {
+    async findOne(id: string, lat?: number, lng?: number): Promise<Restaurant & { distance: number | null; deliveryTime: number | null }> {
         const restaurant = await this.restaurantRepository.findOne({
             where: { id },
             relations: ['owner', 'foods']
@@ -709,7 +762,7 @@ async approveRestaurant(id: string): Promise<Restaurant> {
             throw new Error(`Restaurant with ID ${id} not found`);
         }
 
-        return restaurant;
+        return this.addDistanceAndDeliveryTime(restaurant, lat, lng);
     }
 
     /**
@@ -717,12 +770,12 @@ async approveRestaurant(id: string): Promise<Restaurant> {
      * @param ownerId The owner's user ID
      * @returns The restaurant owned by the user
      */
-    async findByOwnerId(ownerId: string): Promise<Restaurant | null> {
+    async findByOwnerId(ownerId: string, lat?: number, lng?: number): Promise<(Restaurant & { distance: number | null; deliveryTime: number | null }) | null> {
         const restaurant = await this.restaurantRepository.findOne({
             where: { owner: { id: ownerId } },
             relations: ['owner', 'foods']
         });
-        return restaurant || null;
+        return restaurant ? this.addDistanceAndDeliveryTime(restaurant, lat, lng) : null;
     }
 
     /**
@@ -793,7 +846,13 @@ async approveRestaurant(id: string): Promise<Restaurant> {
         lat,
         lng,
         radius = 5
-    }: { page?: number; pageSize?: number; name?: string; lat?: number; lng?: number; radius?: number }) {
+    }: { page?: number; pageSize?: number; name?: string; lat?: number; lng?: number; radius?: number }): Promise<{
+        items: (Restaurant & { distance: number | null; deliveryTime: number | null })[];
+        totalItems: number;
+        page: number;
+        pageSize: number;
+        totalPages: number;
+    }> {
         const queryBuilder = this.restaurantRepository.createQueryBuilder('restaurant');
 
         if (name) {
@@ -802,24 +861,30 @@ async approveRestaurant(id: string): Promise<Restaurant> {
 
         let [items, totalItems] = await queryBuilder.getManyAndCount();
 
-        // If lat/lng provided, filter and sort by distance
-        if (lat && lng) {
-            items = items
-                .map(r => ({
-                    ...r,
-                    distance: haversineDistance(lat, lng, Number(r.latitude), Number(r.longitude))
-                }))
-                .filter(r => r.distance <= radius)
-                .sort((a, b) => a.distance - b.distance);
+        let itemsWithDistance: (Restaurant & { distance: number | null; deliveryTime: number | null })[] = [];
 
-            totalItems = items.length;
-            items = items.slice((page - 1) * pageSize, page * pageSize);
+        if (lat != null && lng != null) {
+            itemsWithDistance = items
+                .map(r => {
+                    const distance = (r.latitude != null && r.longitude != null)
+                        ? haversineDistance(lat, lng, Number(r.latitude), Number(r.longitude))
+                        : null;
+                    const deliveryTime = distance != null ? estimateDeliveryTime(distance) : null;
+                    return { ...r, distance, deliveryTime };
+                })
+                .filter(r => r.distance !== null && r.distance <= radius)
+                .sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0));
+
+            totalItems = itemsWithDistance.length;
+            itemsWithDistance = itemsWithDistance.slice((page - 1) * pageSize, page * pageSize);
         } else {
-            items = items.slice((page - 1) * pageSize, page * pageSize);
+            itemsWithDistance = items
+                .map(r => ({ ...r, distance: null, deliveryTime: null }));
+            itemsWithDistance = itemsWithDistance.slice((page - 1) * pageSize, page * pageSize);
         }
 
         return {
-            items,
+            items: itemsWithDistance,
             totalItems,
             page,
             pageSize,

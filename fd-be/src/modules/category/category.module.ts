@@ -9,10 +9,11 @@ import { Category } from 'src/entities/category.entity';
 import { Restaurant } from 'src/entities/restaurant.entity';
 import { Role } from 'src/entities/role.entity';
 import { UsersService } from '../users/users.service';
+import { Address } from 'src/entities/address.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Category, User,Role, Food, Restaurant ]),
+    TypeOrmModule.forFeature([Category, User,Role, Food, Restaurant, Address ]),
   ],
   controllers: [CategoryController],
   providers: [CategoryService, UsersService],

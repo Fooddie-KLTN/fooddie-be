@@ -48,8 +48,8 @@ export default function FoodCard({ food, formatPrice }: FoodCardProps) {
     
     // Calculate discounted price if applicable
     const finalPrice = food.discountPercent && food.discountPercent > 0
-        ? food.price * (1 - food.discountPercent / 100)
-        : food.price;
+        ? Number(food.price) * (1 - food.discountPercent / 100)
+        : Number(food.price);
 
     return (
         <Card className="overflow-hidden hover:shadow-lg transition-shadow group h-full max-w-sm cursor-pointer">
@@ -116,7 +116,7 @@ export default function FoodCard({ food, formatPrice }: FoodCardProps) {
                         <span className="font-bold text-primary">{formatPrice(finalPrice)}</span>
                         {food.discountPercent && food.discountPercent > 0 && (
                             <span className="text-xs text-gray-400 line-through ml-2">
-                                {formatPrice(food.price)}
+                                {formatPrice(Number(food.price))}
                             </span>
                         )}
                     </div>

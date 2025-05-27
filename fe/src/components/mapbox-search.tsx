@@ -6,6 +6,7 @@ import MapboxGeocoder from '@mapbox/mapbox-gl-geocoder';
 import { Input } from '@/components/ui/input';
 import '@mapbox/mapbox-gl-geocoder/dist/mapbox-gl-geocoder.css';
 import 'mapbox-gl/dist/mapbox-gl.css';
+import React from 'react';
 
 interface MapboxSearchProps {
   onAddressSelect: (address: {
@@ -39,7 +40,7 @@ function useDebounce<T>(value: T, delay: number): T {
   return debouncedValue;
 }
 
-const MapboxSearch = ({ 
+const MapboxSearchComponent = ({ 
   onAddressSelect, 
   initialAddress = '',
   initialLatitude,
@@ -229,7 +230,9 @@ const MapboxSearch = ({
         markerRef.current = null;
       }
     };
-  }, [initialAddress, parsedLatitude, parsedLongitude, onAddressSelect, placeholder]);
+  // Only rerun if these values actually change
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialAddress, parsedLatitude, parsedLongitude, placeholder]);
 
   return (
     <div className={`mapbox-search-container ${className}`}>
@@ -256,5 +259,8 @@ const MapboxSearch = ({
     </div>
   );
 };
+
+// Memoize to avoid unnecessary rerenders
+const MapboxSearch = React.memo(MapboxSearchComponent);
 
 export default MapboxSearch;

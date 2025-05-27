@@ -7,10 +7,11 @@ import { Food } from 'src/entities/food.entity';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { GuardModule } from 'src/common/guard/guard.module';
+import { Address } from 'src/entities/address.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Checkout, Food]),
+    TypeOrmModule.forFeature([Checkout, Food, Address]),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({

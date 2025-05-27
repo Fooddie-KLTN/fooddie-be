@@ -4,18 +4,19 @@ import Link from "next/link";
 
 // Star rating component
 const StarRating = ({ rating }: { rating: number }) => {
+    const safeRating = Number(rating) || 0;
     return (
         <div className="flex items-center">
             {[1, 2, 3, 4, 5].map((star) => (
                 <Star
                     key={star}
-                    className={`h-4 w-4 ${star <= Math.round(rating)
+                    className={`h-4 w-4 ${star <= Math.round(safeRating)
                             ? "fill-yellow-400 text-yellow-400"
                             : "fill-gray-200 text-gray-200"
                         }`}
                 />
             ))}
-            <span className="ml-1 text-sm">{rating.toFixed(1)}</span>
+            <span className="ml-1 text-sm">{safeRating.toFixed(1)}</span>
         </div>
     );
 };

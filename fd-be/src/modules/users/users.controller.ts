@@ -11,6 +11,7 @@ import { RolesGuard } from 'src/common/guard/role.guard';
 import { InjectRepository } from '@nestjs/typeorm';
 import { UserResponse } from './interface/user-response.interface';
 import { AuthGuard } from 'src/auth/auth.guard';
+import { log } from 'console';
 
 
 @Controller('users')
@@ -26,12 +27,35 @@ export class UsersController {
     return await this.usersService.getMe(id);
   }
 
-  @Put('me')
-  @UseGuards(AuthGuard)
-  async updateMe(@Req() req, @Body() updateUserDto: UpdateUserDto): Promise<User> {
-    const id = req.user.uid;
-    return await this.usersService.updateMe(id, updateUserDto);
+@Put('me')
+@UseGuards(AuthGuard)
+async updateMe(@Req() req, @Body() body: any): Promise<User> {
+  const id = req.user.uid;
+
+  // Only map allowed user fields
+  const allowedUserFields = ['name', 'phone', 'avatar', 'birthday'];
+  const mappedUser: any = {};
+  for (const key of allowedUserFields) {
+    if (body[key] !== undefined) mappedUser[key] = body[key];
   }
+
+  // Map addresses if present
+  if (Array.isArray(body.address)) {
+    const allowedAddressFields = [
+      'street', 'ward', 'district', 'city', 'latitude', 'longitude', 'isDefault', 'label'
+    ];
+    mappedUser.addresses = body.address.map((addr: any) => {
+      const mappedAddr: any = {};
+      for (const key of allowedAddressFields) {
+        if (addr[key] !== undefined) mappedAddr[key] = addr[key];
+      }
+      return mappedAddr;
+    });
+  }
+  log('Updating user with ID:', id, 'Mapped user data:', mappedUser);
+
+  return await this.usersService.updateMe(id, mappedUser);
+}
 
   @Post()
   @UseGuards(RolesGuard)

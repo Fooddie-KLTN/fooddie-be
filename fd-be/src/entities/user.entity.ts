@@ -13,16 +13,16 @@ enum AuthProvider {
     EMAIL = 'email',
     GOOGLE = 'google',
     FACEBOOK = 'facebook', // Keep if needed, remove otherwise
-  }
+}
 
 
 @Entity({ name: 'users' })
 export class User {
-    
-    @PrimaryColumn({ 
-        type: 'varchar', 
+
+    @PrimaryColumn({
+        type: 'varchar',
         length: 28,
-        unique: true, 
+        unique: true,
         nullable: false,
     })
     id: string;
@@ -43,8 +43,9 @@ export class User {
     @Column({ nullable: true })
     name: string;
 
-    @OneToMany(()=> Address, address=> address.user)
-    address: Address;
+    @OneToMany(() => Address, address => address.user, { eager: true, cascade: true })
+    @JoinColumn({ name: 'address_id' }) // Thêm JoinColumn nếu cần thiết
+    address: Address[];
 
     @Column({ nullable: true })
     phone: string;
@@ -55,16 +56,16 @@ export class User {
     @Column({ name: 'is_active', default: true })
     isActive: boolean;
 
-    @Column({ nullable: false})
+    @Column({ nullable: false })
     birthday: Date;
 
     @CreateDateColumn()
     createdAt: Date;
-  
+
     @Column({ nullable: true })
     lastLoginAt: Date;
 
-    @OneToOne(()=> ShipperCertificateInfo, shipperCertificateInfo=> shipperCertificateInfo.user)
+    @OneToOne(() => ShipperCertificateInfo, shipperCertificateInfo => shipperCertificateInfo.user)
     shipperCertificateInfo: ShipperCertificateInfo;
 
     @Column({ type: 'enum', enum: AuthProvider, default: AuthProvider.EMAIL })
@@ -72,19 +73,19 @@ export class User {
 
     @Column({ nullable: true, name: 'google_id' })
     googleId?: string;
-  
-    @Column({ nullable: true, name: 'reset_password_token' }) 
-    resetPasswordToken?: string;
-  
-    @Column({ nullable: true, name: 'reset_password_expires' })
-    resetPasswordExpires?: Date;  
 
-    @OneToMany(()=> Checkout, checkout=> checkout.user)
+    @Column({ nullable: true, name: 'reset_password_token' })
+    resetPasswordToken?: string;
+
+    @Column({ nullable: true, name: 'reset_password_expires' })
+    resetPasswordExpires?: Date;
+
+    @OneToMany(() => Checkout, checkout => checkout.user)
     checkouts: Checkout[]; // Danh sách các đơn hàng của người dùng
 
-    @OneToMany(()=> Order, order=> order.user)
+    @OneToMany(() => Order, order => order.user)
     orders: Order[]; // Danh sách các đơn hàng của người dùng
 
-    @OneToMany(()=> Restaurant, restaurant=> restaurant.owner)
+    @OneToMany(() => Restaurant, restaurant => restaurant.owner)
     restaurants: Restaurant[]; // Danh sách các nhà hàng của người dùng (nếu là chủ nhà hàng)
 }
