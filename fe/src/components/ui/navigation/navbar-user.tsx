@@ -171,7 +171,7 @@ return (
     </div>
 
     {/* User profile or login/register */}
-    <div className="flex-none flex gap-2 mx-auto flex-col sm:flex-row items-center">
+    <div className="flex-none flex gap-2 mx-auto flex-col sm:flex-row items-center ml-2">
       {user ? (
         <div className="relative">
           <DropdownMenu>
@@ -206,9 +206,9 @@ return (
               <DropdownMenuLabel className="text-base font-medium px-2 py-3">
                 Tổng quan
               </DropdownMenuLabel>
-              <DropdownMenuItem className="text-base px-2 py-3 flex gap-2" onClick={() => router.push("/checkout")}>
+              <DropdownMenuItem className="text-base px-2 py-3 flex gap-2" onClick={() => router.push("/order")}>
                 <ShoppingBagIcon className="h-5 w-5" />
-                <span>Giỏ hàng của tôi</span>
+                <span>Đơn hàng của tôi</span>
               </DropdownMenuItem>
               <DropdownMenuItem className="text-base px-2 py-3 flex gap-2" onClick={() => router.push("/profile")}>
                 <UserIcon className="h-5 w-5" />

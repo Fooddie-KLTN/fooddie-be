@@ -257,9 +257,7 @@ export class PaymentService {
      * Cancel a checkout
      */
     async cancelCheckout(checkoutId: string): Promise<Checkout> {
-        const checkout = await this.checkoutRepository.findOne({
-            where: { id: checkoutId },
-        });
+        const checkout = await this.checkoutRepository.findOne({ where: { id: checkoutId } });
 
         if (!checkout) {
             throw new BadRequestException(`Checkout with ID ${checkoutId} not found`);
@@ -287,7 +285,15 @@ export class PaymentService {
 
         // Update checkout status
         checkout.status = CheckoutStatus.CANCELLED;
-        return this.checkoutRepository.save(checkout);
+        await this.checkoutRepository.save(checkout);
+
+        // Update order status
+        const order = await this.orderRepository.findOne({ where: { id: checkout.orderId } });
+        if (order) {
+            order.status = 'canceled';
+            await this.orderRepository.save(order);
+        }
+        return checkout;
     }
 
     /**
@@ -368,6 +374,15 @@ export class PaymentService {
             // Update checkout status
             checkout.status = CheckoutStatus.FAILED;
             await this.checkoutRepository.save(checkout);
+
+            // Update order status
+            const order = await this.orderRepository.findOne({
+                where: { id: checkout.orderId },
+            });
+            if (order) {
+                order.status = 'canceled'; // or 'failed'
+                await this.orderRepository.save(order);
+            }
         }
     }
 

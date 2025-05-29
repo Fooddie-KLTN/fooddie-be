@@ -7,26 +7,10 @@ import { adminService } from "@/api/admin";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import dynamic from "next/dynamic";
+import { OrderDetail } from "@/interface";
 
 // Map chỉ load khi client-side
 const Map = dynamic(() => import("@/components/common/map"), { ssr: false });
-
-interface OrderDetail {
-  id: string;
-  status: string;
-  createdAt: string;
-  totalAmount: number;
-  restaurant: {
-    name: string;
-    location: string;
-  };
-  shippingAddress: string;
-  foodDetails: {
-    name: string;
-    quantity: number;
-    price: number;
-  }[];
-}
 
 export default function OrderDetailPage() {
   const [order, setOrder] = useState<OrderDetail | null>(null);

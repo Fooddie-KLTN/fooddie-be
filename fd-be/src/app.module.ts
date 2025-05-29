@@ -22,6 +22,10 @@ import { FoodModule } from './modules/food/food.module';
 import { OrderModule } from './modules/order/order.module';
 import { CategoryModule } from './modules/category/category.module';
 import { Permission } from './entities/permission.entity';
+import { ScheduleModule } from '@nestjs/schedule';
+import { GraphQLModule } from '@nestjs/graphql';
+import { ApolloDriverConfig, ApolloDriver } from '@nestjs/apollo';
+import { AppResolver } from './app.resolver';
 @Module({
   imports: [
     // Import the module that contains the user entity
@@ -31,11 +35,11 @@ import { Permission } from './entities/permission.entity';
     }),
     TypeOrmModule.forRoot({
       type: 'postgres', // hoặc 'mysql', 'sqlite', ...
-      host: process.env.DB_HOST ,
+      host: process.env.DB_HOST,
       port: +(process.env.DB_PORT ?? 5432),
-      username: process.env.DB_USERNAME ,
-      password: process.env.DB_PASSWORD ,
-      database: process.env.DB_NAME ,
+      username: process.env.DB_USERNAME,
+      password: process.env.DB_PASSWORD,
+      database: process.env.DB_NAME,
       //entities: [__dirname + '/**/*.entity{.ts,.js}'],
       entities: [__dirname + '/entities/*.entity{.ts,.js}'],
       synchronize: true, // Không dùng synchronize trong production, thay vào đó dùng migrations
@@ -54,10 +58,29 @@ import { Permission } from './entities/permission.entity';
     OrderModule,
     CategoryModule,
     TypeOrmModule.forFeature([Role, User, Review, Promotion, Address, Permission]),
+    ScheduleModule.forRoot(),
+
+    GraphQLModule.forRoot<ApolloDriverConfig>({
+      driver: ApolloDriver,
+      autoSchemaFile: true,
+      subscriptions: {
+        'graphql-ws': true
+      },
+      context: ({ req, connectionParams }) => {
+        // For HTTP requests
+        if (req) return { req };
+        // For WebSocket connections
+        if (connectionParams?.Authorization) {
+          return { token: connectionParams.Authorization };
+        }
+        return {};
+      },
+    }),
+
 
   ],
   controllers: [AppController],
-  providers: [AppService, AdminSeedService],
+  providers: [AppService, AdminSeedService, AppResolver],
 })
 export class AppModule {
   constructor(private readonly dataSource: DataSource) {

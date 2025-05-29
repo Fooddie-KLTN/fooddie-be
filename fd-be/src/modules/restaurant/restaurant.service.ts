@@ -567,28 +567,28 @@ export class RestaurantService {
 * @param id The restaurant ID to approve
 * @returns The approved restaurant
 */
-async approveRestaurant(id: string): Promise<Restaurant> {
-    const restaurant = await this.restaurantRepository.findOne({
-      where: { id },
-      relations: ['owner', 'address'], // 👈 lấy đầy đủ để frontend hiển thị
-    });
-  
-    if (!restaurant) {
-      throw new NotFoundException(`Restaurant with ID ${id} not found`);
+    async approveRestaurant(id: string): Promise<Restaurant> {
+        const restaurant = await this.restaurantRepository.findOne({
+            where: { id },
+            relations: ['owner', 'address'], // 👈 lấy đầy đủ để frontend hiển thị
+        });
+
+        if (!restaurant) {
+            throw new NotFoundException(`Restaurant with ID ${id} not found`);
+        }
+
+        if (restaurant.status !== RestaurantStatus.PENDING) {
+            throw new BadRequestException(`Restaurant with ID ${id} is not in pending status`);
+        }
+
+        restaurant.status = RestaurantStatus.APPROVED;
+
+        // 👇 cập nhật lại thời điểm duyệt
+        restaurant.createdAt = new Date();
+
+        return await this.restaurantRepository.save(restaurant);
     }
-  
-    if (restaurant.status !== RestaurantStatus.PENDING) {
-      throw new BadRequestException(`Restaurant with ID ${id} is not in pending status`);
-    }
-  
-    restaurant.status = RestaurantStatus.APPROVED;
-  
-    // 👇 cập nhật lại thời điểm duyệt
-    restaurant.createdAt = new Date();
-  
-    return await this.restaurantRepository.save(restaurant);
-  }
-  
+
 
 
 
@@ -668,43 +668,43 @@ async approveRestaurant(id: string): Promise<Restaurant> {
      * 
      * @returns List of all restaurants
      */
-async findAll(
-    page = 1,
-    pageSize = 10,
-    status?: string,
-    lat?: number,
-    lng?: number
-): Promise<{
-    items: (Restaurant & { distance: number | null; deliveryTime: number | null })[];
-    totalItems: number;
-    page: number;
-    pageSize: number;
-    totalPages: number;
-}> {
-    const query = this.restaurantRepository
-        .createQueryBuilder('restaurant')
-        .leftJoinAndSelect('restaurant.owner', 'owner')
-        .leftJoinAndSelect('restaurant.address', 'address')
-        .skip((page - 1) * pageSize)
-        .take(pageSize);
+    async findAll(
+        page = 1,
+        pageSize = 10,
+        status?: string,
+        lat?: number,
+        lng?: number
+    ): Promise<{
+        items: (Restaurant & { distance: number | null; deliveryTime: number | null })[];
+        totalItems: number;
+        page: number;
+        pageSize: number;
+        totalPages: number;
+    }> {
+        const query = this.restaurantRepository
+            .createQueryBuilder('restaurant')
+            .leftJoinAndSelect('restaurant.owner', 'owner')
+            .leftJoinAndSelect('restaurant.address', 'address')
+            .skip((page - 1) * pageSize)
+            .take(pageSize);
 
-    if (status) {
-        query.where('restaurant.status = :status', { status });
+        if (status) {
+            query.where('restaurant.status = :status', { status });
+        }
+
+        const [items, totalItems] = await query.getManyAndCount();
+
+        // Add distance & deliveryTime if lat/lng provided
+        const itemsWithDistance = this.addDistanceAndDeliveryTimeArray(items, lat, lng);
+
+        return {
+            items: itemsWithDistance,
+            totalItems,
+            page,
+            pageSize,
+            totalPages: Math.ceil(totalItems / pageSize),
+        };
     }
-
-    const [items, totalItems] = await query.getManyAndCount();
-
-    // Add distance & deliveryTime if lat/lng provided
-    const itemsWithDistance = this.addDistanceAndDeliveryTimeArray(items, lat, lng);
-
-    return {
-        items: itemsWithDistance,
-        totalItems,
-        page,
-        pageSize,
-        totalPages: Math.ceil(totalItems / pageSize),
-    };
-}
     /**
      * Get restaurant preview list with limited information
      * 
@@ -897,16 +897,16 @@ async findAll(
 
     async getTopRestaurants(
         page = 1,
-       pageSize = 10,
+        pageSize = 10,
         lat?: number,
         lng?: number)
-    : Promise<{
-        items: (Restaurant & { distance: number | null; deliveryTime: number | null })[];
-        totalItems: number;
-        page: number;
-        pageSize: number;
-        totalPages: number;
-    }> {
+        : Promise<{
+            items: (Restaurant & { distance: number | null; deliveryTime: number | null })[];
+            totalItems: number;
+            page: number;
+            pageSize: number;
+            totalPages: number;
+        }> {
         const queryBuilder = this.restaurantRepository
             .createQueryBuilder('restaurant')
             .leftJoinAndSelect('restaurant.owner', 'owner')
@@ -928,12 +928,12 @@ async findAll(
         };
     }
     async getFoodsByRestaurantId(restaurantId: string, page = 1, pageSize = 3) {
-  // Adjust this logic to your actual food repository/service
-  return this.foodRepository.find({
-    where: { restaurant: { id: restaurantId } },
-    skip: (page - 1) * pageSize,
-    take: pageSize,
-  });
-}
-    
+        // Adjust this logic to your actual food repository/service
+        return this.foodRepository.find({
+            where: { restaurant: { id: restaurantId } },
+            skip: (page - 1) * pageSize,
+            take: pageSize,
+        });
+    }
+
 }

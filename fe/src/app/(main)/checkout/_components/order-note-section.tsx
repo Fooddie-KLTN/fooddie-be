@@ -1,4 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Textarea } from '@/components/ui/textarea';
 
 interface OrderNoteSectionProps {
   orderNote: string;
@@ -12,7 +13,7 @@ export const OrderNoteSection = ({ orderNote, onOrderNoteChange }: OrderNoteSect
         <CardTitle className="text-lg font-bold">Ghi chú cho đơn hàng (tuỳ chọn)</CardTitle>
       </CardHeader>
       <CardContent>
-        <textarea
+        <Textarea
           id="order-note"
           className="w-full border rounded-lg p-2 focus:outline-primary"
           rows={3}

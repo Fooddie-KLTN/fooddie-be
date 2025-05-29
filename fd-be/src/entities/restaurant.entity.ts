@@ -5,7 +5,7 @@ import { User } from './user.entity';
 import { Food } from './food.entity';
 import { Order } from './order.entity';
 import { Address } from './address.entity';
-
+import { ObjectType, Field, ID, registerEnumType } from '@nestjs/graphql';
 
 export enum RestaurantStatus {
     PENDING = 'pending',
@@ -13,17 +13,26 @@ export enum RestaurantStatus {
     REJECTED = 'rejected'
 }
 
+registerEnumType(RestaurantStatus, {
+  name: 'RestaurantStatus',
+});
+
+@ObjectType()
 @Entity({ name: 'restaurants' })
 export class Restaurant {
+    @Field(() => ID)
     @PrimaryGeneratedColumn("uuid")
     id: string;
 
+    @Field({ nullable: true })
     @Column({ nullable: true })
     name: string;
 
+    @Field({ nullable: true })
     @Column({ nullable: true })
     phoneNumber: string;
 
+    @Field({ nullable: true })
     @Column({ nullable: true })
     backgroundImage: string;
 
@@ -33,24 +42,31 @@ export class Restaurant {
       })
       address: Address;
 
+    @Field({ nullable: true })
     @Column({ nullable: true })
     avatar: string;
 
+    @Field({ nullable: true })
     @Column({ nullable: true })
     description: string;
 
+    @Field({ nullable: true })
     @Column({ nullable: true })
     openTime: string;
 
+    @Field({ nullable: true })
     @Column({ nullable: true })
     closeTime: string;
 
+    @Field({ nullable: true })
     @Column({ nullable: true })
     licenseCode: string;
 
+    @Field({ nullable: true })
     @Column({ nullable: true })
     certificateImage: string;
 
+    @Field(() => RestaurantStatus, { nullable: true })
     @Column({
         type: 'enum',
         enum: RestaurantStatus,
@@ -58,9 +74,11 @@ export class Restaurant {
     })
     status: RestaurantStatus;
 
+    @Field({ nullable: true })
     @Column({ type: 'decimal', precision: 10, scale: 7, nullable: true })
     latitude: number;
 
+    @Field({ nullable: true })
     @Column({ type: 'decimal', precision: 10, scale: 7, nullable: true })
     longitude: number;
 
