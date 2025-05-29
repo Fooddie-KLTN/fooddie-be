@@ -5,68 +5,85 @@ import { Category } from './category.entity';
 import { Restaurant } from './restaurant.entity';
 import { OrderDetail } from './orderDetail.entity';
 import { Checkout } from './checkout.entity';
+import { ObjectType, Field, ID } from '@nestjs/graphql';
 
+@ObjectType()
 @Entity({ name: 'foods' })
 export class Food {
+    @Field(() => ID)
     @PrimaryGeneratedColumn("uuid")
     id: string;
 
+    @Field({ nullable: true })
     @Column({ nullable: true })
     description: string;
 
+    @Field({ nullable: true })
     @Column({ nullable: true })
     image: string;
 
+    @Field(() => [String], { nullable: true })
     @Column("simple-array", { nullable: true, name: 'image_urls' })
     imageUrls: string[];
 
+    @Field({ nullable: true })
     @Column({ nullable: true })
     name: string;
 
+    @Field({ nullable: true })
     @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
     price: number;
 
+    @Field({ nullable: true })
     @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true, name: 'discount_percent' })
     discountPercent: number;
 
+    @Field({ nullable: true })
     @Column({ type: 'int', default: 0, nullable: true, name: 'sold_count' })
     soldCount: number;
 
+    @Field({ nullable: true })
     @Column({ type: 'decimal', precision: 3, scale: 2, nullable: true })
     rating: number;
 
+    @Field({ nullable: true })
     @Column({ type: 'int', default: 0, nullable: true, name: 'purchased_number' })
     purchasedNumber: number;
 
-    // In food.entity.ts
+    @Field(() => Category, { nullable: true })
     @ManyToOne(() => Category, (category) => category.foods, {
         nullable: true,
         onDelete: 'SET NULL',
     })
     @JoinColumn({ name: 'category_id' })
-    category?: Category; // Make it optional in TypeScript too
+    category?: Category;
 
-    
+    @Field({ nullable: true })
     @Column({ nullable: true })
     status: string;
 
+    @Field({ nullable: true })
     @Column({ nullable: true })
     tag: string;
 
+    @Field()
     @CreateDateColumn({ name: 'created_at' })
     createdAt: Date;
 
+    @Field()
     @UpdateDateColumn({ name: 'updated_at' })
     updatedAt: Date;
 
+    @Field({ nullable: true })
     @Column({ nullable: true, name: 'preparation_time' })
     preparationTime: number;
 
+    @Field(() => Restaurant)
     @ManyToOne(() => Restaurant, { eager: true })
     @JoinColumn({ name: 'restaurant_id' })
     restaurant: Restaurant;
 
+    @Field(() => [OrderDetail], { nullable: true })
     @OneToMany(() => OrderDetail, (orderDetail) => orderDetail.food)
     orderDetails: OrderDetail[];
-
 }

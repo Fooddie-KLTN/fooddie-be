@@ -45,6 +45,7 @@
     "firebase-admin": "^13.1.0",
     "graphql": "^16.11.0",
     "graphql-subscriptions": "^3.0.0",
+    "graphql-type-json": "^0.3.2",
     "graphql-ws": "^6.0.5",
     "moment": "^2.30.1",
     "passport": "^0.7.0",
@@ -55,6 +56,7 @@
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "sqlite3": "^5.1.7",
+    "type-graphql": "^2.0.0-rc.2",
     "typeorm": "^0.3.20"
   },
   "devDependencies": {

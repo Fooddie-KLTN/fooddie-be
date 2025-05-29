@@ -25,6 +25,7 @@ import { Permission } from './entities/permission.entity';
 import { ScheduleModule } from '@nestjs/schedule';
 import { GraphQLModule } from '@nestjs/graphql';
 import { ApolloDriverConfig, ApolloDriver } from '@nestjs/apollo';
+import { AppResolver } from './app.resolver';
 @Module({
   imports: [
     // Import the module that contains the user entity
@@ -61,6 +62,7 @@ import { ApolloDriverConfig, ApolloDriver } from '@nestjs/apollo';
 
     GraphQLModule.forRoot<ApolloDriverConfig>({
       driver: ApolloDriver,
+      autoSchemaFile: true,
       subscriptions: {
         'graphql-ws': true
       },
@@ -78,7 +80,7 @@ import { ApolloDriverConfig, ApolloDriver } from '@nestjs/apollo';
 
   ],
   controllers: [AppController],
-  providers: [AppService, AdminSeedService],
+  providers: [AppService, AdminSeedService, AppResolver],
 })
 export class AppModule {
   constructor(private readonly dataSource: DataSource) {
