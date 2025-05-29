@@ -1,21 +1,27 @@
-/* eslint-disable prettier/prettier */
-// src/users/entities/user.entity.ts
-import { Entity, Column, ManyToOne, JoinColumn, PrimaryColumn, PrimaryGeneratedColumn, OneToOne } from 'typeorm';
+import { Entity, Column, ManyToOne, JoinColumn, PrimaryGeneratedColumn, OneToOne } from 'typeorm';
 import { User } from './user.entity';
+
+export enum CertificateStatus {
+  PENDING = 'PENDING',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED',
+}
 
 @Entity({ name: 'shipperCertificateInfos' })
 export class ShipperCertificateInfo {
-    @PrimaryGeneratedColumn("uuid")
-    id: string;
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
-    @OneToOne(() => User, { eager: true })
-    @JoinColumn({ name: 'user_id' })
-    user: User;
+  @OneToOne(() => User)
+  @JoinColumn({ name: 'user_id' })
+  user: User;
 
-    @Column({ nullable: true })
-    cccd: string;
+  @Column({ nullable: true })
+  cccd: string;
 
-    @Column({ nullable: true })
-    driverLicense: string;
+  @Column({ nullable: true })
+  driverLicense: string;
 
+  @Column({ type: 'enum', enum: CertificateStatus, default: CertificateStatus.PENDING })
+  status: CertificateStatus;
 }

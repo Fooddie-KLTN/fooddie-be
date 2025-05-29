@@ -197,6 +197,10 @@ export class AdminSeedService implements OnModuleInit {
       where: { name: DefaultRole.SHOP_OWNER }
     });
 
+    let shipperRole = await this.roleRepository.findOne({
+      where: { name: DefaultRole.SHIPPER }
+    });
+
     // Define permissions for Shop Owner
     // They can manage their own restaurant, food, orders, promotions.
     // They can read categories.
@@ -229,7 +233,21 @@ export class AdminSeedService implements OnModuleInit {
       await this.roleRepository.save(shopOwnerRole);
       this.logger.log('Shop Owner role already exists, updated permissions.');
     }
+
+    if (!shipperRole) {
+      shipperRole = this.roleRepository.create({
+        name: DefaultRole.SHIPPER,
+        displayName: 'Shipper',
+        description: 'shipper role with limited permissions',
+        isSystem: false, // Typically not a system role like admin/super_admin
+        permissions: [],
+      });
+      await this.roleRepository.save(shipperRole);
+      this.logger.log('Shipper role create.');
+    } 
   }
+
+
 
   async seedAdmin() {
     // Get admin role

@@ -1,6 +1,6 @@
 /* eslint-disable prettier/prettier */
-import { Injectable, Logger } from '@nestjs/common';
-import { Repository } from 'typeorm';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { DataSource, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User } from 'src/entities/user.entity';
 import { CreateUserDto } from './dto/create-users.dto';
@@ -12,6 +12,7 @@ import { UserResponse } from './interface/user-response.interface';
 import { v4 as uuidv4 } from 'uuid';
 import { AuthProvider } from 'src/auth/auth.service';
 import { Address } from 'src/entities/address.entity';
+import { CertificateStatus, ShipperCertificateInfo } from 'src/entities/shipperCertificateInfo.entity';
 
 @Injectable()
 export class UsersService {
@@ -23,6 +24,7 @@ export class UsersService {
     private readonly addressRepository: Repository<Address>,
     @InjectRepository(User)
     private readonly usersRepository: Repository<User>,
+    private readonly dataSource: DataSource,
   ) {}
 
   async updateUserProvider(id: string, arg1: { provider: AuthProvider; googleId: string; }): Promise<User> {
@@ -127,6 +129,10 @@ export class UsersService {
       }
       throw new Error('Failed to create user: Unknown error');
     }
+  }
+
+  async findByPhone(phone: string): Promise<User | null> {
+    return this.usersRepository.findOne({ where: { phone } });
   }
 
   async register(createUserDto: CreateUserDto, id: string): Promise<User> {
@@ -237,4 +243,43 @@ export class UsersService {
   async findByEmail(email: string): Promise<User | null> {
     return this.usersRepository.findOne({ where: { email } });
   }
+
+  async getShippersByStatus(status?: CertificateStatus, userId?: string) {
+    const shipperRepo = this.dataSource.getRepository(ShipperCertificateInfo);
+  
+    const query = shipperRepo.createQueryBuilder('shipper')
+      .leftJoinAndSelect('shipper.user', 'user')
+      .leftJoinAndSelect('user.role', 'role')
+      .leftJoinAndSelect('user.orders', 'orders')
+      .where('role.name = :role', { role: 'shipper' });
+  
+    if (status) {
+      query.andWhere('shipper.status = :status', { status });
+    }
+  
+    if (userId) {
+      query.andWhere('user.id = :userId', { userId });
+    }
+  
+    return query.getMany();
+  }
+  
+  
+  
+  async updateShipperStatus(userId: string, status: CertificateStatus) {
+    const repo = this.dataSource.getRepository(ShipperCertificateInfo);
+  
+    const shipper = await repo.findOne({
+      where: { user: { id: userId } },
+      relations: ['user'],
+    });
+  
+    if (!shipper) {
+      throw new NotFoundException('Shipper not found');
+    }
+  
+    shipper.status = status;
+    return repo.save(shipper);
+  }
+  
 }

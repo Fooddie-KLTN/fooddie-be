@@ -137,7 +137,7 @@ export async function apiRequest<T>(
     body,
   });
 
-  // Kiểm tra xem có lỗi xảy ra không
+
   if (!response.ok) {
     const errorData = await response.json().catch(() => null);
     throw new Error(errorData?.message || `API request failed with status ${response.status}`);
