@@ -7,6 +7,10 @@ import Image from 'next/image';
 interface OrderSummaryProps {
   displayCartItems: any[];
   totalPrice: number;
+  shippingFee: number;
+  distance: number;
+  total: number;
+  calculating: boolean;
   selectedUserAddressId: string | null;
   onOrder: () => void;
   formatPrice: (price: number) => string;
@@ -15,6 +19,10 @@ interface OrderSummaryProps {
 export const OrderSummary = ({
   displayCartItems,
   totalPrice,
+  shippingFee,
+  distance,
+  total,
+  calculating,
   selectedUserAddressId,
   onOrder,
   formatPrice,
@@ -51,10 +59,19 @@ export const OrderSummary = ({
           <span className="text-gray-600">Tạm tính:</span>
           <span className="font-semibold">{formatPrice(totalPrice)}</span>
         </div>
+        <div className="flex justify-between mt-2 text-base">
+          <span className="text-gray-600">Phí vận chuyển:</span>
+          <span className="font-semibold">{formatPrice(shippingFee)}</span>
+        </div>
+        <div className="flex justify-between mt-2 text-base">
+          <span className="text-gray-600">Khoảng cách:</span>
+          <span className="font-semibold">{distance} km</span>
+        </div>
         <div className="flex justify-between font-bold text-lg mt-3 border-t pt-3">
           <span>Tổng cộng:</span>
-          <span className="text-primary">{formatPrice(totalPrice)}</span>
+          <span className="text-primary">{formatPrice(total)}</span>
         </div>
+        {calculating && <div className="text-center text-sm text-gray-500 py-2">Đang tính toán...</div>}
       </CardContent>
       <CardFooter>
         <Button

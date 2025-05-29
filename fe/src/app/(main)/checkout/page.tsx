@@ -12,7 +12,6 @@ import { EmptyCart } from './_components/emty-cart';
 export default function CheckoutPage() {
   const {
     displayCartItems,
-    totalPrice,
     initialLoading,
     userAddresses,
     selectedUserAddressId,
@@ -27,6 +26,8 @@ export default function CheckoutPage() {
     handleRemoveFromCart,
     handleOrder,
     formatPrice,
+    calculation,
+    calculating
   } = useCheckout();
 
   // Add this wrapper function
@@ -70,9 +71,14 @@ export default function CheckoutPage() {
           </div>
           {/* RIGHT: Order Summary */}
           <div className="md:w-[380px] w-full">
+
             <OrderSummary
               displayCartItems={displayCartItems}
-              totalPrice={totalPrice}
+              totalPrice={calculation?.foodTotal ?? 0}
+              shippingFee={calculation?.shippingFee ?? 0}
+              distance={calculation?.distance ?? 0}
+              total={calculation?.total ?? 0}
+              calculating={calculating}
               selectedUserAddressId={selectedUserAddressId}
               onOrder={handleOrder}
               formatPrice={formatPrice}

@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { Restaurant, FoodDetail, UserProfile } from "@/interface";
+import { Restaurant, FoodDetail, UserProfile, Order } from "@/interface";
 import { apiRequest } from "./base-api";
-import { OrderResponse } from "./response.interface";
+import { CalculateOrderResponse, OrderResponse, PaginatedResponse } from "./response.interface";
 
 /**
  * Interface for updating user information
@@ -205,7 +205,7 @@ export const userApi = {
         throw error;
       }
     },
-    async getOrderCountByMonth(token: string,month?: string) {
+    async getOrderCountByMonth(token: string, month?: string) {
       return await apiRequest<number>(
         "/restaurants/my/order-count-by-month",
         "GET",
@@ -216,7 +216,7 @@ export const userApi = {
       );
     },
 
-    async getRevenueByMonth(token: string,month?: string) {
+    async getRevenueByMonth(token: string, month?: string) {
       return await apiRequest<number>(
         "/restaurants/my/revenue-by-month",
         "GET",
@@ -290,19 +290,51 @@ export const userApi = {
       }
     },
   },
-order: {
-  /**
-   * Tạo đơn hàng mới
-   * @param {string} token - Token xác thực
-   * @param {any} data - Dữ liệu đơn hàng (Order)
-   */
-  async createOrder(token: string, data: any): Promise<OrderResponse> {
-    try {
-      return await apiRequest<OrderResponse>('/orders', 'POST', { token, data });
-    } catch (error) {
-      console.error('Order API error:', error);
-      throw error;
-    }
-  },
-  },
+  order: {
+    /**
+     * Tạo đơn hàng mới
+     * @param {string} token - Token xác thực
+     * @param {any} data - Dữ liệu đơn hàng (Order)
+     */
+    async createOrder(token: string, data: any): Promise<OrderResponse> {
+      try {
+        return await apiRequest<OrderResponse>('/orders', 'POST', { token, data });
+      } catch (error) {
+        console.error('Order API error:', error);
+        throw error;
+      }
+    },
+    /**
+     * Tinhs toán tổng giá trị đơn hàng
+     * @param {string} addressId - Dịa chỉ giao hàng
+     * @param {string} restaurantId - ID của nhà hàng
+     * @param {string} items : { foodId: string, quantity: number }[] - Danh sách các món ăn trong đơn hàng
+     * @return {Promise<CalculateOrderResponse>} - Kết quả tính toán tổng giá trị đơn hàng
+     */
+    async calculateOrder(addressId: string, restaurantId: string, items: { foodId: string, quantity: number }[]): Promise<any> {
+      try {
+        return await apiRequest<CalculateOrderResponse>('/orders/calculate', 'POST', { data: { addressId, restaurantId, items } });
+      } catch (error) {
+        console.error('Order API error:', error);
+        throw error;
+      }
+    },
+    /**
+     * Lấy danh sách đơn hàng của người dùng
+     * @param {string} token - Token xác thực
+     * @param {number} page - Số trang (mặc định 1)
+     * @param {number} pageSize - Số lượng đơn hàng trên mỗi trang (mặc định 10)
+     * @param {string} status - Trạng thái đơn hàng (tùy chọn)
+     * @return {Promise<PaginatedResponse>} - Danh sách đơn hàng
+     */
+    async getMyOrders(token: string, page: number = 1, pageSize: number = 10, status?: string): Promise<PaginatedResponse<Order>> {
+      try {
+        return await apiRequest<PaginatedResponse<Order>>(`/orders/my?page=${page}&pageSize=${pageSize}${status ? `&status=${status}` : ''}`, 'GET', { token });
+      } catch (error) {
+        console.error('Order API error:', error);
+        throw error;
+      }
+    },
+  }
+
 };

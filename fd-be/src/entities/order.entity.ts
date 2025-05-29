@@ -31,10 +31,10 @@ export class Order {
 
     @Column({
         type: 'enum',
-        enum: ['pending', 'confirmed', 'delivering', 'completed', 'canceled'],
+        enum: ['pending', 'confirmed', 'delivering', 'completed', 'canceled', 'processing_payment'],
         default: 'pending',
         nullable: true,
-    },)
+    })
     status: string;
 
     @CreateDateColumn()
@@ -54,7 +54,7 @@ export class Order {
     @JoinColumn({ name: 'address_id' })
     address: Address;
 
-    @OneToMany(() => OrderDetail, (orderDetail) => orderDetail.order, { cascade: true})
+    @OneToMany(() => OrderDetail, (orderDetail) => orderDetail.order, { cascade: true })
     orderDetails: OrderDetail[];
 
     @OneToOne(() => ShippingDetail)
@@ -71,6 +71,6 @@ export class Order {
     @Column({ default: false })
     isPaid: boolean;
 
-    @OneToMany(()=> Checkout, checkout => checkout.order)
+    @OneToMany(() => Checkout, checkout => checkout.order)
     checkout: Checkout[];
 }
