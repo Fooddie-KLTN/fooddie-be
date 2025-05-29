@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Restaurant, FoodDetail, UserProfile } from "@/interface";
 import { apiRequest } from "./base-api";
+import { OrderResponse } from "./response.interface";
 
 /**
  * Interface for updating user information
@@ -288,5 +289,20 @@ export const userApi = {
         throw error;
       }
     },
-  }
+  },
+order: {
+  /**
+   * Tạo đơn hàng mới
+   * @param {string} token - Token xác thực
+   * @param {any} data - Dữ liệu đơn hàng (Order)
+   */
+  async createOrder(token: string, data: any): Promise<OrderResponse> {
+    try {
+      return await apiRequest<OrderResponse>('/orders', 'POST', { token, data });
+    } catch (error) {
+      console.error('Order API error:', error);
+      throw error;
+    }
+  },
+  },
 };

@@ -116,10 +116,25 @@ export class RestaurantController {
     @Query('status') status?: string // 👈 THÊM DÒNG NÀY
 
   ) {
-    return await this.restaurantService.findAll(page, pageSize,status, lat, lng);
+    return await this.restaurantService.findAll(page, pageSize, status, lat, lng);
   }
 
-  
+  @Get('popular')
+  async getPopularRestaurants(@Query('lat') lat?: number, @Query('lng') lng?: number) {
+    // Get top 3 restaurants
+    const { items } = await this.restaurantService.getTopRestaurants(1, 3, lat, lng);
+
+    // For each restaurant, get 3 foods
+    const itemsWithFoods = await Promise.all(
+      items.map(async (restaurant) => {
+        const foods = await this.restaurantService.getFoodsByRestaurantId(restaurant.id, 1, 3);
+        return { ...restaurant, foods };
+      })
+    );
+
+    return { items: itemsWithFoods };
+  }
+
   @Get('preview')
   async getPreview(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,

@@ -129,7 +129,7 @@ const RestaurantCard: React.FC<RestaurantCardProps> = ({ restaurants, getFoods }
                             </span>
                             <span className="flex items-center">
                                 <Clock className="w-5 h-5 mr-1 text-yellow-400" />
-                                {activeRestaurant.deliveryTime} mins
+                                {activeRestaurant.deliveryTime} phút
                             </span>
                         </div>
 
@@ -144,7 +144,7 @@ const RestaurantCard: React.FC<RestaurantCardProps> = ({ restaurants, getFoods }
                             className="bg-orange-500 hover:bg-orange-600 text-white py-3 px-6 rounded-lg text-center font-medium transition-all duration-300 inline-flex items-center justify-center w-full md:w-auto
                 hover:shadow-lg hover:scale-105 active:scale-95"
                         >
-                            Visit Restaurant <ArrowRight className="ml-2 w-4 h-4 transition-transform group-hover:translate-x-1" />
+                            Xem cửa hàng <ArrowRight className="ml-2 w-4 h-4 transition-transform group-hover:translate-x-1" />
                         </Link>
                     </div>
                 </div>
@@ -171,7 +171,7 @@ const RestaurantCard: React.FC<RestaurantCardProps> = ({ restaurants, getFoods }
             {/* Foods (Right Side) */}
             <div className="md:w-1/2 max-h-[800px] overflow-y-auto p-6">
                 <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-xl font-bold text-gray-800">Popular Menu</h2>
+                    <h2 className="text-xl font-bold text-gray-800">Menu nổi tiếng</h2>
                     <Link
                         href={`/restaurant/${activeRestaurant.id}`}
                         className="text-orange-500 flex items-center text-sm font-medium hover:underline group transition-all"
@@ -215,7 +215,7 @@ const RestaurantCard: React.FC<RestaurantCardProps> = ({ restaurants, getFoods }
                     active:scale-95 hover:shadow-md flex items-center"
                                             >
                                                 <ShoppingBag className="w-3 h-3 mr-1" />
-                                                Add to cart
+                                                Thêm vào giỏ
                                             </button>
                                             <button
                                                 onClick={(e) => handleBuyNow(e, food)}
@@ -223,7 +223,7 @@ const RestaurantCard: React.FC<RestaurantCardProps> = ({ restaurants, getFoods }
                     hover:bg-red-600 transition-all duration-300
                     active:scale-95 hover:shadow-md"
                                             >
-                                                Buy now
+                                                Mua ngay
                                             </button>
                                         </div>
                                     </div>                </div>
@@ -231,7 +231,7 @@ const RestaurantCard: React.FC<RestaurantCardProps> = ({ restaurants, getFoods }
                         ))
                     ) : (
                         <div className="text-center py-10 text-gray-500 animate-pulse">
-                            No food items available for this restaurant.
+                           Không có món ăn nào trong menu của nhà hàng này.
                         </div>
                     )}
                 </div>

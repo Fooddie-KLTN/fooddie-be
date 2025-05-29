@@ -109,6 +109,16 @@ export const guestService = {
         ): Promise<PaginatedResponse<Restaurant>> {
             return apiRequest<PaginatedResponse<Restaurant>>(`/restaurants`, "GET", { query: { page, pageSize, lat, lng } });
         },
+        getPopularRestaurants: async (
+            lat: number = 10.7769,
+            lng: number = 106.6951
+        ): Promise<{ items: (Restaurant & { foods: FoodPreview[] })[] }> => {
+            return apiRequest<{ items: (Restaurant & { foods: FoodPreview[] })[] }>(
+                `/restaurants/popular`,
+                "GET",
+                { query: { lat, lng } }
+            );
+        },
         async getAllRestaurants(
             page: number = 1,
             pageSize: number = 10,

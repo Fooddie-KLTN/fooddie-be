@@ -24,10 +24,11 @@ import type { Metadata } from "next";
 import React from "react";
 import "../../styles/globals.css";
 import { GeoLocationProvider } from "@/context/geolocation-context";
+import { NotificationProvider } from "@/components/ui/notification";
 
 export const metadata: Metadata = {
-  title: "Project Beauty Academy",
-  description: "Khóa học làm đẹp, số học",
+  title: "Fooddie - Ứng dụng giao đồ ăn trực tuyến",
+  description: "Ứng dụng giao đồ ăn trực tuyến, nhanh chóng và tiện lợi.",
 };
 
 export default function RootLayout({
@@ -35,20 +36,19 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // const pathname = usePathname();
-  // const isAdminPanel = pathname.startsWith("/admin");
   return (
     <>
-      <AuthModalProvider>
-        <CartProvider>
-          <GeoLocationProvider>
-            {<Navbar />}
-            {children}
-          </GeoLocationProvider>
-
-        </CartProvider>
-      </AuthModalProvider>
-      <Footer />
+      <NotificationProvider>
+        <AuthModalProvider>
+          <CartProvider>
+            <GeoLocationProvider>
+              {<Navbar />}
+              {children}
+            </GeoLocationProvider>
+          </CartProvider>
+        </AuthModalProvider>
+        <Footer />
+      </NotificationProvider>
     </>
   );
 }

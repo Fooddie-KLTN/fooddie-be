@@ -10,6 +10,7 @@ export enum ShippingStatus {
     DELIVERED = 'DELIVERED',
     CANCELLED = 'CANCELLED',
     RETURNED = 'RETURNED',
+    COMPLETED = 'COMPLETED',
 }
 
 @Entity({ name: 'shippingDetails' })
@@ -20,11 +21,11 @@ export class ShippingDetail {
     @Column({ nullable: true })
     status: ShippingStatus;
 
-    @ManyToOne(() => User, { eager: true })
+    @ManyToOne(() => User)
     @JoinColumn({ name: 'user_id' })
     shipper: User;
 
-    @OneToOne(() => Order, { eager: true })
+    @OneToOne(() => Order)
     @JoinColumn({ name: 'order_id' })
     order: Order;
 

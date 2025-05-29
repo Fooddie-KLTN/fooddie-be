@@ -33,7 +33,8 @@ export class Order {
         type: 'enum',
         enum: ['pending', 'confirmed', 'delivering', 'completed', 'canceled'],
         default: 'pending',
-    })
+        nullable: true,
+    },)
     status: string;
 
     @CreateDateColumn()
@@ -42,7 +43,7 @@ export class Order {
     @UpdateDateColumn()
     updatedAt: Date;
 
-    @ManyToOne(() => Promotion, { eager: true })
+    @ManyToOne(() => Promotion)
     @JoinColumn({ name: 'promotion_id' })
     promotionCode: Promotion;
 
@@ -53,10 +54,10 @@ export class Order {
     @JoinColumn({ name: 'address_id' })
     address: Address;
 
-    @OneToMany(() => OrderDetail, (orderDetail) => orderDetail.order)
+    @OneToMany(() => OrderDetail, (orderDetail) => orderDetail.order, { cascade: true})
     orderDetails: OrderDetail[];
 
-    @OneToOne(() => ShippingDetail, { eager: true })
+    @OneToOne(() => ShippingDetail)
     @JoinColumn({ name: 'shippingDetail_id' })
     shippingDetail: ShippingDetail;
 

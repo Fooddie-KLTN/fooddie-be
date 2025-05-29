@@ -9,6 +9,7 @@ import { GoogleCloudStorageService } from 'src/gcs/gcs.service';
 import { GeocodingService } from 'src/services/geocoding.service';
 import { Address } from 'src/entities/address.entity';
 import { haversineDistance, estimateDeliveryTime } from 'src/common/utils/helper';
+import { Food } from 'src/entities/food.entity';
 
 @Injectable()
 export class RestaurantService {
@@ -21,6 +22,8 @@ export class RestaurantService {
         private userRepository: Repository<User>,
         @InjectRepository(Address)
         private addressRepository: Repository<Address>,
+        @InjectRepository(Food)
+        private foodRepository: Repository<Food>,
         private gcsService: GoogleCloudStorageService,
         private geocodingService: GeocodingService
     ) { }
@@ -891,4 +894,46 @@ async findAll(
             totalPages: Math.ceil(totalItems / pageSize),
         };
     }
+
+    async getTopRestaurants(
+        page = 1,
+       pageSize = 10,
+        lat?: number,
+        lng?: number)
+    : Promise<{
+        items: (Restaurant & { distance: number | null; deliveryTime: number | null })[];
+        totalItems: number;
+        page: number;
+        pageSize: number;
+        totalPages: number;
+    }> {
+        const queryBuilder = this.restaurantRepository
+            .createQueryBuilder('restaurant')
+            .leftJoinAndSelect('restaurant.owner', 'owner')
+            .leftJoinAndSelect('restaurant.address', 'address')
+            .where('restaurant.status = :status', { status: RestaurantStatus.APPROVED })
+            .skip((page - 1) * pageSize)
+            .take(pageSize);
+
+        const [items, totalItems] = await queryBuilder.getManyAndCount();
+
+        const itemsWithDistance = this.addDistanceAndDeliveryTimeArray(items, lat, lng);
+
+        return {
+            items: itemsWithDistance,
+            totalItems,
+            page,
+            pageSize,
+            totalPages: Math.ceil(totalItems / pageSize),
+        };
+    }
+    async getFoodsByRestaurantId(restaurantId: string, page = 1, pageSize = 3) {
+  // Adjust this logic to your actual food repository/service
+  return this.foodRepository.find({
+    where: { restaurant: { id: restaurantId } },
+    skip: (page - 1) * pageSize,
+    take: pageSize,
+  });
+}
+    
 }

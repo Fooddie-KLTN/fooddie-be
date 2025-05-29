@@ -8,6 +8,7 @@ import { useAuth } from "@/context/auth-context";
 import { formatDate, formatPrice } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { BadgeCheck, ClockIcon } from "lucide-react";
+import { AddressList } from '@/app/(main)/profile/_components/address-list';
 
 const OrderPage = () => {
   const [orders, setOrders] = useState<any[]>([]);

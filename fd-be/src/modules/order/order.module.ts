@@ -12,9 +12,12 @@ import { UsersService } from '../users/users.service';
 import { Address } from 'src/entities/address.entity';
 import { Promotion } from 'src/entities/promotion.entity';
 import { JwtModule } from '@nestjs/jwt';
+import { Checkout } from 'src/entities/checkout.entity';
+import { PaymentService } from 'src/payment/payment.service';
+import { PaymentModule } from 'src/payment/payment.module';
 
 @Module({
-    imports: [TypeOrmModule.forFeature([Order, User, Restaurant, OrderDetail, Role, Food, Address, Promotion]), JwtModule],
+    imports: [TypeOrmModule.forFeature([Order, User, Restaurant, OrderDetail, Role, Food, Address, Promotion, Checkout]), JwtModule, PaymentModule],
     controllers: [OrderController],
     providers: [OrderService, UsersService],
     exports: [OrderService],

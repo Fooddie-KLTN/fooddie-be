@@ -17,10 +17,12 @@ import { Promotion } from 'src/entities/promotion.entity';
 import { PromotionService } from 'src/modules/promotion/promotion.service';
 import { Role } from 'src/entities/role.entity';
 import { VnpayPaymentGateway } from './gateways/vnpay-payment.gateway';
+import { Restaurant } from 'src/entities/restaurant.entity';
+import { Address } from 'src/entities/address.entity';
 
 @Module({
 	imports: [
-		TypeOrmModule.forFeature([Order, OrderDetail, Checkout, User,Food, Role, Promotion]),
+		TypeOrmModule.forFeature([Order, OrderDetail, Checkout, User,Food, Role, Promotion, Restaurant, Address]),
 		ConfigModule,
 		JwtModule.registerAsync({
 			imports: [ConfigModule],
