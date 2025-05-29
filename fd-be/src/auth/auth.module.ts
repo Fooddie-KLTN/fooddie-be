@@ -14,10 +14,11 @@ import { AuthGuard } from './auth.guard';
 import { UsersModule } from 'src/modules/users/users.module';
 import { RoleModule } from 'src/modules/role/role.module';
 import { Address } from 'src/entities/address.entity';
+import { ShipperCertificateInfo } from 'src/entities/shipperCertificateInfo.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, Role, Permission, Address]),
+    TypeOrmModule.forFeature([User, Role, Permission, Address, ShipperCertificateInfo]),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({

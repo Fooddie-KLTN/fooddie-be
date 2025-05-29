@@ -12,9 +12,15 @@ import { JwtService } from '@nestjs/jwt';
 import { Address } from 'src/entities/address.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Role, User, Permission, Address])],
+  imports: [
+    TypeOrmModule.forFeature([Role, User, Permission, Address])
+  ],
   providers: [RolesService, UsersService, JwtService],
   controllers: [RoleController],
-  exports: [RolesService],
+  exports: [
+    RolesService,
+    TypeOrmModule,
+  ],
 })
 export class RoleModule {}
+

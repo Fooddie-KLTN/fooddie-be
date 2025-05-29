@@ -1,6 +1,6 @@
 /* eslint-disable prettier/prettier */
 // src/users/entities/user.entity.ts
-import { Entity, Column, ManyToOne, JoinColumn, PrimaryColumn, OneToMany, CreateDateColumn, OneToOne } from 'typeorm';
+import { Entity, Column, ManyToOne, JoinColumn, PrimaryColumn, OneToMany, CreateDateColumn, OneToOne, PrimaryGeneratedColumn } from 'typeorm';
 import { Role } from './role.entity';
 import { Address } from './address.entity';
 import { ShipperCertificateInfo } from './shipperCertificateInfo.entity';
@@ -47,7 +47,7 @@ export class User {
     @JoinColumn({ name: 'address_id' }) // Thêm JoinColumn nếu cần thiết
     address: Address[];
 
-    @Column({ nullable: true })
+    @Column({ nullable: true, unique: true })
     phone: string;
 
     @Column({ nullable: true })
@@ -65,7 +65,7 @@ export class User {
     @Column({ nullable: true })
     lastLoginAt: Date;
 
-    @OneToOne(() => ShipperCertificateInfo, shipperCertificateInfo => shipperCertificateInfo.user)
+    @OneToOne(() => ShipperCertificateInfo, shipperCertificateInfo => shipperCertificateInfo.user, { eager: true })
     shipperCertificateInfo: ShipperCertificateInfo;
 
     @Column({ type: 'enum', enum: AuthProvider, default: AuthProvider.EMAIL })
@@ -88,4 +88,5 @@ export class User {
 
     @OneToMany(() => Restaurant, restaurant => restaurant.owner)
     restaurants: Restaurant[]; // Danh sách các nhà hàng của người dùng (nếu là chủ nhà hàng)
+
 }

@@ -9,6 +9,7 @@ export enum DefaultRole {
   ADMINISTRATOR = 'administrator',
   USER = 'user',
   SHOP_OWNER = 'shop_owner',
+  SHIPPER = 'shipper',
 }
 
 @Entity('roles')
@@ -17,13 +18,19 @@ export class Role {
   id: string;
 
   @Column({
-    type: 'varchar',
-    length: 50,
+    type: 'enum',
+    enum: DefaultRole,
     default: DefaultRole.USER,
+    unique: true,
   })
   name: DefaultRole;
 
-  @Column({name: 'display_name', type: 'varchar', length: 255, nullable: true })
+  @Column({
+    name: 'display_name',
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+  })
   displayName: string;
 
   @Column({ type: 'text', nullable: true })

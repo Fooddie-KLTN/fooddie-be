@@ -66,6 +66,14 @@ export class RolesService {
    * @returns A promise that resolves to the found role
    * @throws NotFoundException if the role is not found
    */
+  async findByName(name: DefaultRole): Promise<Role> {
+    const role = await this.roleRepository.findOne({ where: { name } });
+    if (!role) {
+      throw new NotFoundException(`Vai trò '${name}' không tồn tại`);
+    }
+    return role;
+  }
+
   async findById(id: string): Promise<Role> {
     const role = await this.roleRepository.findOne({
       where: { id },
@@ -670,4 +678,6 @@ export class RolesService {
       return { isNormal: false, roleName: user.role.name };
     }
   }
+
+  
 }
