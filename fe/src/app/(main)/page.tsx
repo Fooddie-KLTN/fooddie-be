@@ -54,8 +54,8 @@ export default function Home() {
         ] = await Promise.all([
           guestService.food.getFoodsWithQuerry(1, 20, location?.lat || 10.7769, location?.lng || 106.6951),
           guestService.food.getTopSellingFoods(1, 8, location?.lat || 10.7769, location?.lng || 106.6951),
-          guestService.food.getFoodsWithQuerry(1, 20, location?.lat, location?.lng), // You may want a real "nearby" endpoint
-          guestService.restaurant.getRestaurants(1, 10, location?.lat || 10.7769, location?.lng || 106.6951),
+          guestService.food.getFoodsWithQuerry(1, 20, location?.lat, location?.lng), 
+          guestService.restaurant.getPopularRestaurants( location?.lat || 10.7769, location?.lng || 106.6951),
           guestService.category.getCategories(1, 20)
         ]);
         setFoods(foodsRes.items);

@@ -26,9 +26,6 @@ export class Checkout {
   @Column({ type: 'uuid' })
   userId: string;
 
-  @Column({ type: 'uuid' })
-  courseId: string;
-
   @Column({ type: 'uuid', nullable: true })
   orderId: string;
 
@@ -64,9 +61,6 @@ export class Checkout {
   @JoinColumn({ name: 'userId' })
   user: User;
 
-  @ManyToOne(() => Food)
-  @JoinColumn({ name: 'food' })
-  food: Food;
 
   @ManyToOne(() => Order)
   @JoinColumn({ name: 'orderId' })

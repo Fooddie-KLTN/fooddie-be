@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Put, Delete, Param, Body, Query, UseGuards, Req } from '@nestjs/common';
+import { Controller, Post, Get, Put, Delete, Param, Body, Query, UseGuards, Req, Logger } from '@nestjs/common';
 import { OrderService } from './order.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { RolesGuard } from 'src/common/guard/role.guard';
@@ -6,14 +6,72 @@ import { Permissions } from 'src/common/decorator/permissions.decorator';
 import { Permission } from 'src/constants/permission.enum';
 import { PaymentDto } from './dto/payment.dto';
 import { AuthGuard } from 'src/auth/auth.guard';
+import { PaymentService } from 'src/payment/payment.service';
+import { log } from 'console';
 
 @Controller('orders')
 export class OrderController {
-  constructor(private readonly orderService: OrderService) {}
+  private readonly logger = new Logger(OrderController.name);
+
+  constructor(
+    private readonly orderService: OrderService,
+    private readonly paymentService: PaymentService, // Inject PaymentService
+  ) {}
 
   @Post()
-  createOrder(@Body() createOrderDto: CreateOrderDto) {
-    return this.orderService.createOrder(createOrderDto);
+  async createOrder(@Body() body: any) {
+    this.logger.log(`Received order creation request: ${JSON.stringify(body)}`);
+
+    // Map orderDetails if present
+    const orderDetails = Array.isArray(body.orderDetails)
+      ? body.orderDetails.map((detail: any) => ({
+          foodId: detail.foodId,
+          quantity: detail.quantity,
+          price: detail.price,
+          note: detail.note || '',
+        }))
+      : [];
+
+    // Map to DTO
+    const createOrderDto: CreateOrderDto = {
+      userId: body.userId,
+      restaurantId: body.restaurantId,
+      addressId: body.addressId,
+      total: body.total,
+      note: body.note,
+      paymentMethod: body.paymentMethod,
+      orderDetails,
+    };
+
+    this.logger.log(`Creating order with DTO: ${JSON.stringify(createOrderDto)}`);
+
+    // 1. Create the order
+    const order = await this.orderService.createOrder(createOrderDto);
+
+    this.logger.log(`Order created with ID: ${order.id}`);
+
+    // 2. Immediately create checkout if paymentMethod is not 'cod'
+    let paymentUrl: string | undefined = undefined;
+    let checkoutId: string | undefined = undefined;
+    if (body.paymentMethod && body.paymentMethod !== 'cod') {
+      const checkout = await this.paymentService.createCheckout(order.id, body.paymentMethod);
+      paymentUrl = checkout.paymentUrl;
+      checkoutId = checkout.id;
+      this.logger.log(`Checkout created for order ${order.id}: paymentUrl=${paymentUrl}, checkoutId=${checkoutId}`);
+    }
+
+    // 3. Return order info and paymentUrl (if any)
+    return {
+      order: {
+        id: order.id,
+        status: order.status,
+        total: order.total,
+        paymentMethod: order.paymentMethod,
+        createdAt: order.createdAt, // add/remove fields as needed
+      },
+      paymentUrl,
+      checkoutId,
+    };
   }
 
   @Get('my')

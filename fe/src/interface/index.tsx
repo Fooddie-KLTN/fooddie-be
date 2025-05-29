@@ -164,7 +164,47 @@ export interface CartItem {
   discountPercent?: number;
   restaurantId?: string;
 }
+export interface OrderDetail {
+  id?: string;
+  food: FoodPreview; // or string if you only store foodId
+  varity?: string;
+  quantity: number | string;
+  price: number | string;
+  note?: string;
+}
 
+export interface Order {
+  id?: string;
+  user: UserProfile; // or string if you only store userId
+  restaurant: Restaurant; // or string if you only store restaurantId
+  total?: number;
+  note?: string;
+  status?: string;
+  createdAt?: Date | string;
+  updatedAt?: Date | string;
+  promotionCode?: string; // Use Promotion if you have the interface
+  date?: string;
+  address: Address; // or string if you only store addressId
+  orderDetails: OrderDetail[];
+  shippingDetail?: ShippingDetail; // Use ShippingDetail if you have the interface
+  paymentMethod?: string;
+  paymentDate?: string;
+  isPaid?: boolean;
+}
+
+export enum ShippingStatus {
+    PENDING = 'PENDING',
+    SHIPPING = 'SHIPPING',
+    DELIVERED = 'DELIVERED',
+    CANCELLED = 'CANCELLED',
+    RETURNED = 'RETURNED',
+}
+export interface ShippingDetail {
+  id?: string;
+  order: Order;
+  shipper: UserProfile;
+  status: ShippingStatus;
+}
 /**
  * Helper function to convert food to cart item
  */

@@ -74,36 +74,29 @@ export class PaymentService {
         // Handle free orders (price = 0) differently
         if (order.total === 0) {
             this.logger.log(`Order ${orderId} has zero price - processing as free order`);
-            
-            // Create a directly completed checkout
             const checkout = this.checkoutRepository.create({
                 user: order.user,
-                food: order.orderDetails[0]?.food || null,
                 amount: 0,
                 paymentMethod: 'free',
                 status: CheckoutStatus.COMPLETED,
                 orderId: orderId,
             });
-            
             await this.checkoutRepository.save(checkout);
-            
+
             // Update order status to completed
             order.status = 'completed';
             await this.orderRepository.save(order);
-            
+
             // Update food purchase count
             await this.updateFoodPurchaseCount(orderId);
-            
+
             this.logger.log(`Free order ${orderId} processed automatically without payment`);
-            
             return checkout;
         }
 
         // Regular flow for paid orders
-        // Create a checkout record
         const checkout = this.checkoutRepository.create({
             user: order.user,
-            food: order.orderDetails[0]?.food || null,
             amount: order.total,
             paymentMethod,
             status: CheckoutStatus.PENDING,
@@ -518,7 +511,7 @@ export class PaymentService {
             for (const detail of order.orderDetails) {
                 if (detail.food) {
                     // Parse quantity and increment the purchasedNumber
-                    const quantity = parseInt(detail.quantity) || 1;
+                    const quantity = (detail.quantity) || 1;
                     
                     // Update food purchase count
                     detail.food.purchasedNumber = (detail.food.purchasedNumber || 0) + quantity;

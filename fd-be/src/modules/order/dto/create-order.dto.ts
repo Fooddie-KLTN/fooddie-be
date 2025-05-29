@@ -1,9 +1,5 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { IsUUID, IsString, IsOptional, IsNotEmpty, IsArray, ValidateNested, IsNumber } from 'class-validator';
-import { Type } from 'class-transformer';
-
+import { Type } from "class-transformer";
+import { IsNotEmpty, IsString, IsOptional, IsUUID, IsNumber, IsArray, ValidateNested } from "class-validator";
 
 export class CreateOrderDetailDto {
   @IsNotEmpty()
@@ -22,36 +18,32 @@ export class CreateOrderDetailDto {
   @IsString()
   note?: string;
 }
+
 export class CreateOrderDto {
-    @IsUUID()
-    userId: string;
+  @IsUUID()
+  userId: string;
 
-    @IsUUID()
-    restaurantId: string;
+  @IsUUID()
+  restaurantId: string;
 
-    @IsUUID()
-    addressId: string;
+  @IsUUID()
+  addressId: string;
 
-    @IsOptional()
-    @IsUUID()
-    promotionId?: string;
+  @IsOptional()
+  @IsNumber()
+  total?: number;
 
-    @IsOptional()
-    @IsNumber()
-    total?: number;
+  @IsOptional()
+  @IsString()
+  note?: string;
 
-    @IsOptional()
-    @IsString()
-    note?: string;
+  @IsOptional()
+  @IsString()
+  paymentMethod?: string;
 
-    @IsOptional()
-    @IsString()
-    date?: string;
-    
-    @IsNotEmpty()
-    @IsArray()
-    @ValidateNested({ each: true })
-    @Type(() => CreateOrderDetailDto)
-    orderDetails: CreateOrderDetailDto[];
+  @IsNotEmpty()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateOrderDetailDto)
+  orderDetails: CreateOrderDetailDto[];
 }
-

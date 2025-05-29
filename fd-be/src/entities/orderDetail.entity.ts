@@ -10,11 +10,10 @@ export class OrderDetail {
     @PrimaryGeneratedColumn("uuid")
     id: string;
 
-
-    @ManyToOne(() => Order, { eager: true })
+    @ManyToOne(() => Order)
     @JoinColumn({ name: 'order_id' })
     order: Order;
-    
+
     @ManyToOne(() => Food, { eager: true })
     @JoinColumn({ name: 'food_id' })
     food: Food;
@@ -23,11 +22,11 @@ export class OrderDetail {
     varity: string;
 
     @Column({ nullable: true })
-    quantity: string;
+    quantity: number;
 
     @Column({ nullable: true })
     price: string;
 
     @Column({ nullable: true })
-    note: string ;
+    note: string;
 }

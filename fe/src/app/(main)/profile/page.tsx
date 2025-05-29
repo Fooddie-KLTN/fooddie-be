@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/componen
 import { useAuth } from '@/context/auth-context';
 import {  UserProfile, Address } from '@/interface';
 import { toast } from 'sonner';
-import { AddressList } from './_components/address-list';
+import { AddressList } from '@/app/(main)/profile/_components/address-list';
 import { PersonalInfoCard } from './_components/personal-info-card';
 import { userApi } from '@/api/user';
 

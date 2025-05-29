@@ -69,6 +69,4 @@ export class Food {
     @OneToMany(() => OrderDetail, (orderDetail) => orderDetail.food)
     orderDetails: OrderDetail[];
 
-    @OneToMany(()=> Checkout, (checkout) => checkout.food)
-    checkouts: Checkout[]; // Add this line to establish the relationship with Checkout entity
 }

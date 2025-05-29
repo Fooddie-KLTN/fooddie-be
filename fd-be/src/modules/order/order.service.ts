@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { Order } from 'src/entities/order.entity';
@@ -15,6 +15,8 @@ import { log } from 'console';
 
 @Injectable()
 export class OrderService {
+    private readonly logger = new Logger(OrderService.name);
+
     constructor(
         @InjectRepository(Order)
         private orderRepository: Repository<Order>,
@@ -33,9 +35,44 @@ export class OrderService {
         private dataSource: DataSource
     ) { }
 
+    private async validateAndCalculateOrderDetails(
+        orderDetails: { foodId: string; quantity: string }[],
+    ): Promise<{ calculatedTotal: number; foodDetails: { food: Food; quantity: number }[] }> {
+        let calculatedTotal = 0;
+        const foodDetails: { food: Food; quantity: number }[] = [];
+
+        for (const detail of orderDetails) {
+            const food = await this.foodRepository.findOne({ where: { id: detail.foodId } });
+            if (!food) throw new NotFoundException(`Food with ID ${detail.foodId} not found`);
+            const price = Number(food.price) * Number(detail.quantity);
+            calculatedTotal += price;
+            foodDetails.push({ food, quantity: Number(detail.quantity) });
+        }
+
+        return { calculatedTotal, foodDetails };
+    }
+
+    private async createOrderDetails(
+        order: Order,
+        foodDetails: { food: Food; quantity: number }[],
+        queryRunner: any,
+    ): Promise<void> {
+        for (const detail of foodDetails) {
+            const orderDetail = new OrderDetail();
+            orderDetail.order = order;
+            orderDetail.food = detail.food;
+            orderDetail.quantity = detail.quantity;
+            orderDetail.price = String(detail.food.price);
+            await queryRunner.manager.save(OrderDetail, orderDetail);
+        }
+    }
+
     async createOrder(data: CreateOrderDto) {
+        this.logger.log(`Starting order creation for user ${data.userId} at restaurant ${data.restaurantId}`);
+
         // Validate order details
         if (!data.orderDetails || data.orderDetails.length === 0) {
+            this.logger.warn('Order creation failed: No order details provided');
             throw new BadRequestException('Order must contain at least one item');
         }
 
@@ -47,69 +84,54 @@ export class OrderService {
         try {
             // Find related entities
             const user = await queryRunner.manager.findOne(User, { where: { id: data.userId } });
-            if (!user) throw new NotFoundException('User not found');
+            if (!user) {
+                this.logger.warn(`User not found: ${data.userId}`);
+                throw new NotFoundException('User not found');
+            }
 
             const restaurant = await queryRunner.manager.findOne(Restaurant, { where: { id: data.restaurantId } });
-            if (!restaurant) throw new NotFoundException('Restaurant not found');
-
-            let address: Address | null = null;
-            if (data.addressId) {
-                address = await queryRunner.manager.findOne(Address, { where: { id: data.addressId } });
-                if (!address) throw new NotFoundException('Address not found');
+            if (!restaurant) {
+                this.logger.warn(`Restaurant not found: ${data.restaurantId}`);
+                throw new NotFoundException('Restaurant not found');
             }
 
-            let promotion: Promotion | null = null;
-            // Fix the property name mismatch (promotionId vs promotionCodeId)
-            if (data.promotionId) {
-                promotion = await queryRunner.manager.findOne(Promotion, { where: { id: data.promotionId } });
-                if (!promotion) throw new NotFoundException('Promotion not found');
+            const address = await queryRunner.manager.findOne(Address, { where: { id: data.addressId } });
+            if (!address) {
+                this.logger.warn(`Address not found: ${data.addressId}`);
+                throw new NotFoundException('Address not found');
             }
+
+            // Calculate total and validate food
+            const { calculatedTotal, foodDetails } = await this.validateAndCalculateOrderDetails(data.orderDetails);
+            this.logger.log(`Validated order details. Calculated total: ${calculatedTotal}`);
 
             // Create order
-
             const order = new Order();
             order.user = user;
             order.restaurant = restaurant;
-            order.total = data.total || 0;
+            order.total = calculatedTotal;
             order.note = data.note || '';
-
-            if (!address) {
-                throw new BadRequestException('Address is required for an order');
-            }
             order.address = address;
-
-            if (!promotion) {
-                throw new BadRequestException('Promotion is required for an order');
-            }
-            order.promotionCode = promotion ?? undefined;
-
             order.date = new Date().toISOString();
             order.status = 'pending';
+            order.paymentMethod = data.paymentMethod || 'cod'; // Default to cash on delivery
 
             const savedOrder = await queryRunner.manager.save(Order, order);
+            this.logger.log(`Order entity saved with ID: ${savedOrder.id}`);
 
             // Create order details
-            // Create order details
-            for (const detailData of data.orderDetails) {
-                const food = await queryRunner.manager.findOne(Food, { where: { id: detailData.foodId } });
-                if (!food) throw new NotFoundException(`Food with ID ${detailData.foodId} not found`);
-
-                const orderDetail = new OrderDetail();
-                orderDetail.order = savedOrder;
-                orderDetail.food = food;
-                orderDetail.quantity = detailData.quantity;
-                orderDetail.price = detailData.price;
-                orderDetail.note = detailData.note || '';
-
-                await queryRunner.manager.save(OrderDetail, orderDetail);
-            }
+            await this.createOrderDetails(savedOrder, foodDetails, queryRunner);
+            this.logger.log(`Order details saved for order ID: ${savedOrder.id}`);
 
             await queryRunner.commitTransaction();
+            this.logger.log(`Order transaction committed for order ID: ${savedOrder.id}`);
 
-            // Return the complete order with details
             return await this.getOrderById(savedOrder.id);
         } catch (error) {
-            await queryRunner.rollbackTransaction();
+            this.logger.error(`Order creation failed: ${error.message}`, error.stack);
+            if (queryRunner.isTransactionActive) {
+                await queryRunner.rollbackTransaction();
+            }
             throw error;
         } finally {
             await queryRunner.release();
@@ -125,7 +147,15 @@ export class OrderService {
     async getOrderById(id: string) {
         const order = await this.orderRepository.findOne({
             where: { id },
-            relations: ['user', 'restaurant', 'orderDetails', 'orderDetails.food', 'shippingDetail', 'promotionCode', 'address']
+            relations: [
+                'user',
+                'restaurant',
+                'orderDetails',
+                'orderDetails.food',
+                'shippingDetail',
+                'promotionCode',
+                'address'
+            ]
         });
 
         if (!order) throw new NotFoundException('Order not found');
