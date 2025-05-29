@@ -1,5 +1,5 @@
 /* eslint-disable prettier/prettier */
-import { Controller,  UnauthorizedException,  UseGuards, Request } from '@nestjs/common';
+import { Controller,  UnauthorizedException,  UseGuards, Request, Patch, Query } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { Post, Body, Get, Param, Put, Delete, Req } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-users.dto';
@@ -12,6 +12,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { UserResponse } from './interface/user-response.interface';
 import { AuthGuard } from 'src/auth/auth.guard';
 import { log } from 'console';
+import { CertificateStatus } from 'src/entities/shipperCertificateInfo.entity';
+import { ApiBearerAuth } from '@nestjs/swagger';
 
 
 @Controller('users')
@@ -25,6 +27,12 @@ export class UsersController {
   async getMe(@Req() req): Promise<User> {
     const id = req.user.uid;
     return await this.usersService.getMe(id);
+  }
+
+  @Get('shippers')
+  @UseGuards(AuthGuard)
+  getShippers(@Query('status') status?: CertificateStatus) {
+    return this.usersService.getShippersByStatus(status);
   }
 
 @Put('me')
@@ -91,7 +99,24 @@ async updateMe(@Req() req, @Body() body: any): Promise<User> {
   async remove(@Param('id') id: string) {
     return await this.usersService.remove(id);
   }
+  
+@Patch('shippers/:userId/approve')
+async approveShipper(@Param('userId') id: string) {
+  return this.usersService.updateShipperStatus(id, CertificateStatus.APPROVED);
+}
+  
+@Patch('shippers/:userId/reject')
+async rejectShipper(@Param('userId') id: string) {
+  return this.usersService.updateShipperStatus(id, CertificateStatus.REJECTED);
+}
 
+  // @Patch('shippers/approve-myself')
+  // @UseGuards(AuthGuard)
+  // approveMyself(@Req() req) {
+  //   const userId = req.user.id;
+  //   return this.usersService.updateShipperStatus(userId, CertificateStatus.APPROVED);
+  // }
+  
 }
 
 

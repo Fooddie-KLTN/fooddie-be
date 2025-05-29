@@ -10,6 +10,7 @@ export enum DefaultRole {
   ADMINISTRATOR = 'administrator',
   USER = 'user',
   SHOP_OWNER = 'shop_owner',
+  SHIPPER = 'shipper',
 }
 
 // Register the enum for GraphQL
@@ -26,9 +27,10 @@ export class Role {
 
   @Field(() => DefaultRole) // Add Field decorator for GraphQL
   @Column({
-    type: 'varchar',
-    length: 50,
+    type: 'enum',
+    enum: DefaultRole,
     default: DefaultRole.USER,
+    unique: true,
   })
   name: DefaultRole;
 

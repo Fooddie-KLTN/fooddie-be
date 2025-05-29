@@ -1,6 +1,6 @@
 /* eslint-disable prettier/prettier */
 // src/users/entities/user.entity.ts
-import { Entity, Column, ManyToOne, JoinColumn, PrimaryColumn, OneToMany, CreateDateColumn, OneToOne } from 'typeorm';
+import { Entity, Column, ManyToOne, JoinColumn, PrimaryColumn, OneToMany, CreateDateColumn, OneToOne, PrimaryGeneratedColumn } from 'typeorm';
 import { Role } from './role.entity';
 import { Address } from './address.entity';
 import { ShipperCertificateInfo } from './shipperCertificateInfo.entity';
@@ -59,7 +59,7 @@ export class User {
     address: Address[];
 
     @Field({ nullable: true })
-    @Column({ nullable: true })
+    @Column({ nullable: true, unique: true })
     phone: string;
 
     @Field({ nullable: true })
