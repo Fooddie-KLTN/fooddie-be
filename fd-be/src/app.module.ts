@@ -22,6 +22,7 @@ import { FoodModule } from './modules/food/food.module';
 import { OrderModule } from './modules/order/order.module';
 import { CategoryModule } from './modules/category/category.module';
 import { Permission } from './entities/permission.entity';
+import { ChatModule } from './modules/chat/chat.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { GraphQLModule } from '@nestjs/graphql';
 import { ApolloDriverConfig, ApolloDriver } from '@nestjs/apollo';
@@ -47,6 +48,7 @@ import { AppResolver } from './app.resolver';
       migrations: [__dirname + '/migrations/*{.ts,.js}'],
       autoLoadEntities: true,
     }),
+    ChatModule,
     UsersModule,
     RoleModule,
     AuthModule,

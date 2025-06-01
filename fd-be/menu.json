@@ -1,0 +1,46 @@
+{
+    "restaurants": [
+        {
+            "name": "Cơm Gà Sài Gòn",
+            "address": "123 Nguyễn Trãi, Quận 5",
+            "foods": [
+                {
+                    "name": "Cơm gà xối mỡ",
+                    "price": "45.000đ"
+                },
+                {
+                    "name": "Cơm gà luộc",
+                    "price": "40.000đ"
+                }
+            ]
+        },
+        {
+            "name": "Trà Sữa House",
+            "address": "45 Lê Văn Sỹ, Quận 3",
+            "foods": [
+                {
+                    "name": "Trà sữa trân châu",
+                    "price": "30.000đ"
+                },
+                {
+                    "name": "Trà sữa matcha",
+                    "price": "35.000đ"
+                }
+            ]
+        },
+        {
+            "name": "Bún Bò Huế Cô Ba",
+            "address": "78 Điện Biên Phủ, Bình Thạnh",
+            "foods": [
+                {
+                    "name": "Bún bò đặc biệt",
+                    "price": "50.000đ"
+                },
+                {
+                    "name": "Bún bò giò heo",
+                    "price": "55.000đ"
+                }
+            ]
+        }
+    ]
+}
