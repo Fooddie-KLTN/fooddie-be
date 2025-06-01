@@ -7,18 +7,23 @@ import { ShipperCertificateInfo } from './shipperCertificateInfo.entity';
 import { Checkout } from './checkout.entity';
 import { Order } from './order.entity';
 import { Restaurant } from './restaurant.entity';
-
+import { ObjectType, Field, ID, registerEnumType } from '@nestjs/graphql';
 
 enum AuthProvider {
     EMAIL = 'email',
     GOOGLE = 'google',
-    FACEBOOK = 'facebook', // Keep if needed, remove otherwise
+    FACEBOOK = 'facebook',
 }
 
+// Đăng ký enum cho GraphQL
+registerEnumType(AuthProvider, {
+    name: 'AuthProvider',
+});
 
+@ObjectType() // Thêm ObjectType decorator cho class
 @Entity({ name: 'users' })
 export class User {
-
+    @Field(() => ID) // ID GraphQL type
     @PrimaryColumn({
         type: 'varchar',
         length: 28,
@@ -27,66 +32,84 @@ export class User {
     })
     id: string;
 
+    @Field()
     @Column({ unique: true })
     username: string;
 
+    // Không thêm @Field cho password vì lý do bảo mật
     @Column()
-    password: string; // Mã hóa bằng bcrypt
+    password: string;
 
+    @Field({ nullable: true })
     @Column({ nullable: true })
     email: string;
 
+    @Field(() => Role, { nullable: true })
     @ManyToOne(() => Role, role => role.users, { eager: true })
     @JoinColumn({ name: 'role_id' })
     role: Role;
 
+    @Field({ nullable: true })
     @Column({ nullable: true })
     name: string;
 
+    @Field(() => [Address], { nullable: true })
     @OneToMany(() => Address, address => address.user, { eager: true, cascade: true })
-    @JoinColumn({ name: 'address_id' }) // Thêm JoinColumn nếu cần thiết
+    @JoinColumn({ name: 'address_id' })
     address: Address[];
 
+    @Field({ nullable: true })
     @Column({ nullable: true, unique: true })
     phone: string;
 
+    @Field({ nullable: true })
     @Column({ nullable: true })
     avatar: string;
 
+    @Field()
     @Column({ name: 'is_active', default: true })
     isActive: boolean;
 
+    @Field()
     @Column({ nullable: false })
     birthday: Date;
 
+    @Field()
     @CreateDateColumn()
     createdAt: Date;
 
+    @Field({ nullable: true })
     @Column({ nullable: true })
     lastLoginAt: Date;
 
-    @OneToOne(() => ShipperCertificateInfo, shipperCertificateInfo => shipperCertificateInfo.user, { eager: true })
+    @Field(() => ShipperCertificateInfo, { nullable: true })
+    @OneToOne(() => ShipperCertificateInfo, shipperCertificateInfo => shipperCertificateInfo.user)
     shipperCertificateInfo: ShipperCertificateInfo;
 
+    @Field(() => AuthProvider)
     @Column({ type: 'enum', enum: AuthProvider, default: AuthProvider.EMAIL })
-    authProvider: AuthProvider; // Trường này sẽ lưu thông tin về nhà cung cấp xác thực (email, google, facebook)
+    authProvider: AuthProvider;
 
+    @Field({ nullable: true })
     @Column({ nullable: true, name: 'google_id' })
     googleId?: string;
 
+    // Không thêm @Field cho các thông tin nhạy cảm liên quan đến reset password
     @Column({ nullable: true, name: 'reset_password_token' })
     resetPasswordToken?: string;
 
     @Column({ nullable: true, name: 'reset_password_expires' })
     resetPasswordExpires?: Date;
 
+    @Field(() => [Checkout], { nullable: true })
     @OneToMany(() => Checkout, checkout => checkout.user)
-    checkouts: Checkout[]; // Danh sách các đơn hàng của người dùng
+    checkouts: Checkout[];
 
+    @Field(() => [Order], { nullable: true })
     @OneToMany(() => Order, order => order.user)
-    orders: Order[]; // Danh sách các đơn hàng của người dùng
+    orders: Order[];
 
+    @Field(() => [Restaurant], { nullable: true })
     @OneToMany(() => Restaurant, restaurant => restaurant.owner)
-    restaurants: Restaurant[]; // Danh sách các nhà hàng của người dùng (nếu là chủ nhà hàng)
-
+    restaurants: Restaurant[];
 }

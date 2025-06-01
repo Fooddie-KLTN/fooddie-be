@@ -12,15 +12,6 @@ export class PaymentController {
 				private readonly configService: ConfigService,
 	) { }
 
-	@Post('checkout/:orderId')
-	@UseGuards(AuthGuard)
-	async createCheckout(
-		@Param('orderId') orderId: string,
-		@Body('paymentMethod') paymentMethod: string,
-	) {
-		return this.paymentService.createCheckout(orderId, paymentMethod);
-	}
-
 	@Post('process/:checkoutId')
 	@UseGuards(AuthGuard)
 	async processPayment(

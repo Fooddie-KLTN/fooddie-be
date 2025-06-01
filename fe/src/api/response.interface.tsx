@@ -13,3 +13,10 @@ export interface OrderResponse {
   paymentUrl?: string;
   checkoutId?: string;
 }
+
+export interface CalculateOrderResponse {
+    foodTotal: number;
+    shippingFee: number;
+    distance: number;
+    total: number;
+    }

@@ -60,6 +60,11 @@ export class OrderController {
       this.logger.log(`Checkout created for order ${order.id}: paymentUrl=${paymentUrl}, checkoutId=${checkoutId}`);
     }
 
+    if (body.paymentMethod === 'cod') {
+      this.logger.log(`Order ${order.id} will be paid on delivery (COD)`);
+      paymentUrl = process.env.FRONTEND_URL + `/order/${order.id}`;
+      
+    }
     // 3. Return order info and paymentUrl (if any)
     return {
       order: {
@@ -74,17 +79,41 @@ export class OrderController {
     };
   }
 
-  @Get('my')
-  @UseGuards(AuthGuard)
-  async getMyOrders(@Req() req) {
-    const userId = req.user.uid;
-    return this.orderService.getOrdersByUser(userId);
-  }
+@Get('my')
+@UseGuards(AuthGuard)
+async getMyOrders(
+  @Req() req,
+  @Query('page') page: number = 1,
+  @Query('pageSize') pageSize: number = 10,
+  @Query('status') status?: string
+) {
+  const userId = req.user.uid || req.user.id;
+  return this.orderService.getOrdersByUser(userId, page, pageSize, status);
+}
 
   @Get()
   getAllOrders() {
     return this.orderService.getAllOrders();
   }
+@Post('calculate')
+async calculateOrder(@Body() body: { 
+  addressId: string, 
+  restaurantId: string, 
+  items: { foodId: string, quantity: number }[] 
+}) {
+  this.logger.log(`Calculating order: ${JSON.stringify(body)}`);
+
+  if (!body.addressId || !body.restaurantId || !Array.isArray(body.items) || body.items.length === 0) {
+    return { error: 'Missing addressId, restaurantId, or items' };
+  }
+
+  // Delegate to service
+  return this.orderService.calculateOrder({
+    addressId: body.addressId,
+    restaurantId: body.restaurantId,
+    items: body.items,
+  });
+}
 
   @Get(':id')
   getOrderById(@Param('id') id: string) {
