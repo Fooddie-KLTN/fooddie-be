@@ -22,6 +22,7 @@ import { FoodModule } from './modules/food/food.module';
 import { OrderModule } from './modules/order/order.module';
 import { CategoryModule } from './modules/category/category.module';
 import { Permission } from './entities/permission.entity';
+import { ChatModule } from './modules/chat/chat.module';
 @Module({
   imports: [
     // Import the module that contains the user entity
@@ -43,6 +44,7 @@ import { Permission } from './entities/permission.entity';
       migrations: [__dirname + '/migrations/*{.ts,.js}'],
       autoLoadEntities: true,
     }),
+    ChatModule,
     UsersModule,
     RoleModule,
     AuthModule,

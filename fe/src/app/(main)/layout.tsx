@@ -25,6 +25,7 @@ import React from "react";
 import "../../styles/globals.css";
 import { GeoLocationProvider } from "@/context/geolocation-context";
 import { NotificationProvider } from "@/components/ui/notification";
+import ChatWidget from "@/components/common/chat-widget";
 
 export const metadata: Metadata = {
   title: "Fooddie - Ứng dụng giao đồ ăn trực tuyến",
@@ -42,8 +43,9 @@ export default function RootLayout({
         <AuthModalProvider>
           <CartProvider>
             <GeoLocationProvider>
-              {<Navbar />}
+              <Navbar />
               {children}
+              <ChatWidget /> 
             </GeoLocationProvider>
           </CartProvider>
         </AuthModalProvider>
