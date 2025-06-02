@@ -13,6 +13,7 @@ import { VnpayPaymentGateway } from './gateways/vnpay-payment.gateway';
 import { PaymentStatusResponse } from './interfaces/payment-status.interface';
 import { User } from 'src/entities/user.entity';
 import { Food } from 'src/entities/food.entity';
+import { pubSub } from 'src/pubsub';
 
 @Injectable()
 export class PaymentService {
@@ -231,10 +232,19 @@ export class PaymentService {
                 });
 
                 if (order) {
-                    order.status = 'completed';
+                          // Update order status to pending if payment method is COD
+                          await this.orderService.updateOrderStatus(order.id, 'pending');
+                          
+                          // THÊM PUBLISH EVENT KHI STATUS CHUYỂN THÀNH PENDING
+                          const updatedOrder = await this.orderService.getOrderById(order.id);
+                          await pubSub.publish('orderCreated', { 
+                            orderCreated: updatedOrder 
+                          });
+                          this.logger.log(`Published orderCreated event for order ${order.id} with status pending`);
                     await this.orderRepository.save(order);
                 }
 
+                
                 // Update food purchase count
                 await this.updateFoodPurchaseCount(checkout.orderId);
 

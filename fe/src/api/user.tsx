@@ -335,6 +335,50 @@ export const userApi = {
         throw error;
       }
     },
+    /**
+     * Lấy tất cả đơn hàng của nhà hàng do user sở hữu
+     * @param {string} token - Token xác thực
+     * @param {number} page - Số trang (mặc định 1)
+     * @param {number} pageSize - Số lượng đơn hàng trên mỗi trang (mặc định 10)
+     * @param {string} status - Trạng thái đơn hàng (tùy chọn)
+     * @return {Promise<PaginatedResponse<Order>>} - Danh sách đơn hàng của nhà hàng
+     */
+    async getOrdersByMyRestaurant(
+      token: string, 
+      page: number = 1, 
+      pageSize: number = 10, 
+      status?: string
+    ): Promise<PaginatedResponse<Order>> {
+      try {
+        const queryString = `page=${page}&pageSize=${pageSize}${status ? `&status=${status}` : ''}`;
+        return await apiRequest<PaginatedResponse<Order>>(
+          `/orders/restaurant/my?${queryString}`, 
+          'GET', 
+          { token }
+        );
+      } catch (error) {
+        console.error('Get orders by restaurant API error:', error);
+        throw error;
+      }
+    },
+    /**
+     * Cập nhật trạng thái đơn hàng (chỉ owner nhà hàng)
+     * @param {string} token - Token xác thực
+     * @param {string} orderId - ID đơn hàng
+     * @param {string} status - Trạng thái mới ('confirmed', 'delivering', 'completed', 'canceled')
+     * @return {Promise<Order>} - Đơn hàng đã được cập nhật
+     */
+    async updateOrderStatus(token: string, orderId: string, status: string): Promise<Order> {
+      try {
+        return await apiRequest<Order>(`/orders/${orderId}/status`, 'PUT', { 
+          token, 
+          data: { status } 
+        });
+      } catch (error) {
+        console.error('Update order status API error:', error);
+        throw error;
+      }
+    },
   }
 
 };

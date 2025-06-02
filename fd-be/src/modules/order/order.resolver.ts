@@ -23,8 +23,33 @@ export class OrderResolver {
         @Args('restaurantId') restaurantId: string,
         @Context() context
     ) {
+       
         // Có thể kiểm tra context.token ở đây nếu muốn
+        if (!restaurantId) {
+            throw new Error('restaurantId is required for orderCreated subscription');
+        }
         return (pubSub).asyncIterableIterator('orderCreated');
+    }
+
+    // NEW: Subscription for users to get order status updates
+    @Subscription(() => Order, {
+        filter: (payload, variables, context) => {
+            // Notify user when their order status changes
+            return (
+                payload.orderStatusUpdated.user.id === variables.userId &&
+                ['confirmed', 'delivering', 'completed', 'canceled'].includes(payload.orderStatusUpdated.status)
+            );
+        },
+        resolve: (payload) => payload.orderStatusUpdated
+    })
+    orderStatusUpdated(
+        @Args('userId') userId: string,
+        @Context() context
+    ) {
+        if (!userId) {
+            throw new Error('userId is required for orderStatusUpdated subscription');
+        }
+        return (pubSub).asyncIterableIterator('orderStatusUpdated');
     }
 
     // Thêm một query đơn giản để hợp lệ schema

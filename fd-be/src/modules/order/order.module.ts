@@ -16,9 +16,12 @@ import { Checkout } from 'src/entities/checkout.entity';
 import { PaymentService } from 'src/payment/payment.service';
 import { PaymentModule } from 'src/payment/payment.module';
 import { OrderResolver } from './order.resolver';
+import { RestaurantService } from '../restaurant/restaurant.service';
+import { RestaurantModule } from '../restaurant/restaurant.module';
 
 @Module({
-    imports: [TypeOrmModule.forFeature([Order, User, Restaurant, OrderDetail, Role, Food, Address, Promotion, Checkout]), JwtModule, PaymentModule],
+    imports: [TypeOrmModule.forFeature([Order, User, Restaurant, OrderDetail, Role, Food, Address, Promotion, Checkout]), JwtModule, PaymentModule, RestaurantModule],
+    
     controllers: [OrderController],
     providers: [OrderService, UsersService, OrderResolver],
     exports: [OrderService],
