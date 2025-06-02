@@ -25,7 +25,7 @@ export const AddressSection = ({
         {userAddresses.length === 0 ? (
           <div className="flex items-center justify-between">
             <p className="text-gray-500">Bạn chưa có địa chỉ nào.</p>
-            <Link href="/profile/address">
+            <Link href="/profile">
               <Button size="sm" variant="outline">+ Thêm địa chỉ</Button>
             </Link>
           </div>

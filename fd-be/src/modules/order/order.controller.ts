@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Put, Delete, Param, Body, Query, UseGuards, Req, Logger } from '@nestjs/common';
+import { Controller, Post, Get, Put, Delete, Param, Body, Query, UseGuards, Req, Logger, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { OrderService } from './order.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { RolesGuard } from 'src/common/guard/role.guard';
@@ -7,7 +7,9 @@ import { Permission } from 'src/constants/permission.enum';
 import { PaymentDto } from './dto/payment.dto';
 import { AuthGuard } from 'src/auth/auth.guard';
 import { PaymentService } from 'src/payment/payment.service';
+import { pubSub } from 'src/pubsub'; // THÊM IMPORT NÀY
 import { log } from 'console';
+import { RestaurantService } from '../restaurant/restaurant.service';
 
 @Controller('orders')
 export class OrderController {
@@ -16,6 +18,7 @@ export class OrderController {
   constructor(
     private readonly orderService: OrderService,
     private readonly paymentService: PaymentService, // Inject PaymentService
+    private readonly restaurantService: RestaurantService, // Inject RestaurantService
   ) {}
 
   @Post()
@@ -62,9 +65,21 @@ export class OrderController {
 
     if (body.paymentMethod === 'cod') {
       this.logger.log(`Order ${order.id} will be paid on delivery (COD)`);
-      paymentUrl = process.env.FRONTEND_URL + `/order/${order.id}`;
+      order.status = 'pending'; // Set status to pending for COD
       
+      // Update order status to pending if payment method is COD
+      await this.orderService.updateOrderStatus(order.id, 'pending');
+      
+      // THÊM PUBLISH EVENT KHI STATUS CHUYỂN THÀNH PENDING
+      const updatedOrder = await this.orderService.getOrderById(order.id);
+      await pubSub.publish('orderCreated', { 
+        orderCreated: updatedOrder 
+      });
+      this.logger.log(`Published orderCreated event for order ${order.id} with status pending`);
+      
+      paymentUrl = process.env.FRONTEND_URL + `/order/${order.id}`;
     }
+
     // 3. Return order info and paymentUrl (if any)
     return {
       order: {
@@ -72,7 +87,7 @@ export class OrderController {
         status: order.status,
         total: order.total,
         paymentMethod: order.paymentMethod,
-        createdAt: order.createdAt, // add/remove fields as needed
+        createdAt: order.createdAt,
       },
       paymentUrl,
       checkoutId,
@@ -115,6 +130,26 @@ async calculateOrder(@Body() body: {
   });
 }
 
+  @Get('restaurant/my')
+@UseGuards(AuthGuard)
+async getOrdersByMyRestaurant(
+  @Req() req,
+  @Query('page') page: number = 1,
+  @Query('pageSize') pageSize: number = 10,
+  @Query('status') status?: string
+) {
+  this.logger.log(`Getting orders for restaurant owned by user: ${req.user.uid || req.user.id}`);
+  const userId = req.user.uid || req.user.id;
+  
+  // Get restaurant owned by this user
+  const userRestaurant = await this.restaurantService.findByOwnerId(userId);
+  if (!userRestaurant) {
+    throw new ForbiddenException('You do not own any restaurant');
+  }
+  
+  return this.orderService.getOrdersByRestaurant(userRestaurant.id, page, pageSize, status);
+}
+
   @Get(':id')
   getOrderById(@Param('id') id: string) {
     return this.orderService.getOrderById(id);
@@ -131,8 +166,67 @@ async calculateOrder(@Body() body: {
   }
 
   @Put(':id/status')
-  updateOrderStatus(@Param('id') id: string, @Body('status') status: string) {
-    return this.orderService.updateOrderStatus(id, status);
+  @UseGuards(AuthGuard)
+  async updateOrderStatus(
+    @Param('id') id: string, 
+    @Body('status') status: string,
+    @Req() req
+  ) {
+    // Get authenticated user
+    const userId = req.user.uid || req.user.id;
+    
+    // Get order with restaurant details BEFORE update
+    const currentOrder = await this.orderService.getOrderById(id);
+    const previousStatus = currentOrder.status;
+    
+    // Check if user owns the restaurant of this order
+    const userRestaurant = await this.restaurantService.findByOwnerId(userId);
+    if (!userRestaurant || userRestaurant.id !== currentOrder.restaurant.id) {
+      throw new ForbiddenException('You can only update orders for your own restaurant');
+    }
+
+    if (!status) {
+      throw new BadRequestException('Status is required');
+    }
+
+    // Only allow specific status transitions
+    const allowedStatuses = ['confirmed', 'delivering', 'completed', 'canceled'];
+    if (!allowedStatuses.includes(status)) {
+      throw new BadRequestException(`Invalid status. Allowed values: ${allowedStatuses.join(', ')}`);
+    }
+    
+    // Update order status
+    const updatedOrder = await this.orderService.updateOrderStatus(id, status);
+    
+    // PUBLISH EVENT TO NOTIFY USER ABOUT STATUS CHANGE
+    await pubSub.publish('orderStatusUpdated', {
+      orderStatusUpdated: updatedOrder
+    });
+
+    // PUBLISH TO SHIPPERS ONLY WHEN CHANGING TO 'confirmed' STATUS
+    if (status === 'confirmed' && previousStatus !== 'confirmed') {
+      // Only publish if order is not already assigned to a shipper
+      if (!updatedOrder.shippingDetail) {
+        await pubSub.publish('orderConfirmedForShippers', {
+          orderConfirmedForShippers: updatedOrder
+        });
+        this.logger.log(`Published order ${id} to nearby shippers for delivery`);
+      } else {
+        this.logger.log(`Order ${id} already assigned to shipper, not publishing`);
+      }
+    }
+
+    // STOP PUBLISHING TO SHIPPERS if status changes from 'confirmed' to something else
+    if (previousStatus === 'confirmed' && status !== 'confirmed') {
+      await pubSub.publish('orderRemovedFromShippers', {
+        orderRemovedFromShippers: { orderId: id }
+      });
+      this.logger.log(`Order ${id} removed from shipper pool due to status change from ${previousStatus} to ${status}`);
+    }
+
+    this.logger.log(`Order ${id} status updated to ${status} by restaurant owner ${userId}. User ${updatedOrder.user.id} notified.`);
+    
+    return updatedOrder;
   }
 
   @Delete(':id')
@@ -147,4 +241,5 @@ async calculateOrder(@Body() body: {
   ) {
     return this.orderService.processPayment(id, paymentData);
   }
+
 }

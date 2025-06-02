@@ -27,6 +27,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { GraphQLModule } from '@nestjs/graphql';
 import { ApolloDriverConfig, ApolloDriver } from '@nestjs/apollo';
 import { AppResolver } from './app.resolver';
+import { ShipperModule } from './modules/shipper/shipper.module';
 @Module({
   imports: [
     // Import the module that contains the user entity
@@ -59,6 +60,7 @@ import { AppResolver } from './app.resolver';
     FoodModule,
     OrderModule,
     CategoryModule,
+    ShipperModule,
     TypeOrmModule.forFeature([Role, User, Review, Promotion, Address, Permission]),
     ScheduleModule.forRoot(),
 

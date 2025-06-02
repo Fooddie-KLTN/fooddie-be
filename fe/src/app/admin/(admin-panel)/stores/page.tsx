@@ -1,10 +1,10 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // src/app/admin/(admin-panel)/store/page.tsx
 "use client";
 
 import { useState, useEffect } from "react";
-import { FilterIcon, SortAscIcon, TrashIcon } from "lucide-react";
+import {  TrashIcon } from "lucide-react";
 import { useAuth } from "@/context/auth-context";
-import { useMediaQuery } from "@/hooks/use-media-query";
 import { adminService } from "@/api/admin";
 
 import Header from "@/app/admin/(admin-panel)/_components/header";
@@ -21,6 +21,7 @@ export interface Store {
   name: string;
   phoneNumber: string;
   backgroundImage?: string;
+  certificateImage?: string;
   avatar?: string;
   description?: string;
   openTime?: string;
@@ -71,7 +72,6 @@ const StoreAdminPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'all' | 'pending'>('all');
 
   const { getToken } = useAuth();
-  const isDesktop = useMediaQuery("(min-width: 768px)");
 
   useEffect(() => {
     setIsMounted(true);
@@ -313,6 +313,7 @@ const StoreAdminPage: React.FC = () => {
     <div className="flex items-center gap-4">
       {/* Sort dropdown */}
       <select
+        title="Sắp xếp theo"
         value={sortField ?? ''}
         onChange={(e) => {
           const field = e.target.value as keyof Store;
@@ -329,6 +330,7 @@ const StoreAdminPage: React.FC = () => {
   
       {/* Direction */}
       <select
+      title="Sắp xếp theo"
         value={sortDirection ?? ''}
         onChange={(e) => {
           const dir = e.target.value as 'asc' | 'desc';
@@ -343,6 +345,7 @@ const StoreAdminPage: React.FC = () => {
   
       {/* Filter by status */}
       <select
+        title="Lọc theo trạng thái"
         value={statusFilter}
         onChange={(e) => setStatusFilter(e.target.value)}
         className="border border-gray-300 rounded px-3 py-2 text-sm"

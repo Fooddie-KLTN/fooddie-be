@@ -15,6 +15,7 @@ import { log } from 'console';
 import { haversineDistance } from 'src/common/utils/helper';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { Checkout, CheckoutStatus } from 'src/entities/checkout.entity';
+import { pubSub } from 'src/pubsub';
 
 @Injectable()
 export class OrderService {
@@ -217,17 +218,72 @@ export class OrderService {
             totalPages: Math.ceil(totalItems / pageSize),
         };
     }
+    async getOrdersByRestaurant(
+        restaurantId: string,
+        page: number = 1,
+        pageSize: number = 10,
+        status?: string
+    ) {
+        const query = this.orderRepository.createQueryBuilder('order')
+            .leftJoinAndSelect('order.user', 'user')
+            .leftJoinAndSelect('order.restaurant', 'restaurant')
+            .leftJoinAndSelect('order.address', 'address')
+            .leftJoinAndSelect('order.orderDetails', 'orderDetails')
+            .leftJoinAndSelect('orderDetails.food', 'food')
+            .leftJoinAndSelect('food.category', 'category')
+            .where('order.restaurant.id = :restaurantId', { restaurantId })
+            .orderBy('order.createdAt', 'DESC');
+
+        if (status) {
+            query.andWhere('order.status = :status', { status });
+        }
+
+        const [items, totalItems] = await query
+            .skip((page - 1) * pageSize)
+            .take(pageSize)
+            .getManyAndCount();
+
+        return {
+            items,
+            totalItems,
+            page,
+            pageSize,
+            totalPages: Math.ceil(totalItems / pageSize),
+        };
+    }
     async updateOrderStatus(id: string, status: string) {
         const order = await this.getOrderById(id);
 
-        // Validate status
+        // Validate status transitions
         const validStatuses = ['pending', 'confirmed', 'delivering', 'completed', 'canceled', 'processing_payment'];
         if (!validStatuses.includes(status)) {
             throw new BadRequestException(`Invalid status. Valid values are: ${validStatuses.join(', ')}`);
         }
 
+        // Check if status transition is valid
+        const currentStatus = order.status;
+        const validTransitions: Record<string, string[]> = {
+            'pending': ['confirmed', 'canceled'],
+            'confirmed': ['delivering', 'canceled'],
+            'delivering': ['completed', 'canceled'],
+            'processing_payment': ['pending', 'canceled']
+        };
+        
+        if (validTransitions[currentStatus] && !validTransitions[currentStatus].includes(status)) {
+            throw new BadRequestException(`Cannot change status from ${currentStatus} to ${status}`);
+        }
+
         order.status = status;
-        return await this.orderRepository.save(order);
+        const updatedOrder = await this.orderRepository.save(order);
+
+        // Publish event for status changes (not just pending)
+        await pubSub.publish('orderStatusUpdated', {
+            orderStatusUpdated: updatedOrder
+        });
+        
+        this.logger.log(`Order ${id} status updated to ${status}`);
+
+        return updatedOrder;
     }
 
     async calculateOrder(data: {

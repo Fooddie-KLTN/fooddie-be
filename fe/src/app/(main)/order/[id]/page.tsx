@@ -1,23 +1,25 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 import { adminService } from "@/api/admin";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import dynamic from "next/dynamic";
-import { OrderDetail } from "@/interface";
+
+// Import đúng type từ API
+import type { OrderResponse } from "@/api/admin";
 
 // Map chỉ load khi client-side
 const Map = dynamic(() => import("@/components/common/map"), { ssr: false });
 
 export default function OrderDetailPage() {
-  const [order, setOrder] = useState<OrderDetail | null>(null);
+  const [order, setOrder] = useState<OrderResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const orderId = searchParams.get("id");
+  const params = useParams();
+  const orderId = params.id as string;
   const { getToken } = useAuth();
 
   useEffect(() => {
@@ -27,45 +29,7 @@ export default function OrderDetailPage() {
 
       try {
         const res = await adminService.Order.getOrderById(token, orderId);
-
-        // const transformedOrder: OrderDetail = {
-        //   id: res.id,
-        //   status: res.status,
-        //   createdAt: res.createdAt,
-        //   totalAmount: Number(res.total),
-        //   restaurant: {
-        //     name: res.restaurant?.name || "Không rõ",
-        //     location: res.restaurant?.location || "Không rõ",
-        //   },
-        //   shippingAddress: res.address?.location || "Không rõ địa chỉ",
-        //   foodDetails: res.orderDetails.map((item) => ({
-        //     name: item.food?.name || "Món ăn",
-        //     quantity: Number(item.quantity),
-        //     price: Number(item.price),
-        //   })),
-        // };
-
-        // setOrder(transformedOrder);
-
-        const fakeOrder: OrderDetail = {
-          id: "test123",
-          status: "delivering",
-          createdAt: new Date().toISOString(),
-          totalAmount: 128000,
-          restaurant: {
-            name: "Bánh Mì PewPew",
-            location: "10.762622,106.660172", // fake tọa độ (TPHCM)
-          },
-          shippingAddress: "10.776889,106.700806", // fake tọa độ (Quận 1)
-          foodDetails: [
-            { name: "Bánh mì chả cá", quantity: 2, price: 30000 },
-            { name: "Bánh mì đặc biệt", quantity: 1, price: 38000 },
-            { name: "Trà tắc", quantity: 1, price: 30000 },
-          ],
-        };
-        
-        setOrder(fakeOrder);
-        
+        setOrder(res);
       } catch (err) {
         console.error("Failed to fetch order", err);
       } finally {
@@ -74,7 +38,7 @@ export default function OrderDetailPage() {
     };
 
     fetchOrder();
-  }, [orderId]);
+  }, [orderId, getToken]);
 
   if (loading) {
     return (
@@ -101,33 +65,65 @@ export default function OrderDetailPage() {
         </div>
         <div>
           <strong>Ngày đặt:</strong>{" "}
-          {new Date(order.createdAt).toLocaleDateString("vi-VN")}
+          {order.createdAt ? new Date(order.createdAt).toLocaleString("vi-VN") : "--"}
         </div>
         <div>
-          <strong>Nhà hàng:</strong> {order.restaurant.name}
+          <strong>Khách hàng:</strong> {order.address?.fullName || "Ẩn danh"}
         </div>
         <div>
-          <strong>Giao tới:</strong> {order.shippingAddress}
+          <strong>Nhà hàng:</strong> {order.restaurant?.name || "--"}
         </div>
         <div>
-          <strong>Tổng tiền:</strong> {order.totalAmount.toLocaleString()}đ
+          <strong>Địa chỉ nhà hàng:</strong> {order.restaurant?.location || "--"}
         </div>
+        <div>
+          <strong>Giao tới:</strong> {order.address?.location || "--"}
+        </div>
+        {order.note && (
+          <div>
+            <strong>Ghi chú:</strong> {order.note}
+          </div>
+        )}
         <div>
           <strong>Chi tiết món ăn:</strong>
-          <ul className="list-disc ml-5">
-            {order.foodDetails.map((f, idx) => (
-              <li key={idx}>
-                {f.name} × {f.quantity} — {f.price.toLocaleString()}đ
+          <ul className="list-disc ml-5 space-y-2">
+            {order.orderDetails?.map((od, idx) => (
+              <li key={idx} className="flex items-center gap-3">
+                <div>
+                  <div>
+                    <span className="font-semibold">{od.food?.name}</span>
+                  </div>
+                  <div>
+                    Số lượng: <span className="font-semibold">{od.quantity}</span>
+                    {" | "}
+                    Đơn giá:{" "}
+                    <span className="font-semibold">
+                      {Number(od.price).toLocaleString("vi-VN")}đ
+                    </span>
+                  </div>
+                  {od.note && (
+                    <div className="text-xs text-gray-500">Ghi chú: {od.note}</div>
+                  )}
+                </div>
               </li>
             ))}
           </ul>
+        </div>
+        <div>
+          <strong>Tổng tiền:</strong>{" "}
+          <span className="text-lg font-bold text-primary">
+            {Number(order.total).toLocaleString("vi-VN")}đ
+          </span>
         </div>
       </div>
 
       <div>
         <h3 className="text-lg font-semibold mb-2">Theo dõi bản đồ</h3>
         <div className="w-full h-[300px] overflow-hidden rounded-xl">
-          <Map from={order.restaurant.location} to={order.shippingAddress} />
+          <Map
+            from={order.restaurant?.location || ""}
+            to={order.address?.location || ""}
+          />
         </div>
       </div>
 
