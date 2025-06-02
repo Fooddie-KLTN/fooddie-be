@@ -15,6 +15,7 @@ import {
   SelectItem,
   SelectValue,
 } from "@/components/ui/select";
+import { guestService } from "@/api/guest";
 
 export default function CreateFoodPage() {
     const router = useRouter();
@@ -43,12 +44,8 @@ export default function CreateFoodPage() {
         const fetchCategories = async () => {
             setCategoryLoading(true);
             try {
-                const token = getToken?.();
-                const res = await fetch("/api/categories", {
-                    headers: token ? { Authorization: `Bearer ${token}` } : {},
-                });
-                const data = await res.json();
-                setCategories(data.items || data || []);
+                const res = await guestService.category.getCategories(1,100)
+                setCategories(res.items)
             } catch (err) {
                 console.error("Failed to fetch categories:", err);
                 setCategories([]);
@@ -288,7 +285,7 @@ export default function CreateFoodPage() {
                     <Button
                         type="submit"
                         disabled={loading}
-                        className="w-full py-3 text-lg font-semibold rounded-xl bg-primary text-white hover:bg-primary/90 transition"
+                        className="w-full hover:text-primary py-3 text-lg font-semibold rounded-xl bg-primary text-white hover:bg-primary/90 transition"
                     >
                         {loading ? "Đang tạo..." : "Tạo món ăn"}
                     </Button>

@@ -165,31 +165,39 @@ export interface CartItem {
   restaurantId?: string;
 }
 export interface OrderDetail {
-  id?: string;
-  food: FoodPreview; // or string if you only store foodId
+  id: string;
+  order: string | Order; // Usually just orderId, but can be populated
+  food: FoodPreview;
   varity?: string;
-  quantity: number | string;
+  quantity: number;
   price: number | string;
   note?: string;
 }
+export interface Promotion {
+  id: string;
+  code: string;
+  description?: string;
+  discountPercent?: number;
+  // ...add more fields if needed
+}
 
 export interface Order {
-  id?: string;
-  user: UserProfile; // or string if you only store userId
-  restaurant: Restaurant; // or string if you only store restaurantId
+  id: string;
+  user?: UserProfile;
+  restaurant?: Restaurant;
   total?: number;
   note?: string;
-  status?: string;
-  createdAt?: Date | string;
-  updatedAt?: Date | string;
-  promotionCode?: string; // Use Promotion if you have the interface
+  status?: 'pending' | 'confirmed' | 'delivering' | 'completed' | 'canceled' | 'processing_payment' | string;
+  createdAt: string;
+  updatedAt: string;
+  promotionCode?: Promotion;
   date?: string;
-  address: Address; // or string if you only store addressId
+  address?: Address;
   orderDetails: OrderDetail[];
-  shippingDetail?: ShippingDetail; // Use ShippingDetail if you have the interface
+  shippingDetail?: ShippingDetail;
   paymentMethod?: string;
   paymentDate?: string;
-  isPaid?: boolean;
+  isPaid: boolean;
 }
 
 export enum ShippingStatus {

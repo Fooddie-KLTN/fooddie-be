@@ -148,7 +148,7 @@ interface StoreResponse {
     image: string;
   }
 
-  interface OrderResponse {
+  export interface OrderResponse {
     id: string;
     status: string;
     createdAt: string;

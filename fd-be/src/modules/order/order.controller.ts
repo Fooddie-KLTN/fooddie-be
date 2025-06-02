@@ -62,6 +62,9 @@ export class OrderController {
 
     if (body.paymentMethod === 'cod') {
       this.logger.log(`Order ${order.id} will be paid on delivery (COD)`);
+      order.status = 'pending'; // Set status to pending for COD
+      // Update order status to pending if payment method is COD
+      await this.orderService.updateOrderStatus(order.id, 'pending');
       paymentUrl = process.env.FRONTEND_URL + `/order/${order.id}`;
       
     }

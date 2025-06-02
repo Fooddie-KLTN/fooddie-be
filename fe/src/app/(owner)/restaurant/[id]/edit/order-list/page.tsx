@@ -4,9 +4,10 @@ import { useState, useEffect } from 'react';
 import { useOrderCreatedSubscription } from '@/hooks/use-order-subscription';
 import { useAuth } from '@/context/auth-context';
 import { userApi } from '@/api/user';
+import { Order } from '@/interface';
 
 export default function OrderListPage() {
-  const { user, getToken } = useAuth();
+  const { getToken } = useAuth();
   const [restaurantId, setRestaurantId] = useState<string | null>(null);
   
   // Tách việc lấy restaurant ID ra một effect riêng
@@ -35,7 +36,7 @@ export default function OrderListPage() {
   );
   
   // Đơn hàng hiện tại (có thể được tải từ API riêng)
-  const [orders, setOrders] = useState<any[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
   
   // Khi có đơn hàng mới, cập nhật danh sách và hiện thông báo
   useEffect(() => {

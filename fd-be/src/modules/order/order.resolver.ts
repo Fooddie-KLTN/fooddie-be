@@ -24,7 +24,7 @@ export class OrderResolver {
         @Context() context
     ) {
         // Có thể kiểm tra context.token ở đây nếu muốn
-        return (pubSub as any).asyncIterator('orderCreated');
+        return (pubSub).asyncIterableIterator('orderCreated');
     }
 
     // Thêm một query đơn giản để hợp lệ schema

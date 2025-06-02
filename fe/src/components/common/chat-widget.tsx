@@ -2,8 +2,10 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 
-const sendSound = new Audio('/sounds/send.mp3');
-const receiveSound = new Audio('/sounds/receive.mp3');
+// Chỉ tạo Audio khi ở client
+const isClient = typeof window !== 'undefined';
+const sendSound = isClient ? new Audio('/sounds/send.mp3') : null;
+const receiveSound = isClient ? new Audio('/sounds/receive.mp3') : null;
 
 export default function ChatWidget() {
   const [open, setOpen] = useState(false);
@@ -15,7 +17,7 @@ export default function ChatWidget() {
   const sendMessage = async () => {
     if (!input.trim()) return;
     setMessages((prev) => [...prev, { from: 'user', text: input }]);
-    sendSound.play();
+    sendSound?.play();
     setInput('');
     setIsTyping(true);
 
@@ -27,8 +29,16 @@ export default function ChatWidget() {
       });
       const data = await res.json();
       setMessages((prev) => [...prev, { from: 'bot', text: data.reply }]);
-      receiveSound.play();
+      receiveSound?.play();
     } catch (err) {
+      if (err instanceof Error) {
+        console.error('Lỗi khi gửi tin nhắn:', err.message);
+
+        setMessages((prev) => [
+          ...prev,
+          { from: 'bot', text: 'Xin lỗi, có lỗi xảy ra khi gửi tin nhắn.' },
+        ]);
+      }
       setMessages((prev) => [...prev, { from: 'bot', text: 'Lỗi khi gửi tin nhắn.' }]);
     } finally {
       setIsTyping(false);

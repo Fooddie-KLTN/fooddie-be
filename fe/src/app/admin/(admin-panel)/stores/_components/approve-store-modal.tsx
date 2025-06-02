@@ -6,6 +6,7 @@ import { Store } from "../page";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { useState } from "react";
 
 interface ApproveStoreModalProps {
   store: Store;
@@ -26,6 +27,8 @@ const ApproveStoreModal: React.FC<ApproveStoreModalProps> = ({
   onApprove,
   onReject,
 }) => {
+  const [showFullCert, setShowFullCert] = useState(false);
+
   return (
     <Dialog open={!!store} onOpenChange={onClose}>
       <DialogContent className="max-w-3xl p-6 overflow-y-auto max-h-[90vh]">
@@ -64,6 +67,53 @@ const ApproveStoreModal: React.FC<ApproveStoreModalProps> = ({
             </div>
           )}
         </div>
+
+        {/* Ảnh giấy phép */}
+        {store.certificateImage && (
+          <>
+            <div className="mb-8 flex flex-col items-center">
+              <p className="text-sm text-gray-500 mb-2">Ảnh giấy phép</p>
+              <div
+                className="w-[420px] h-[320px] rounded-md overflow-hidden border shadow cursor-pointer transition hover:ring-2 hover:ring-blue-400"
+                onClick={() => setShowFullCert(true)}
+                title="Nhấn để xem ảnh lớn"
+              >
+                <Image
+                  src={store.certificateImage}
+                  alt="Certificate"
+                  width={420}
+                  height={320}
+                  className="object-cover w-full h-full"
+                />
+              </div>
+              <span className="text-xs text-gray-400 mt-1">(Nhấn vào ảnh để xem kích thước lớn)</span>
+            </div>
+            {/* Modal hiển thị ảnh lớn */}
+            {showFullCert && (
+              <div
+                className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center"
+                onClick={() => setShowFullCert(false)}
+              >
+                <div className="relative bg-white rounded-lg shadow-lg p-4 max-w-3xl max-h-[90vh] flex flex-col items-center">
+                  <button
+                    className="absolute top-2 right-2 text-gray-700 hover:text-red-500 text-2xl font-bold"
+                    onClick={() => setShowFullCert(false)}
+                    aria-label="Đóng"
+                  >
+                    ×
+                  </button>
+                  <Image
+                    src={store.certificateImage}
+                    alt="Certificate Full"
+                    width={900}
+                    height={700}
+                    className="object-contain max-h-[80vh] max-w-full"
+                  />
+                </div>
+              </div>
+            )}
+          </>
+        )}
 
         {/* Thông tin cơ bản */}
         <div className="mb-6 space-y-3">
@@ -120,7 +170,7 @@ const ApproveStoreModal: React.FC<ApproveStoreModalProps> = ({
           <Button variant="destructive" onClick={() => onReject(store.id)}>
             Từ chối
           </Button>
-          <Button variant="default" onClick={() => onApprove(store.id)}>
+          <Button variant="default" onClick={() => onApprove(store.id)} className="hover:text-primary hover:outline-1">
             Duyệt
           </Button>
         </div>
