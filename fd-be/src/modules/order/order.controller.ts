@@ -175,28 +175,20 @@ async getOrdersByMyRestaurant(
     // Get authenticated user
     const userId = req.user.uid || req.user.id;
     
-    // Get order with restaurant details
-    const order = await this.orderService.getOrderById(id);
+    // Get order with restaurant details BEFORE update
+    const currentOrder = await this.orderService.getOrderById(id);
+    const previousStatus = currentOrder.status;
     
     // Check if user owns the restaurant of this order
     const userRestaurant = await this.restaurantService.findByOwnerId(userId);
-    if (!userRestaurant || userRestaurant.id !== order.restaurant.id) {
+    if (!userRestaurant || userRestaurant.id !== currentOrder.restaurant.id) {
       throw new ForbiddenException('You can only update orders for your own restaurant');
     }
 
     if (!status) {
       throw new BadRequestException('Status is required');
     }
-    if (status !== 'pending') {
-      // Check if order is already completed or canceled
-      if (order.status === 'completed' || order.status === 'canceled') {
-        throw new BadRequestException(`Order ${id} is already ${order.status}`);
-      }
-      if (order.status === 'delivering' && status !== 'completed') {
-        throw new BadRequestException(`Order ${id} is being delivered and can only be marked as completed`);
-      }
-    }
-    
+
     // Only allow specific status transitions
     const allowedStatuses = ['confirmed', 'delivering', 'completed', 'canceled'];
     if (!allowedStatuses.includes(status)) {
@@ -206,7 +198,33 @@ async getOrdersByMyRestaurant(
     // Update order status
     const updatedOrder = await this.orderService.updateOrderStatus(id, status);
     
-    this.logger.log(`Order ${id} status updated to ${status} by restaurant owner ${userId}`);
+    // PUBLISH EVENT TO NOTIFY USER ABOUT STATUS CHANGE
+    await pubSub.publish('orderStatusUpdated', {
+      orderStatusUpdated: updatedOrder
+    });
+
+    // PUBLISH TO SHIPPERS ONLY WHEN CHANGING TO 'confirmed' STATUS
+    if (status === 'confirmed' && previousStatus !== 'confirmed') {
+      // Only publish if order is not already assigned to a shipper
+      if (!updatedOrder.shippingDetail) {
+        await pubSub.publish('orderConfirmedForShippers', {
+          orderConfirmedForShippers: updatedOrder
+        });
+        this.logger.log(`Published order ${id} to nearby shippers for delivery`);
+      } else {
+        this.logger.log(`Order ${id} already assigned to shipper, not publishing`);
+      }
+    }
+
+    // STOP PUBLISHING TO SHIPPERS if status changes from 'confirmed' to something else
+    if (previousStatus === 'confirmed' && status !== 'confirmed') {
+      await pubSub.publish('orderRemovedFromShippers', {
+        orderRemovedFromShippers: { orderId: id }
+      });
+      this.logger.log(`Order ${id} removed from shipper pool due to status change from ${previousStatus} to ${status}`);
+    }
+
+    this.logger.log(`Order ${id} status updated to ${status} by restaurant owner ${userId}. User ${updatedOrder.user.id} notified.`);
     
     return updatedOrder;
   }
