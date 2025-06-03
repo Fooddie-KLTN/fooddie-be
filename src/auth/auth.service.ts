@@ -308,7 +308,11 @@ async registerDriver(dto: CreateShipperDto) {
       username: user.username,
       roles: [user.role.name],
     };
-    const access_token = await this.jwtService.signAsync(payload);
+    const access_token = await this.jwtService.signAsync(payload,
+      {
+        expiresIn: '1d', // Hoặc sử dụng giá trị từ config
+      }
+    );
   
     return {
       status: 'approved',
