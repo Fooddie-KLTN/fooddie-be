@@ -34,19 +34,24 @@ import { ShipperModule } from './modules/shipper/shipper.module';
     ConfigModule.forRoot({
       isGlobal: true,
     }),
-    TypeOrmModule.forRoot({
-      type: 'postgres', // hoặc 'mysql', 'sqlite', ...
-      host: process.env.DB_HOST,
-      port: +(process.env.DB_PORT ?? 5432),
-      username: process.env.DB_USERNAME,
-      password: process.env.DB_PASSWORD,
-      database: process.env.DB_NAME,
-      entities: [__dirname + '/entities/*.entity{.ts,.js}'],
-      synchronize: false, // Không dùng synchronize trong production, thay vào đó dùng migrations
-      migrations: [__dirname + '/migrations/*{.ts,.js}'],
-      migrationsRun: false,
-      migrationsTableName: 'migrations',
-      autoLoadEntities: true,
+    TypeOrmModule.forRootAsync({
+      useFactory: () => ({
+        type: 'postgres', // hoặc 'mysql', 'sqlite', ...
+        host: process.env.DB_HOST,
+        port: +(process.env.DB_PORT ?? 5432),
+        username: process.env.DB_USERNAME,
+        password: process.env.DB_PASSWORD,
+        database: process.env.DB_NAME,
+        entities: [__dirname + '/entities/*.entity{.ts,.js}'],
+        synchronize: false, // Không dùng synchronize trong production, thay vào đó dùng migrations
+        migrations: [__dirname + '/migrations/*{.ts,.js}'],
+        migrationsRun: false,
+        migrationsTableName: 'migrations',
+        autoLoadEntities: true,
+        keepConnectionAlive: false,
+        retryAttempts: 1,
+        retryDelay: 1000,
+      }),
     }),
     ChatModule,
     UsersModule,
