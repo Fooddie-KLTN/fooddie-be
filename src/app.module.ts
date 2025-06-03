@@ -29,30 +29,41 @@ import { AppResolver } from './app.resolver';
 import { ShipperModule } from './modules/shipper/shipper.module';
 @Module({
   imports: [
-    // Import the module that contains the user entity
-    // and the user service
     ConfigModule.forRoot({
       isGlobal: true,
+      cache: true, // Cache config
     }),
+    // Database connection
     TypeOrmModule.forRootAsync({
       useFactory: () => ({
-        type: 'postgres', // hoặc 'mysql', 'sqlite', ...
+        type: 'postgres',
         host: process.env.DB_HOST,
         port: +(process.env.DB_PORT ?? 5432),
         username: process.env.DB_USERNAME,
         password: process.env.DB_PASSWORD,
         database: process.env.DB_NAME,
         entities: [__dirname + '/entities/*.entity{.ts,.js}'],
-        synchronize: false, // Không dùng synchronize trong production, thay vào đó dùng migrations
+        synchronize: false,
         migrations: [__dirname + '/migrations/*{.ts,.js}'],
         migrationsRun: false,
         migrationsTableName: 'migrations',
         autoLoadEntities: true,
+        // Memory optimizations
         keepConnectionAlive: false,
         retryAttempts: 1,
         retryDelay: 1000,
+        maxQueryExecutionTime: 5000,
+        poolSize: 3, // Reduce connection pool
+        extra: {
+          max: 3, // Maximum pool size
+          min: 1, // Minimum pool size
+          idleTimeoutMillis: 30000,
+          connectionTimeoutMillis: 2000,
+        },
       }),
     }),
+    
+    // Core modules only
     ChatModule,
     UsersModule,
     RoleModule,
@@ -65,27 +76,33 @@ import { ShipperModule } from './modules/shipper/shipper.module';
     OrderModule,
     CategoryModule,
     ShipperModule,
-    TypeOrmModule.forFeature([Role, User, Review, Promotion, Address, Permission]),
+    
     ScheduleModule.forRoot(),
-
     GraphQLModule.forRoot<ApolloDriverConfig>({
       driver: ApolloDriver,
       autoSchemaFile: true,
       subscriptions: {
-        'graphql-ws': true
+        'graphql-ws': {
+          onConnect: () => console.log('GraphQL WS connected'),
+          onDisconnect: () => console.log('GraphQL WS disconnected'),
+        }
       },
       context: ({ req, connectionParams }) => {
-        // For HTTP requests
         if (req) return { req };
-        // For WebSocket connections
         if (connectionParams?.Authorization) {
           return { token: connectionParams.Authorization };
         }
         return {};
       },
+      // Memory optimizations
+      introspection: process.env.NODE_ENV !== 'production',
+      playground: false, // Disable in production
+      debug: false,
+      formatError: (error) => ({
+        message: error.message,
+        path: error.path,
+      }),
     }),
-
-
   ],
   controllers: [AppController],
   providers: [AppService, AppResolver],

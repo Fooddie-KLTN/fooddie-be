@@ -5,33 +5,43 @@ import { AppModule } from './app.module';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 
 async function bootstrap(): Promise<void> {
-  const app: INestApplication = await NestFactory.create(AppModule, new ExpressAdapter(), {
-    cors: true
-  });
+  const app: INestApplication = await NestFactory.create(
+    AppModule, 
+    new ExpressAdapter(),
+    {
+      cors: true,
+      logger: process.env.NODE_ENV === 'production' ? ['error', 'warn'] : ['log', 'debug', 'error', 'verbose', 'warn'],
+    }
+  );
 
-  // Add validation pipe
+  // Optimized validation pipe
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
       transform: true,
       forbidNonWhitelisted: true,
+      disableErrorMessages: process.env.NODE_ENV === 'production',
     })
   );
 
-  // Setup Swagger
-  const config = new DocumentBuilder()
-    .setTitle('LMS API')
-    .setDescription('The LMS API description')
-    .setVersion('1.0')
-    .build();
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api', app, document);
+  // Only setup Swagger in development
+  if (process.env.NODE_ENV !== 'production') {
+    const config = new DocumentBuilder()
+      .setTitle('FOODDIE API')
+      .setDescription('The FOODDIE API description')
+      .setVersion('1.0')
+      .build();
+    const document = SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup('api', app, document);
+  }
 
-  // Start server
   const port = process.env.PORT || 3001;
   await app.listen(port);
-  console.log(`Application is running on: http://localhost:${port}`);
-  console.log(`Swagger documentation: http://localhost:${port}/api`);
+  
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(`Application is running on: http://localhost:${port}`);
+    console.log(`Swagger documentation: http://localhost:${port}/api`);
+  }
 }
 
 bootstrap()
