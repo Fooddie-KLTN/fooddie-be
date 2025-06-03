@@ -8,7 +8,6 @@ import { RoleModule } from './modules/role/role.module';
 import { AuthModule } from './auth/auth.module';
 import { DataSource } from 'typeorm';
 import { ConfigModule } from '@nestjs/config';
-import { AdminSeedService } from './migrations/admin-seeder.service';
 import { Role } from './entities/role.entity';
 import { User } from './entities/user.entity';
 import { Review } from './entities/review.entity';
@@ -42,11 +41,11 @@ import { ShipperModule } from './modules/shipper/shipper.module';
       username: process.env.DB_USERNAME,
       password: process.env.DB_PASSWORD,
       database: process.env.DB_NAME,
-      //entities: [__dirname + '/**/*.entity{.ts,.js}'],
       entities: [__dirname + '/entities/*.entity{.ts,.js}'],
-      synchronize: true, // Không dùng synchronize trong production, thay vào đó dùng migrations
-      dropSchema: false, // WARNING: This will drop all tables - use in development only!
+      synchronize: false, // Không dùng synchronize trong production, thay vào đó dùng migrations
       migrations: [__dirname + '/migrations/*{.ts,.js}'],
+      migrationsRun: false,
+      migrationsTableName: 'migrations',
       autoLoadEntities: true,
     }),
     ChatModule,
@@ -84,7 +83,7 @@ import { ShipperModule } from './modules/shipper/shipper.module';
 
   ],
   controllers: [AppController],
-  providers: [AppService, AdminSeedService, AppResolver],
+  providers: [AppService, AppResolver],
 })
 export class AppModule {
   constructor(private readonly dataSource: DataSource) {
