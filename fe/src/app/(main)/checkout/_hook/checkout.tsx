@@ -143,8 +143,7 @@ export const useCheckout = () => {
                 window.location.href = response.paymentUrl;
                 return;
             }
-
-            router.push(`/orders/${response.order.id}`);
+            // router.push(`/orders/${response.order.id}`);
         } catch (err) {
             console.error('Failed to create order:', err);
         }

@@ -76,7 +76,6 @@ export class OrderController {
         orderCreated: updatedOrder 
       });
       this.logger.log(`Published orderCreated event for order ${order.id} with status pending`);
-      
       paymentUrl = process.env.FRONTEND_URL + `/order/${order.id}`;
     }
 

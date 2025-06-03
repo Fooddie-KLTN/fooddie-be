@@ -7,7 +7,7 @@ import { OrderDetail } from './orderDetail.entity';
 import { ShippingDetail } from './shippingDetail.entity';
 import { Promotion } from './promotion.entity';
 import { Checkout } from './checkout.entity';
-import { ObjectType, Field, ID } from '@nestjs/graphql';
+import { ObjectType, Field, ID, Float } from '@nestjs/graphql';
 
 @ObjectType()
 @Entity({ name: 'orders' })
