@@ -131,8 +131,11 @@ export class UsersService {
     }
   }
 
-  async findByPhone(phone: string): Promise<User | null> {
-    return this.usersRepository.findOne({ where: { phone } });
+  async findByPhone(phone: string) {
+    return this.usersRepository.findOne({
+      where: { phone },
+      relations: ['role', 'shipperCertificateInfo'],
+    });
   }
 
   async register(createUserDto: CreateUserDto, id: string): Promise<User> {
