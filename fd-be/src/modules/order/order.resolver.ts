@@ -60,7 +60,8 @@ export class OrderResolver {
             const shipperLat = parseFloat(variables.latitude);
             const shipperLng = parseFloat(variables.longitude);
             const maxDistance = variables.maxDistance || 5; // Default 5km radius
-
+            console.log('[🔍] Running filter with variables:', variables);
+            console.log('[📦] Incoming order:', payload.orderConfirmedForShippers);
             // Check if order has restaurant coordinates
             if (!order.restaurant?.latitude || !order.restaurant?.longitude) {
                 return false;
@@ -83,6 +84,7 @@ export class OrderResolver {
         },
         resolve: (payload) => {
             const order = payload.orderConfirmedForShippers;
+            console.log('[📩] Sub payload:', payload.orderConfirmedForShippers);
             // Add distance info to the order for shipper reference
             return {
                 ...order,
