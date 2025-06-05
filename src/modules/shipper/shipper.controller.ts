@@ -34,23 +34,5 @@ export class ShipperController {
     return this.shipperService.assignOrderToShipper(orderId, shipperId);
   }
 
-  @Post('accept-assignment/:assignmentId')
-  @UseGuards(AuthGuard)
-  async acceptAssignment(
-    @Param('assignmentId') assignmentId: string,
-    @Req() req
-  ) {
-    const shipperId = req.user.uid || req.user.id;
-    return this.shipperService.acceptAssignment(assignmentId, shipperId);
-  }
 
-  @Post('reject-assignment/:assignmentId')
-  @UseGuards(AuthGuard)
-  async rejectAssignment(
-    @Param('assignmentId') assignmentId: string,
-    @Req() req
-  ) {
-    const shipperId = req.user.uid || req.user.id;
-    return this.shipperService.rejectAssignment(assignmentId, shipperId);
-  }
 }
