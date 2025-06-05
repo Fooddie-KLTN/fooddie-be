@@ -27,14 +27,19 @@ export class AuthGuard implements CanActivate {
 
     // Expected header format: "Bearer <token>"
     const token = authHeader.split(' ')[1];
+
+    this.logger.log('extracted token:', token);
     if (!token) {
       throw new UnauthorizedException('Invalid token format');
     }
 
     try {
+      this.logger.log('Verifying token...');
+
       const payload = await this.jwtService.verifyAsync(token, {
         secret: this.configService.get<string>('JWT_SECRET'),
       });
+      this.logger.log('Token verified successfully:', payload);
 
       // Attach the payload to the request object
       request.user = payload;

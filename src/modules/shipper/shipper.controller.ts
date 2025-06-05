@@ -16,6 +16,24 @@ export class ShipperController {
     return this.shipperService.requestOrderAssignment(orderId, shipperId);
   }
 
+  @Get('pending-assignment')
+  @UseGuards(AuthGuard)
+  async getPendingAssignment(@Req() req) {
+    const shipperId = req.user.uid || req.user.id;
+    return this.shipperService.getPendingAssignmentForShipper(shipperId);
+  }
+
+  // Keep the original endpoint for backward compatibility
+  @Post('accept-order')
+  @UseGuards(AuthGuard)
+  async acceptOrder(
+    @Body('orderId') orderId: string,
+    @Req() req
+  ) {
+    const shipperId = req.user.uid || req.user.id;
+    return this.shipperService.assignOrderToShipper(orderId, shipperId);
+  }
+
   @Post('accept-assignment/:assignmentId')
   @UseGuards(AuthGuard)
   async acceptAssignment(
@@ -34,23 +52,5 @@ export class ShipperController {
   ) {
     const shipperId = req.user.uid || req.user.id;
     return this.shipperService.rejectAssignment(assignmentId, shipperId);
-  }
-
-  @Get('pending-assignment')
-  @UseGuards(AuthGuard)
-  async getPendingAssignment(@Req() req) {
-    const shipperId = req.user.uid || req.user.id;
-    return this.shipperService.getPendingAssignmentForShipper(shipperId);
-  }
-
-  // Keep the original endpoint for backward compatibility
-  @Post('accept-order')
-  @UseGuards(AuthGuard)
-  async acceptOrder(
-    @Body('orderId') orderId: string,
-    @Req() req
-  ) {
-    const shipperId = req.user.uid || req.user.id;
-    return this.shipperService.assignOrderToShipper(orderId, shipperId);
   }
 }
