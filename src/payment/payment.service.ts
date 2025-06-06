@@ -14,6 +14,8 @@ import { PaymentStatusResponse } from './interfaces/payment-status.interface';
 import { User } from 'src/entities/user.entity';
 import { Food } from 'src/entities/food.entity';
 import { pubSub } from 'src/pubsub';
+import { PromotionService } from 'src/modules/promotion/promotion.service';
+import { Promotion } from 'src/entities/promotion.entity';
 
 @Injectable()
 export class PaymentService {
@@ -31,11 +33,14 @@ export class PaymentService {
         private foodRepository: Repository<Food>,
         @InjectRepository(User)
         private userRepository: Repository<User>,
+        @InjectRepository(Promotion)
+        private promotionRepository: Repository<Promotion>,
         
         private configService: ConfigService,
         private momoPaymentGateway: MomoPaymentGateway,
         private orderService: OrderService,
         private vnpayPaymentGateway: VnpayPaymentGateway,
+        private promotionService: PromotionService, // Add promotion service
     ) { }
 
     /**
@@ -62,10 +67,10 @@ export class PaymentService {
      * @returns Checkout record (completed immediately for free orders)
      */
     async createCheckout(orderId: string, paymentMethod: string): Promise<Checkout> {
-        // Get the order with details
+        // Get the order with details including promotion
         const order = await this.orderRepository.findOne({
             where: { id: orderId },
-            relations: ['orderDetails', 'user', 'orderDetails.food'],
+            relations: ['orderDetails', 'user', 'orderDetails.food', 'promotionCode'],
         });
 
         if (!order) {
@@ -106,6 +111,13 @@ export class PaymentService {
 
         await this.checkoutRepository.save(checkout);
 
+        // Include promotion information in metadata
+        const promotionMetadata = order.promotionCode ? {
+            promotionId: order.promotionCode.id,
+            promotionCode: order.promotionCode.code,
+            promotionType: order.promotionCode.type,
+        } : {};
+
         if (paymentMethod === 'momo') {
             this.setPaymentGateway(this.momoPaymentGateway);
         } else if (paymentMethod === 'vnpay') {
@@ -127,6 +139,7 @@ export class PaymentService {
                             userId: order.user.id,
                             redirectUrl: `${this.configService.get<string>('API_URL')}/payment/momo/result`,
                             ipnUrl: `${this.configService.get<string>('API_URL')}/payment/webhook`,
+                            ...promotionMetadata // Include promotion data
                         }
                     );
 
@@ -162,6 +175,7 @@ export class PaymentService {
                             userId: order.user.id,
                             redirectUrl: `${this.configService.get<string>('VNPAY_URL')}`,
                             ipnUrl: `${this.configService.get<string>('API_URL')}/payment/webhook`,
+                            ...promotionMetadata // Include promotion data
                         }
                     );
 
@@ -344,6 +358,7 @@ export class PaymentService {
         // Find the checkout with this payment intent ID
         const checkout = await this.checkoutRepository.findOne({
             where: { paymentIntentId },
+            relations: ['order', 'order.promotionCode']
         });
 
         if (checkout) {
@@ -354,6 +369,7 @@ export class PaymentService {
             // Update order status
             const order = await this.orderRepository.findOne({
                 where: { id: checkout.orderId },
+                relations: ['promotionCode']
             });
             
             if (order) {
@@ -361,6 +377,16 @@ export class PaymentService {
                 order.isPaid = true;
                 order.paymentDate = new Date().toISOString();
                 await this.orderRepository.save(order);
+                
+                // Ensure promotion usage is recorded (in case it wasn't during order creation)
+                if (order.promotionCode) {
+                    try {
+                        await this.promotionService.usePromotion(order.promotionCode.code, order.total);
+                        this.logger.log(`Promotion ${order.promotionCode.code} usage recorded for order ${order.id}`);
+                    } catch (error) {
+                        this.logger.error(`Failed to record promotion usage: ${error.message}`);
+                    }
+                }
                 
                 // Notify order service
                 this.orderService.confirmPayment(checkout.orderId);

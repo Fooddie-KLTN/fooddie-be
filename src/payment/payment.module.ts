@@ -23,7 +23,7 @@ import { GoogleCloudStorageService } from 'src/gcs/gcs.service';
 
 @Module({
 	imports: [
-		TypeOrmModule.forFeature([Order, OrderDetail, Checkout, User,Food, Role, Promotion, Restaurant, Address]),
+		TypeOrmModule.forFeature([Order, OrderDetail, Checkout, User,Food, Role, Promotion, Restaurant, Address, Promotion]),
 		ConfigModule,
 		JwtModule.registerAsync({
 			imports: [ConfigModule],
@@ -35,7 +35,7 @@ import { GoogleCloudStorageService } from 'src/gcs/gcs.service';
 		}),
 	],
 	controllers: [PaymentController, DemoPaymentController],
-	providers: [PaymentService, MomoPaymentGateway, OrderService, UsersService, PromotionService, VnpayPaymentGateway, GoogleCloudStorageService ],
+	providers: [PaymentService, MomoPaymentGateway,PromotionService, OrderService, UsersService, PromotionService, VnpayPaymentGateway, GoogleCloudStorageService ],
 	exports: [PaymentService],
 })
 export class PaymentModule { } 
