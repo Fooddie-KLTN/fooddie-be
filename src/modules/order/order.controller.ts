@@ -1,15 +1,16 @@
-import { Controller, Post, Get, Put, Delete, Param, Body, Query, UseGuards, Req, Logger, ForbiddenException, BadRequestException } from '@nestjs/common';
+import { Controller, Post, Get, Put, Delete, Param, Body, UseGuards, Query, DefaultValuePipe, ParseIntPipe, Logger, BadRequestException, ForbiddenException, Req } from '@nestjs/common';
 import { OrderService } from './order.service';
 import { CreateOrderDto } from './dto/create-order.dto';
+import { UpdateOrderDto } from './dto/update-order.dto';
+import { PaymentDto } from './dto/payment.dto';
 import { RolesGuard } from 'src/common/guard/role.guard';
 import { Permissions } from 'src/common/decorator/permissions.decorator';
 import { Permission } from 'src/constants/permission.enum';
-import { PaymentDto } from './dto/payment.dto';
-import { AuthGuard } from 'src/auth/auth.guard';
 import { PaymentService } from 'src/payment/payment.service';
 import { pubSub } from 'src/pubsub'; // THÊM IMPORT NÀY
 import { log } from 'console';
 import { RestaurantService } from '../restaurant/restaurant.service';
+import { AuthGuard } from 'src/auth/auth.guard';
 
 @Controller('orders')
 export class OrderController {
@@ -113,7 +114,8 @@ async getMyOrders(
 async calculateOrder(@Body() body: { 
   addressId: string, 
   restaurantId: string, 
-  items: { foodId: string, quantity: number }[] 
+  items: { foodId: string, quantity: number }[],
+  promotionCode?: string // Add promotion code to calculation
 }) {
   this.logger.log(`Calculating order: ${JSON.stringify(body)}`);
 
@@ -121,11 +123,12 @@ async calculateOrder(@Body() body: {
     return { error: 'Missing addressId, restaurantId, or items' };
   }
 
-  // Delegate to service
+  // Delegate to service with promotion code
   return this.orderService.calculateOrder({
     addressId: body.addressId,
     restaurantId: body.restaurantId,
     items: body.items,
+    promotionCode: body.promotionCode
   });
 }
 
@@ -241,4 +244,27 @@ async getOrdersByMyRestaurant(
     return this.orderService.processPayment(id, paymentData);
   }
 
+  @Post('validate-promotion')
+  async validatePromotion(@Body() body: {
+    promotionCode: string,
+    addressId: string,
+    restaurantId: string,
+    items: { foodId: string, quantity: number }[]
+  }) {
+    this.logger.log(`Validating promotion: ${body.promotionCode}`);
+
+    if (!body.promotionCode || !body.addressId || !body.restaurantId || !Array.isArray(body.items)) {
+      return { 
+        valid: false, 
+        error: 'Missing required fields: promotionCode, addressId, restaurantId, or items' 
+      };
+    }
+
+    return this.orderService.validatePromotionForOrder(
+      body.promotionCode,
+      body.addressId,
+      body.restaurantId,
+      body.items
+    );
+  }
 }

@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import { PERMISSIONS_KEY } from '../decorator/permissions.decorator';
 import { UsersService } from 'src/modules/users/users.service';
 import { PermissionType } from 'src/constants/permission.enum';
@@ -45,7 +46,10 @@ export class RolesGuard implements CanActivate {
     private readonly reflector: Reflector,
     private readonly userService: UsersService,
     private readonly jwtService: JwtService,
-  ) { }
+    private readonly configService: ConfigService, // <-- inject ConfigService
+  ) {
+    this.logger.debug(`JWT_SECRET in RolesGuard: ${this.configService.get('JWT_SECRET')}`);
+  }
 
   /**
    * Determines whether a request can proceed based on user permissions.
@@ -61,7 +65,10 @@ export class RolesGuard implements CanActivate {
       context.getHandler(),
     );
 
+    this.logger.debug(`Required permissions for this route: ${requiredPermissions?.join(', ') || 'None'}`);
+
     if (!requiredPermissions || requiredPermissions.length === 0) {
+      this.logger.debug('No permissions required, allowing access.');
       return true;
     }
 
@@ -69,11 +76,16 @@ export class RolesGuard implements CanActivate {
 
     try {
       const token = this.extractTokenFromRequest(request);
+      this.logger.debug(`Extracted token: ${token}`);
+
       const userId = await this.verifyTokenAndGetUserId(token);
+      this.logger.debug(`Verified user ID from token: ${userId}`);
 
       request.user = { id: userId };
 
       const userPermissions = await this.getUserPermissionStrings(userId);
+      this.logger.debug(`User ${userId} permissions: ${userPermissions.join(', ')}`);
+
       const hasPermission = this.checkRequiredPermissions(requiredPermissions, userPermissions);
 
       if (!hasPermission) {
@@ -81,8 +93,10 @@ export class RolesGuard implements CanActivate {
         throw new ForbiddenException('Insufficient permissions to access this resource');
       }
 
+      this.logger.log(`User ${userId} granted access to resource requiring ${requiredPermissions.join(', ')}`);
       return true;
     } catch (error) {
+      this.logger.error(`Access denied: ${error instanceof Error ? error.message : error}`);
       this.handleAuthenticationError(error);
       return false;
     }

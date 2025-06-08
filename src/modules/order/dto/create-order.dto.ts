@@ -41,6 +41,10 @@ export class CreateOrderDto {
   @IsString()
   paymentMethod?: string;
 
+  @IsOptional()
+  @IsString()
+  promotionCode?: string; // Add promotion code field
+
   @IsNotEmpty()
   @IsArray()
   @ValidateNested({ each: true })
