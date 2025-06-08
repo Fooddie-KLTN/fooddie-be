@@ -12,7 +12,8 @@ import {
   UseGuards,
   UnauthorizedException,
   Req,
-  ParseFloatPipe
+  ParseFloatPipe,
+  BadRequestException
 } from '@nestjs/common';
 import { FoodService } from './food.service';
 import { CreateFoodDto } from './dto/create-food.dto';
@@ -82,18 +83,50 @@ export class FoodController {
     return await this.foodService.findWithDiscount(page, pageSize, lat ? Number(lat) : undefined, lng ? Number(lng) : undefined);
   }
 
-@Get('search')
-async searchFoods(
-  @Query('query') query: string,
-  @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
-  @Query('pageSize', new DefaultValuePipe(10), ParseIntPipe) pageSize: number,
-  @Query('lat', new DefaultValuePipe(10.7769), ParseFloatPipe) lat: number = 10.7769, // HCM default
-  @Query('lng', new DefaultValuePipe(106.7009), ParseFloatPipe) lng: number = 106.7009,
-  @Query('radius', new DefaultValuePipe(5), ParseIntPipe) radius: number = 5 // km
-) {
-  return await this.foodService.searchFoods(query, page, pageSize, lat, lng, radius);
-}
+  @Get('search')
+  async searchFoods(
+    @Query('query') query: string,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('pageSize', new DefaultValuePipe(10), ParseIntPipe) pageSize: number,
+    @Query('lat', new DefaultValuePipe(10.7769), ParseFloatPipe) lat: number = 10.7769, // HCM default
+    @Query('lng', new DefaultValuePipe(106.7009), ParseFloatPipe) lng: number = 106.7009,
+    @Query('radius', new DefaultValuePipe(5), ParseIntPipe) radius: number = 5 // km
+  ) {
+    return await this.foodService.searchFoods(query, page, pageSize, lat, lng, radius);
+  }
 
+  @Get('by-name')
+  async findByName(
+    @Query('name') name: string,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('pageSize', new DefaultValuePipe(10), ParseIntPipe) pageSize: number,
+    @Query('lat', new DefaultValuePipe(10.7769), ParseFloatPipe) lat: number = 10.7769, // HCM default
+    @Query('lng', new DefaultValuePipe(106.7009), ParseFloatPipe) lng: number = 106.7009,
+    @Query('radius', new DefaultValuePipe(5), ParseIntPipe) radius: number = 5, // km
+    @Query('categoryIds') categoryIds?: string, // comma-separated string
+    @Query('minPrice') minPrice?: number,
+    @Query('maxPrice') maxPrice?: number,
+  ) {
+    if (!name) {
+      throw new BadRequestException('Name query is required');
+    }
+    // Parse categoryIds to array if provided
+    let categoryIdList: string[] | undefined = undefined;
+    if (categoryIds) {
+      categoryIdList = categoryIds.split(',').map(id => id.trim()).filter(Boolean);
+    }
+    return await this.foodService.findByName(
+      name,
+      page,
+      pageSize,
+      lat ? Number(lat) : undefined,
+      lng ? Number(lng) : undefined,
+      radius,
+      categoryIdList,
+      minPrice !== undefined ? Number(minPrice) : undefined,
+      maxPrice !== undefined ? Number(maxPrice) : undefined,
+    );
+  }
   @Get('top')
   async getTopFoodsByRestaurant(
     @Query('restaurantId') restaurantId: string,
@@ -205,4 +238,5 @@ async searchFoods(
     if (!userId) throw new UnauthorizedException('Not authenticated');
     return await this.foodService.updateStatusIfOwner(id, status, userId);
   }
+
 }
