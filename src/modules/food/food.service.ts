@@ -773,5 +773,77 @@ async findOne(id: string, lat?: number, lng?: number): Promise<any> {
         food.status = status;
         return await this.foodRepository.save(food);
     }
+
+    async findByName(
+  name: string,
+  page = 1,
+  pageSize = 10,
+  lat?: number,
+  lng?: number,
+  radius = 5,
+  categoryIds?: string[],
+  minPrice?: number,
+  maxPrice?: number,
+): Promise<{
+  items: any[];
+  totalItems: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}> {
+  const queryBuilder = this.foodRepository.createQueryBuilder('food')
+    .leftJoinAndSelect('food.restaurant', 'restaurant')
+    .leftJoinAndSelect('food.category', 'category')
+    .where('LOWER(food.name) LIKE :name', { name: `%${name.toLowerCase()}%` });
+
+  // Filter by category IDs
+  if (categoryIds && categoryIds.length > 0) {
+    queryBuilder.andWhere('food.category_id IN (:...categoryIds)', { categoryIds });
+  }
+
+  // Filter by min price
+  if (minPrice !== undefined) {
+    queryBuilder.andWhere('food.price >= :minPrice', { minPrice });
+  }
+
+  // Filter by max price
+  if (maxPrice !== undefined) {
+    queryBuilder.andWhere('food.price <= :maxPrice', { maxPrice });
+  }
+
+  // Get all items (no skip/take yet)
+  let items = await queryBuilder.getMany();
+
+  let itemsWithDistance = items.map(food => {
+    let distance: number | null = null;
+    if (lat && lng && food.restaurant?.latitude && food.restaurant?.longitude) {
+      distance = haversineDistance(
+        lat,
+        lng,
+        Number(food.restaurant.latitude),
+        Number(food.restaurant.longitude)
+      );
+    }
+    return { ...food, distance };
+  });
+
+  // Filter and sort by distance if lat/lng provided
+  if (lat && lng) {
+    itemsWithDistance = itemsWithDistance
+      .filter(f => f.distance !== null && f.distance <= radius)
+      .sort((a, b) => (a.distance as number) - (b.distance as number));
+  }
+
+  const totalItems = itemsWithDistance.length;
+  const pagedItems = itemsWithDistance.slice((page - 1) * pageSize, page * pageSize);
+
+  return {
+    items: pagedItems,
+    totalItems,
+    page,
+    pageSize,
+    totalPages: Math.ceil(totalItems / pageSize),
+  };
+}
 }
 

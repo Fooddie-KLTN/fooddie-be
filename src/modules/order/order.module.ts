@@ -18,12 +18,14 @@ import { PaymentModule } from 'src/payment/payment.module';
 import { OrderResolver } from './order.resolver';
 import { RestaurantService } from '../restaurant/restaurant.service';
 import { RestaurantModule } from '../restaurant/restaurant.module';
+import { PromotionService } from '../promotion/promotion.service';
+import { GoogleCloudStorageService } from 'src/gcs/gcs.service';
 
 @Module({
-    imports: [TypeOrmModule.forFeature([Order, User, Restaurant, OrderDetail, Role, Food, Address, Promotion, Checkout]), JwtModule, PaymentModule, RestaurantModule],
+    imports: [TypeOrmModule.forFeature([Order, User, Restaurant, OrderDetail, Role, Food, Address, Promotion, Checkout, Promotion]), JwtModule, PaymentModule, RestaurantModule],
     
     controllers: [OrderController],
-    providers: [OrderService, UsersService, OrderResolver],
+    providers: [OrderService, UsersService, OrderResolver, PromotionService, GoogleCloudStorageService],
     exports: [OrderService],
 })
 export class OrderModule {}

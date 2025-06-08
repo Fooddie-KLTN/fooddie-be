@@ -9,13 +9,14 @@ import { User } from 'src/entities/user.entity';
 import { Restaurant } from 'src/entities/restaurant.entity';
 import { Food } from 'src/entities/food.entity';
 import { Address } from 'src/entities/address.entity';
-import { Promotion } from 'src/entities/promotion.entity';
+import { Promotion, PromotionType } from 'src/entities/promotion.entity';
 import { PaymentDto } from './dto/payment.dto';
 import { log } from 'console';
 import { haversineDistance } from 'src/common/utils/helper';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { Checkout, CheckoutStatus } from 'src/entities/checkout.entity';
 import { pubSub } from 'src/pubsub';
+import { PromotionService } from '../promotion/promotion.service';
 
 @Injectable()
 export class OrderService {
@@ -39,6 +40,7 @@ export class OrderService {
         private dataSource: DataSource,
         @InjectRepository(Checkout)
         private checkoutRepository: Repository<Checkout>,
+        private promotionService: PromotionService, // Add promotion service
     ) { }
 
     private async validateAndCalculateOrderDetails(
@@ -111,29 +113,50 @@ export class OrderService {
             const { calculatedTotal, foodDetails } = await this.validateAndCalculateOrderDetails(data.orderDetails);
             this.logger.log(`Validated order details. Calculated total: ${calculatedTotal}`);
 
-            const totalPrice = await this.calculateOrder({
+            // Calculate order totals with promotion
+            const orderCalculation = await this.calculateOrder({
                 addressId: data.addressId,
                 restaurantId: data.restaurantId,
                 items: data.orderDetails.map(item => ({
                     foodId: item.foodId,
                     quantity: Number(item.quantity),
                 })),
+                promotionCode: data.promotionCode
             });
-            this.logger.log(`Order total calculated: ${totalPrice.total}`);
+
+            // Check if promotion validation failed
+            if (data.promotionCode && orderCalculation.promotionError) {
+                throw new BadRequestException(orderCalculation.promotionError);
+            }
+
+            this.logger.log(`Order total calculated: ${orderCalculation.total}`);
+
+            // Find promotion if code was provided and valid
+            let promotion: Promotion | null = null;
+            if (data.promotionCode && orderCalculation.appliedPromotion) {
+                promotion = await queryRunner.manager.findOne(Promotion, { 
+                    where: { code: data.promotionCode } 
+                });
+            }
+
             // Create order
             const order = new Order();
             order.user = user;
             order.restaurant = restaurant;
-            order.total = totalPrice.total;
+            order.total = orderCalculation.total;
             order.note = data.note || '';
             order.address = address;
             order.date = new Date().toISOString();
+            if (promotion) {
+                order.promotionCode = promotion; // Set promotion if applicable
+            }
+            
             if (data.paymentMethod && data.paymentMethod !== 'cod') {
                 order.status = 'pending';
-            }
-            else
+            } else {
                 order.status = 'processing_payment';
-            order.paymentMethod = data.paymentMethod || 'cod'; // Default to cash on delivery
+            }
+            order.paymentMethod = data.paymentMethod || 'cod';
 
             const savedOrder = await queryRunner.manager.save(Order, order);
             this.logger.log(`Order entity saved with ID: ${savedOrder.id}`);
@@ -141,6 +164,12 @@ export class OrderService {
             // Create order details
             await this.createOrderDetails(savedOrder, foodDetails, queryRunner);
             this.logger.log(`Order details saved for order ID: ${savedOrder.id}`);
+
+            // Use promotion if applied
+            if (promotion) {
+                await this.promotionService.usePromotion(promotion.code, orderCalculation.subtotal);
+                this.logger.log(`Promotion ${promotion.code} applied to order ${savedOrder.id}`);
+            }
 
             await queryRunner.commitTransaction();
             this.logger.log(`Order transaction committed for order ID: ${savedOrder.id}`);
@@ -289,7 +318,8 @@ export class OrderService {
     async calculateOrder(data: {
         addressId: string,
         restaurantId: string,
-        items: { foodId: string, quantity: number }[]
+        items: { foodId: string, quantity: number }[],
+        promotionCode?: string // Add optional promotion code
     }) {
         // 1. Fetch address and restaurant (with coordinates)
         const address = await this.addressRepository.findOne({ where: { id: data.addressId } });
@@ -299,7 +329,7 @@ export class OrderService {
             throw new Error('Invalid address or restaurant');
         }
 
-        // 2. Calculate distance (implement haversineDistance or similar)
+        // 2. Calculate distance
         const distance = haversineDistance(
             Number(address.latitude),
             Number(address.longitude),
@@ -307,7 +337,7 @@ export class OrderService {
             Number(restaurant.address.longitude)
         );
 
-        // 3. Calculate shipping fee (example logic)
+        // 3. Calculate shipping fee
         const shippingFee = distance <= 2 ? 15000 : 15000 + Math.ceil(distance - 2) * 5000;
 
         // 4. Calculate food total
@@ -318,12 +348,60 @@ export class OrderService {
             foodTotal += Number(food.price) * item.quantity;
         }
 
-        // 5. Return calculation
+        let promotionDiscount = 0;
+        let appliedPromotion: Promotion | null = null;
+        let promotionError: string | null = null;
+
+        // 5. Apply promotion if provided
+        if (data.promotionCode) {
+            try {
+                const promotionValidation = await this.promotionService.validatePromotion(
+                    data.promotionCode, 
+                    foodTotal + shippingFee
+                );
+
+                if (promotionValidation.valid && promotionValidation.promotion) {
+                    appliedPromotion = promotionValidation.promotion;
+                    
+                    // Calculate discount based on promotion type
+                    if (appliedPromotion.type === PromotionType.FOOD_DISCOUNT) {
+                        // Apply discount to food total only
+                        promotionDiscount = this.promotionService.calculateDiscount(appliedPromotion, foodTotal);
+                    } else if (appliedPromotion.type === PromotionType.SHIPPING_DISCOUNT) {
+                        // Apply discount to shipping fee only
+                        promotionDiscount = Math.min(
+                            this.promotionService.calculateDiscount(appliedPromotion, shippingFee),
+                            shippingFee // Don't exceed shipping fee
+                        );
+                    }
+                } else {
+                    promotionError = promotionValidation.reason || 'Invalid promotion code';
+                }
+            } catch (error) {
+                promotionError = 'Failed to validate promotion code';
+                this.logger.error(`Promotion validation error: ${error.message}`);
+            }
+        }
+
+        // 6. Calculate final total
+        const subtotal = foodTotal + shippingFee;
+        const total = Math.max(0, subtotal - promotionDiscount); // Ensure total is not negative
+
         return {
             foodTotal,
             shippingFee,
             distance: Number(distance.toFixed(2)),
-            total: foodTotal + shippingFee,
+            subtotal,
+            promotionDiscount,
+            total,
+            appliedPromotion: appliedPromotion ? {
+                id: appliedPromotion.id,
+                code: appliedPromotion.code,
+                description: appliedPromotion.description,
+                type: appliedPromotion.type,
+                discountAmount: promotionDiscount
+            } : null,
+            promotionError
         };
     }
 
@@ -513,5 +591,28 @@ export class OrderService {
 
             this.logger.log(`Order ${order.id} auto-canceled due to payment timeout.`);
         }
+    }
+
+    // Add method to validate promotion for an order
+    async validatePromotionForOrder(
+        promotionCode: string,
+        addressId: string,
+        restaurantId: string,
+        items: { foodId: string, quantity: number }[]
+    ) {
+        const orderCalculation = await this.calculateOrder({
+            addressId,
+            restaurantId,
+            items,
+            promotionCode
+        });
+
+        return {
+            valid: !orderCalculation.promotionError,
+            promotion: orderCalculation.appliedPromotion,
+            discount: orderCalculation.promotionDiscount,
+            error: orderCalculation.promotionError,
+            orderTotal: orderCalculation.total
+        };
     }
 }

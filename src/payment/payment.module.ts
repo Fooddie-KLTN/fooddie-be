@@ -19,10 +19,11 @@ import { Role } from 'src/entities/role.entity';
 import { VnpayPaymentGateway } from './gateways/vnpay-payment.gateway';
 import { Restaurant } from 'src/entities/restaurant.entity';
 import { Address } from 'src/entities/address.entity';
+import { GoogleCloudStorageService } from 'src/gcs/gcs.service';
 
 @Module({
 	imports: [
-		TypeOrmModule.forFeature([Order, OrderDetail, Checkout, User,Food, Role, Promotion, Restaurant, Address]),
+		TypeOrmModule.forFeature([Order, OrderDetail, Checkout, User,Food, Role, Promotion, Restaurant, Address, Promotion]),
 		ConfigModule,
 		JwtModule.registerAsync({
 			imports: [ConfigModule],
@@ -34,7 +35,7 @@ import { Address } from 'src/entities/address.entity';
 		}),
 	],
 	controllers: [PaymentController, DemoPaymentController],
-	providers: [PaymentService, MomoPaymentGateway, OrderService, UsersService, PromotionService, VnpayPaymentGateway],
+	providers: [PaymentService, MomoPaymentGateway,PromotionService, OrderService, UsersService, PromotionService, VnpayPaymentGateway, GoogleCloudStorageService ],
 	exports: [PaymentService],
 })
 export class PaymentModule { } 
