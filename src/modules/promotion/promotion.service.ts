@@ -287,7 +287,12 @@ export class PromotionService {
      * @param type Optional promotion type filter
      * @returns List of active promotions with pagination metadata
      */
-    async getActivePromotionsWithPagination(page = 1, pageSize = 10, type?: PromotionType): Promise<{
+    async getActivePromotionsWithPagination(
+        page = 1,
+        pageSize = 10,
+        type?: PromotionType,
+        name?: string
+    ): Promise<{
         items: Promotion[];
         totalItems: number;
         page: number;
@@ -295,7 +300,7 @@ export class PromotionService {
         totalPages: number;
     }> {
         const now = new Date();
-        
+
         const queryBuilder = this.promotionRepository
             .createQueryBuilder('promotion')
             .where('(promotion.startDate IS NULL OR promotion.startDate <= :now)', { now })
@@ -304,6 +309,9 @@ export class PromotionService {
 
         if (type) {
             queryBuilder.andWhere('promotion.type = :type', { type });
+        }
+        if (name) {
+            queryBuilder.andWhere('LOWER(promotion.description) LIKE :name', { name: `%${name.toLowerCase()}%` });
         }
 
         const [items, totalItems] = await queryBuilder

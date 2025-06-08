@@ -16,12 +16,14 @@ export class PromotionController {
     createPromotion(@Body() createPromotionDto: CreatePromotionDto) {
         return this.promotionService.createPromotion(createPromotionDto);
     }
+
     @Get('all')
     async getPublicActivePromotions(
         @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
         @Query('pageSize', new DefaultValuePipe(10), ParseIntPipe) pageSize: number,
+        @Query('name') name?: string, // <-- Add name query param
     ) {
-        return this.promotionService.getActivePromotionsWithPagination(page, pageSize);
+        return this.promotionService.getActivePromotionsWithPagination(page, pageSize, undefined, name);
     }
 
     @Get()
