@@ -36,11 +36,13 @@ export class Restaurant {
     @Column({ nullable: true })
     backgroundImage: string;
 
+    @Field(() => Address, { nullable: true })
     @ManyToOne(() => Address, address => address.restaurants, { 
         cascade: true,
         eager: true 
       })
-      address: Address;
+    @JoinColumn()
+    address: Address;
 
     @Field({ nullable: true })
     @Column({ nullable: true })
