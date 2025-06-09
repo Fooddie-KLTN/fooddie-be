@@ -169,7 +169,35 @@ export class RestaurantController {
     return restaurant;
   }
 
+  @Get('my/order-count-by-month')
+  @UseGuards(AuthGuard)
+  async getMyOrderCountByMonth(
+    @Req() req: any,
+    @Query('month') month?: string // format: YYYY-MM
+  ) {
+    const userId = req.user?.id;
+    if (!userId) throw new BadRequestException('Not authenticated');
+    return this.restaurantService.getOrderCountByOwner(userId, month);
+  }
 
+  @Get('my/revenue-by-month')
+  @UseGuards(AuthGuard)
+  async getMyRevenueByMonth(
+    @Req() req: any,
+    @Query('month') month?: string // format: YYYY-MM
+  ) {
+    const userId = req.user?.id;
+    if (!userId) throw new BadRequestException('Not authenticated');
+    return this.restaurantService.getRevenueByOwner(userId, month);
+  }
+
+  @Get('my/chart-data')
+  @UseGuards(AuthGuard)
+  async getMyChartData(@Req() req: any) {
+    const userId = req.user?.id;
+    if (!userId) throw new BadRequestException('Not authenticated');
+    return this.restaurantService.getChartDataLast30Days(userId);
+  }
   // 2. Routes with specific ID patterns that include additional path segments
   @Put(':id/approve')
   //@UseGuards(RolesGuard)
@@ -278,25 +306,5 @@ export class RestaurantController {
     return await this.restaurantService.remove(id);
   }
 
-  @Get('my/order-count-by-month')
-  @UseGuards(AuthGuard)
-  async getMyOrderCountByMonth(
-    @Req() req: any,
-    @Query('month') month?: string // format: YYYY-MM
-  ) {
-    const userId = req.user?.id;
-    if (!userId) throw new BadRequestException('Not authenticated');
-    return this.restaurantService.getOrderCountByOwner(userId, month);
-  }
 
-  @Get('my/revenue-by-month')
-  @UseGuards(AuthGuard)
-  async getMyRevenueByMonth(
-    @Req() req: any,
-    @Query('month') month?: string // format: YYYY-MM
-  ) {
-    const userId = req.user?.id;
-    if (!userId) throw new BadRequestException('Not authenticated');
-    return this.restaurantService.getRevenueByOwner(userId, month);
-  }
 }

@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, Between, Not } from 'typeorm';
 import { Restaurant, RestaurantStatus } from 'src/entities/restaurant.entity';
 import { CreateRestaurantDto } from './dto/create-restaurant.dto';
 import { UpdateRestaurantDto } from './dto/update-restaurant.dto';
@@ -10,6 +10,7 @@ import { GeocodingService } from 'src/services/geocoding.service';
 import { Address } from 'src/entities/address.entity';
 import { haversineDistance, estimateDeliveryTime } from 'src/common/utils/helper';
 import { Food } from 'src/entities/food.entity';
+import { subDays, format, startOfDay, endOfDay } from 'date-fns';
 
 @Injectable()
 export class RestaurantService {
@@ -828,20 +829,55 @@ export class RestaurantService {
     async getOrderCountByOwner(ownerId: string, month?: string): Promise<number> {
         const restaurant = await this.findByOwnerId(ownerId);
         if (!restaurant) throw new Error('No restaurant found for this owner');
-        // Implement your logic to count orders for this restaurant in the given month
-        // Example:
-        // return this.orderRepository.count({ where: { restaurant: { id: restaurant.id }, createdAt: ... } });
-        return 0; // Replace with real logic
+
+        const where: any = { restaurant: { id: restaurant.id } };
+
+        // If month is provided (format: 'YYYY-MM'), filter by that month
+        if (month) {
+            const [year, monthNum] = month.split('-').map(Number);
+            const startDate = new Date(year, monthNum - 1, 1);
+            const endDate = new Date(year, monthNum, 1);
+            where.createdAt = Between(startDate, endDate);
+        }
+
+        // Count orders for this restaurant (excluding canceled orders)
+        return await this.foodRepository.manager.getRepository('Order').count({
+            where: {
+                ...where,
+                status: Not('canceled'),
+            },
+        });
     }
 
     async getRevenueByOwner(ownerId: string, month?: string): Promise<number> {
         const restaurant = await this.findByOwnerId(ownerId);
         if (!restaurant) throw new Error('No restaurant found for this owner');
-        // Implement your logic to sum revenue for this restaurant in the given month
-        // Example:
-        // return this.orderRepository.sum('total', { where: { restaurant: { id: restaurant.id }, createdAt: ... } });
-        return 0; // Replace with real logic
+
+        const where: any = { restaurant: { id: restaurant.id } };
+
+        // If month is provided (format: 'YYYY-MM'), filter by that month
+        if (month) {
+            const [year, monthNum] = month.split('-').map(Number);
+            const startDate = new Date(year, monthNum - 1, 1);
+            const endDate = new Date(year, monthNum, 1);
+            where.createdAt = Between(startDate, endDate);
+        }
+
+        // Sum total of completed orders for this restaurant
+        const { sum } = await this.foodRepository.manager.getRepository('Order')
+            .createQueryBuilder('order')
+            .select('SUM(order.total)', 'sum')
+            .where('order.restaurant = :restaurantId', { restaurantId: restaurant.id })
+            .andWhere('order.status = :status', { status: 'completed' })
+            .andWhere(month ? 'order.createdAt >= :startDate AND order.createdAt < :endDate' : '1=1', {
+                startDate: month ? new Date(Number(month.split('-')[0]), Number(month.split('-')[1]) - 1, 1) : undefined,
+                endDate: month ? new Date(Number(month.split('-')[0]), Number(month.split('-')[1]), 1) : undefined,
+            })
+            .getRawOne();
+
+        return Number(sum) || 0;
     }
+
     async searchRestaurants({
         page = 1,
         pageSize = 10,
@@ -936,4 +972,57 @@ export class RestaurantService {
         });
     }
 
+    /**
+     * Get chart data for the last 30 days
+     * 
+     * @param ownerId The owner's user ID
+     * @returns Object containing arrays of days, order counts, and revenues
+     */
+    async getChartDataLast30Days(ownerId: string): Promise<{
+        days: string[];
+        orderCounts: number[];
+        revenues: number[];
+    }> {
+        const restaurant = await this.findByOwnerId(ownerId);
+        if (!restaurant) throw new Error('No restaurant found for this owner');
+
+        const orderRepo = this.foodRepository.manager.getRepository('Order');
+        const days: string[] = [];
+        const orderCounts: number[] = [];
+        const revenues: number[] = [];
+
+        for (let i = 29; i >= 0; i--) {
+            const date = subDays(new Date(), i);
+            const dayStr = format(date, 'yyyy-MM-dd');
+            days.push(dayStr);
+
+            const start = startOfDay(date);
+            const end = endOfDay(date);
+
+            // Order count (excluding canceled)
+            const count = await orderRepo.count({
+                where: {
+                    restaurant: { id: restaurant.id },
+                    status: Not('canceled'),
+                    createdAt: Between(start, end),
+                },
+            });
+            orderCounts.push(count);
+
+            // Revenue (completed orders)
+            const { sum } = await orderRepo.createQueryBuilder('order')
+                .select('SUM(order.total)', 'sum')
+                .where('order.restaurant = :restaurantId', { restaurantId: restaurant.id })
+                .andWhere('order.status = :status', { status: 'completed' })
+                .andWhere('order.createdAt >= :start AND order.createdAt <= :end', { start, end })
+                .getRawOne();
+            revenues.push(Number(sum) || 0);
+        }
+
+        return {
+            days,
+            orderCounts,
+            revenues,
+        };
+    }
 }

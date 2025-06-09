@@ -23,7 +23,6 @@
     "migration:run": "npm run typeorm -- migration:run -d src/config/data-source.ts",
     "migration:revert": "npm run typeorm -- migration:revert -d src/config/data-source.ts",
     "migration:show": "npm run typeorm -- migration:show -d src/config/data-source.ts"
-
   },
   "dependencies": {
     "@apollo/server": "^4.12.1",
@@ -47,6 +46,7 @@
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
     "connect-typeorm": "^2.0.0",
+    "date-fns": "^4.1.0",
     "express-session": "^1.18.1",
     "firebase-admin": "^13.1.0",
     "graphql": "^16.11.0",
