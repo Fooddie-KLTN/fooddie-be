@@ -163,9 +163,7 @@ export class UsersService {
   async findAll(): Promise<UserResponse[]> {
     const users = await this.usersRepository
       .createQueryBuilder('user')
-      .leftJoinAndSelect('user.studentGroup', 'studentGroup')
-      .leftJoinAndSelect('user.userCourses', 'userCourses')
-      .select([
+            .select([
         'user.id',
         'user.name',
         'user.username',
@@ -173,8 +171,6 @@ export class UsersService {
         'user.email',
         'user.createdAt',
         'user.lastLoginAt',
-        'studentGroup.name',
-        'userCourses',
       ])
       .getMany();
 

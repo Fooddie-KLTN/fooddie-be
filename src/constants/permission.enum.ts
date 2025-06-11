@@ -63,13 +63,6 @@ export const Permission = {
     DELETE: 'PROMOTION_DELETE',
     ALL: 'PROMOTION_LIST',
   },
-  EVENT: {
-    CREATE: 'EVENT_CREATE',
-    WRITE: 'EVENT_UPDATE',
-    READ: 'EVENT_READ',
-    DELETE: 'EVENT_DELETE',
-    ALL: 'EVENT_LIST',
-  }
 } as const;
 
 export type PermissionType = (typeof Permission)[keyof typeof Permission];

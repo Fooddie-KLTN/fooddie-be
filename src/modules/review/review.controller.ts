@@ -1,17 +1,20 @@
-import { Controller, Post, Get, Put, Delete, Body, Param } from '@nestjs/common';
+import { Controller, Post, Get, Put, Delete, Body, Param, UseGuards } from '@nestjs/common';
 import { ReviewService } from './review.service';
 import { CreateFoodReviewDto, CreateShipperReviewDto, UpdateReviewDto } from './dto/create-review.dto';
+import { AuthGuard } from 'src/auth/auth.guard';
 
 @Controller('reviews')
 export class ReviewController {
     constructor(private readonly reviewService: ReviewService) {}
 
     @Post('food')
+    @UseGuards(AuthGuard)
     createFoodReview(@Body() createFoodReviewDto: CreateFoodReviewDto) {
         return this.reviewService.createFoodReview(createFoodReviewDto);
     }
 
     @Post('shipper')
+    @UseGuards(AuthGuard)
     createShipperReview(@Body() createShipperReviewDto: CreateShipperReviewDto) {
         return this.reviewService.createShipperReview(createShipperReviewDto);
     }

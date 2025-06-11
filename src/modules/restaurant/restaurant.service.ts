@@ -618,6 +618,12 @@ export class RestaurantService {
     ): Restaurant & { distance: number | null; deliveryTime: number | null } {
         let distance: number | null = null;
         let deliveryTime: number | null = null;
+        const restaurantLat = restaurant.latitude ? Number(restaurant.latitude) : null;
+        const restaurantLng = restaurant.longitude ? Number(restaurant.longitude) : null;
+        if (restaurant.latitude != null && restaurant.longitude != null) {
+            restaurant.latitude = restaurant.address.latitude;
+            restaurant.longitude = restaurant.address.longitude;
+        }
         if (lat != null && lng != null && restaurant.latitude != null && restaurant.longitude != null) {
             distance = haversineDistance(lat, lng, Number(restaurant.latitude), Number(restaurant.longitude));
             deliveryTime = estimateDeliveryTime(distance);
@@ -759,7 +765,7 @@ export class RestaurantService {
     async findOne(id: string, lat?: number, lng?: number): Promise<Restaurant & { distance: number | null; deliveryTime: number | null }> {
         const restaurant = await this.restaurantRepository.findOne({
             where: { id },
-            relations: ['owner', 'foods']
+            relations: [ 'foods']
         });
 
         if (!restaurant) {
