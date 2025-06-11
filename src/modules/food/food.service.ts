@@ -6,8 +6,10 @@ import { CreateFoodDto } from './dto/create-food.dto';
 import { UpdateFoodDto } from './dto/update-food.dto';
 import { Restaurant } from 'src/entities/restaurant.entity';
 import { Category } from 'src/entities/category.entity';
-import { GoogleCloudStorageService } from 'src/gcs/gcs.service'; // Add this import
+import { Review } from 'src/entities/review.entity'; // Add this import
+import { GoogleCloudStorageService } from 'src/gcs/gcs.service';
 import { haversineDistance } from 'src/common/utils/helper';
+import { log } from 'console';
 
 @Injectable()
 export class FoodService {
@@ -18,7 +20,9 @@ export class FoodService {
         private restaurantRepository: Repository<Restaurant>,
         @InjectRepository(Category)
         private categoryRepository: Repository<Category>,
-        private readonly gcsService: GoogleCloudStorageService, // Inject GCS service
+        @InjectRepository(Review) // Add this injection
+        private reviewRepository: Repository<Review>,
+        private readonly gcsService: GoogleCloudStorageService,
     ) { }
 /**
      * Get top foods by sold count for a restaurant
@@ -584,24 +588,56 @@ async searchFoods(
   lng?: number,
   radius = 5
 ): Promise<{
-  items: any[]; // Use any[] to allow distance property
+  items: any[];
   totalItems: number;
   page: number;
   pageSize: number;
   totalPages: number;
 }> {
+  console.log('=== searchFoods Debug ===');
+  console.log('Input parameters:', {
+    query,
+    page,
+    pageSize,
+    lat,
+    lng,
+    radius
+  });
+
   const queryBuilder = this.foodRepository.createQueryBuilder('food')
     .leftJoinAndSelect('food.restaurant', 'restaurant')
     .leftJoinAndSelect('food.category', 'category');
 
-  if (query) {
-    queryBuilder.where('food.name ILIKE :query OR food.description ILIKE :query', { query: `%${query}%` });
+  // Add search condition - if no query provided, return all foods
+  if (query && query.trim()) {
+    queryBuilder.where('food.name ILIKE :query OR food.description ILIKE :query', { 
+      query: `%${query.trim()}%` 
+    });
+    console.log('Added search filter for:', query.trim());
+  } else {
+    console.log('No search query provided, returning all foods');
   }
 
-  let [items, totalItems] = await queryBuilder.getManyAndCount();
+  console.log('Query SQL:', queryBuilder.getQuery());
+  console.log('Query parameters:', queryBuilder.getParameters());
 
-  // Add distance if lat/lng provided
+  // Get all matching items first
+  let items = await queryBuilder.getMany();
+  console.log('Raw items found:', items.length);
+
+  if (items.length > 0) {
+    console.log('First item example:', {
+      id: items[0].id,
+      name: items[0].name,
+      restaurant: items[0].restaurant?.name
+    });
+  }
+
+  // Add distance and apply location filtering if coordinates provided
   if (lat && lng) {
+    console.log('Applying distance filtering...');
+    const beforeFilter = items.length;
+    
     items = items
       .filter(f => f.restaurant?.latitude && f.restaurant?.longitude)
       .map(f => ({
@@ -611,18 +647,38 @@ async searchFoods(
       .filter(f => f.distance <= radius)
       .sort((a, b) => a.distance - b.distance);
 
-    totalItems = items.length;
-    items = items.slice((page - 1) * pageSize, page * pageSize);
+    console.log(`Distance filter: ${beforeFilter} -> ${items.length} (within ${radius}km)`);
+    
+    if (items.length > 0) {
+      console.log('Distance examples:', items.slice(0, 3).map(f => ({
+        name: f.name,
+        distance: haversineDistance(lat, lng, Number(f.restaurant.latitude), Number(f.restaurant.longitude))
+      })));
+    }
   } else {
-    items = items.slice((page - 1) * pageSize, page * pageSize);
+    // Add null distance for consistency
+    items = items.map(f => ({ ...f, distance: null }));
   }
 
+  // Calculate pagination
+  const totalItems = items.length;
+  const totalPages = Math.ceil(totalItems / pageSize);
+  const pagedItems = items.slice((page - 1) * pageSize, page * pageSize);
+
+  console.log('Final result:', {
+    totalItems,
+    pagedItemsCount: pagedItems.length,
+    page,
+    totalPages
+  });
+  console.log('=== End searchFoods Debug ===');
+
   return {
-    items,
+    items: pagedItems,
     totalItems,
     page,
     pageSize,
-    totalPages: Math.ceil(totalItems / pageSize),
+    totalPages,
   };
 }
     /**
@@ -632,22 +688,118 @@ async searchFoods(
      * @returns The food details
      */
 async findOne(id: string, lat?: number, lng?: number): Promise<any> {
-    const food = await this.foodRepository.findOne({
-        where: { id },
-        relations: ['restaurant', 'category']
-    });
+    console.log('=== findOne Debug ===');
+    console.log('Looking for food with ID:', id);
+    
+    // First get the food with basic relations
+    const food = await this.foodRepository
+        .createQueryBuilder('food')
+        .leftJoinAndSelect('food.restaurant', 'restaurant')
+        .leftJoinAndSelect('restaurant.address', 'address')
+        .leftJoinAndSelect('food.category', 'category')
+        .where('food.id = :id', { id })
+        .getOne();
 
     if (!food) {
         throw new NotFoundException(`Food with ID ${id} not found`);
     }
 
-    let result: any = food;
+    // Separately get the top 3 reviews for this food
+    const topReviews = await this.foodRepository
+        .createQueryBuilder('food')
+        .leftJoinAndSelect('food.reviews', 'reviews')
+        .leftJoinAndSelect('reviews.user', 'reviewUser')
+        .where('food.id = :id', { id })
+        .andWhere('reviews.type = :type', { type: 'food' })
+        .andWhere('reviews.rating IS NOT NULL')
+        .orderBy('reviews.rating', 'DESC')
+        .addOrderBy('reviews.createdAt', 'DESC')
+        .limit(3)
+        .getOne();
+
+    // Get all reviews count for statistics
+    const allReviewsData = await this.foodRepository
+        .createQueryBuilder('food')
+        .leftJoin('food.reviews', 'allReviews')
+        .select([
+            'COUNT(allReviews.id) as total_reviews',
+            'AVG(allReviews.rating) as average_rating'
+        ])
+        .where('food.id = :id', { id })
+        .andWhere('allReviews.type = :type', { type: 'food' })
+        .andWhere('allReviews.rating IS NOT NULL')
+        .getRawOne();
+
+    console.log('Food found:', food.id, food.name);
+    console.log('Top 3 reviews found:', topReviews?.reviews?.length || 0);
+    console.log('Total reviews stats:', allReviewsData);
+
+    // Calculate statistics
+    const totalReviews = parseInt(allReviewsData?.total_reviews || '0');
+    const averageRating = allReviewsData?.average_rating ? 
+        Number(parseFloat(allReviewsData.average_rating).toFixed(1)) : null;
+
+    console.log('Calculated stats - Total:', totalReviews, 'Average:', averageRating);
+
+    // Prepare clean result
+    const result: any = {
+        ...food,
+        rating: averageRating,
+        totalReviews,
+        restaurant: food.restaurant ? {
+            id: food.restaurant.id,
+            name: food.restaurant.name,
+            description: food.restaurant.description,
+            avatar: food.restaurant.avatar,
+            backgroundImage: food.restaurant.backgroundImage,
+            phoneNumber: food.restaurant.phoneNumber,
+            status: food.restaurant.status,
+            latitude: food.restaurant.latitude,
+            longitude: food.restaurant.longitude,
+            openTime: food.restaurant.openTime,
+            closeTime: food.restaurant.closeTime,
+            createdAt: food.restaurant.createdAt,
+            updatedAt: food.restaurant.updatedAt,
+            address: food.restaurant.address ? {
+                id: food.restaurant.address.id,
+                street: food.restaurant.address.street,
+                ward: food.restaurant.address.ward,
+                district: food.restaurant.address.district,
+                city: food.restaurant.address.city,
+                latitude: food.restaurant.address.latitude,
+                longitude: food.restaurant.address.longitude
+            } : null
+        } : null,
+        // Only include top 3 reviews
+        reviews: topReviews?.reviews ? topReviews.reviews.map(review => ({
+            id: review.id,
+            rating: review.rating,
+            comment: review.comment,
+            image: review.image,
+            createdAt: review.createdAt,
+            user: review.user ? {
+                id: review.user.id,
+                name: review.user.name,
+                avatar: review.user.avatar
+            } : null
+        })) : []
+    };
+
+    // Add distance if coordinates provided
     if (lat && lng && food.restaurant?.latitude && food.restaurant?.longitude) {
-        result = {
-            ...food,
-            distance: haversineDistance(lat, lng, Number(food.restaurant.latitude), Number(food.restaurant.longitude))
-        };
+        result.distance = haversineDistance(
+            lat, 
+            lng, 
+            Number(food.restaurant.latitude), 
+            Number(food.restaurant.longitude)
+        );
     }
+
+    console.log('Final result - Reviews count:', result.reviews?.length || 0);
+    console.log('Final result - Total reviews:', result.totalReviews);
+    console.log('Final result - Average rating:', result.rating);
+    console.log('=== End findOne Debug ===');
+
     return result;
 }
 
@@ -775,7 +927,7 @@ async findOne(id: string, lat?: number, lng?: number): Promise<any> {
     }
 
     async findByName(
-  name: string,
+  name?: string, // Made optional
   page = 1,
   pageSize = 10,
   lat?: number,
@@ -791,28 +943,69 @@ async findOne(id: string, lat?: number, lng?: number): Promise<any> {
   pageSize: number;
   totalPages: number;
 }> {
+  console.log('=== findByName Debug ===');
+  console.log('Input parameters:', {
+    name,
+    decodedName: name ? decodeURIComponent(name) : 'No name filter',
+    page,
+    pageSize,
+    lat,
+    lng,
+    radius,
+    categoryIds,
+    minPrice,
+    maxPrice
+  });
+
   const queryBuilder = this.foodRepository.createQueryBuilder('food')
     .leftJoinAndSelect('food.restaurant', 'restaurant')
-    .leftJoinAndSelect('food.category', 'category')
-    .where('LOWER(food.name) LIKE :name', { name: `%${name.toLowerCase()}%` });
+    .leftJoinAndSelect('food.category', 'category');
+
+  // Only add name filter if name is provided
+  if (name && name.trim()) {
+    queryBuilder.where('LOWER(food.name) LIKE :name', { name: `%${name.toLowerCase()}%` });
+    console.log('Added name filter:', name);
+  }
 
   // Filter by category IDs
   if (categoryIds && categoryIds.length > 0) {
-    queryBuilder.andWhere('food.category_id IN (:...categoryIds)', { categoryIds });
+    if (name && name.trim()) {
+      queryBuilder.andWhere('food.category_id IN (:...categoryIds)', { categoryIds });
+    } else {
+      queryBuilder.where('food.category_id IN (:...categoryIds)', { categoryIds });
+    }
+    console.log('Added category filter:', categoryIds);
   }
 
   // Filter by min price
   if (minPrice !== undefined) {
-    queryBuilder.andWhere('food.price >= :minPrice', { minPrice });
+    const whereMethod = (name && name.trim()) || (categoryIds && categoryIds.length > 0) ? 'andWhere' : 'where';
+    queryBuilder[whereMethod]('food.price >= :minPrice', { minPrice });
+    console.log('Added minPrice filter:', minPrice);
   }
 
   // Filter by max price
   if (maxPrice !== undefined) {
-    queryBuilder.andWhere('food.price <= :maxPrice', { maxPrice });
+    const whereMethod = (name && name.trim()) || (categoryIds && categoryIds.length > 0) || (minPrice !== undefined) ? 'andWhere' : 'where';
+    queryBuilder[whereMethod]('food.price <= :maxPrice', { maxPrice });
+    console.log('Added maxPrice filter:', maxPrice);
   }
+
+  console.log('Final query:', queryBuilder.getQuery());
+  console.log('Query parameters:', queryBuilder.getParameters());
 
   // Get all items (no skip/take yet)
   let items = await queryBuilder.getMany();
+  console.log('Raw items found after query:', items.length);
+  
+  if (items.length > 0) {
+    console.log('First item example:', {
+      id: items[0].id,
+      name: items[0].name,
+      restaurant: items[0].restaurant?.name,
+      category: items[0].category?.name
+    });
+  }
 
   let itemsWithDistance = items.map(food => {
     let distance: number | null = null;
@@ -827,15 +1020,38 @@ async findOne(id: string, lat?: number, lng?: number): Promise<any> {
     return { ...food, distance };
   });
 
+  console.log('Items with distance calculated:', itemsWithDistance.length);
+
   // Filter and sort by distance if lat/lng provided
   if (lat && lng) {
+    const beforeFilter = itemsWithDistance.length;
     itemsWithDistance = itemsWithDistance
       .filter(f => f.distance !== null && f.distance <= radius)
       .sort((a, b) => (a.distance as number) - (b.distance as number));
+    console.log(`Distance filter: ${beforeFilter} -> ${itemsWithDistance.length} (within ${radius}km)`);
+    
+    // Log some distance examples
+    if (itemsWithDistance.length > 0) {
+      console.log('Distance examples:', itemsWithDistance.slice(0, 3).map(f => ({
+        name: f.name,
+        distance: f.distance,
+        restaurantLat: f.restaurant?.latitude,
+        restaurantLng: f.restaurant?.longitude
+      })));
+    }
   }
 
   const totalItems = itemsWithDistance.length;
   const pagedItems = itemsWithDistance.slice((page - 1) * pageSize, page * pageSize);
+
+  console.log('Final result:', {
+    totalItems,
+    pagedItemsCount: pagedItems.length,
+    page,
+    pageSize,
+    totalPages: Math.ceil(totalItems / pageSize)
+  });
+  console.log('=== End findByName Debug ===');
 
   return {
     items: pagedItems,
@@ -845,5 +1061,164 @@ async findOne(id: string, lat?: number, lng?: number): Promise<any> {
     totalPages: Math.ceil(totalItems / pageSize),
   };
 }
+
+    /**
+     * Get reviews for a specific food with pagination
+     * 
+     * @param foodId The food ID
+     * @param page The page number
+     * @param pageSize The number of items per page
+     * @param sortBy The field to sort by (rating, createdAt)
+     * @param sortOrder The sort order (ASC, DESC)
+     * @param minRating Filter by minimum rating
+     * @param maxRating Filter by maximum rating
+     * @returns List of reviews for the food with pagination metadata
+     */
+    async getReviewsByFood(
+        foodId: string,
+        page = 1,
+        pageSize = 10,
+        sortBy = 'createdAt',
+        sortOrder: 'ASC' | 'DESC' = 'DESC',
+        minRating?: number,
+        maxRating?: number,
+    ): Promise<{
+        items: any[];
+        totalItems: number;
+        page: number;
+        pageSize: number;
+        totalPages: number;
+        averageRating: number | null;
+        ratingDistribution: { [key: number]: number };
+    }> {
+        console.log('=== getReviewsByFood Debug ===');
+        console.log('Input parameters:', {
+            foodId,
+            page,
+            pageSize,
+            sortBy,
+            sortOrder,
+            minRating,
+            maxRating
+        });
+
+        // First, verify the food exists
+        const food = await this.foodRepository.findOne({
+            where: { id: foodId },
+            select: ['id', 'name']
+        });
+
+        if (!food) {
+            throw new NotFoundException(`Food with ID ${foodId} not found`);
+        }
+
+        console.log('Food found:', food.name);
+
+        // Build the query
+        const queryBuilder = this.reviewRepository
+            .createQueryBuilder('review')
+            .leftJoinAndSelect('review.user', 'user')
+            .where('review.food_id = :foodId', { foodId })
+            .andWhere('review.type = :type', { type: 'food' });
+
+        // Add rating filters if provided
+        if (minRating !== undefined) {
+            queryBuilder.andWhere('review.rating >= :minRating', { minRating });
+            console.log('Added minRating filter:', minRating);
+        }
+
+        if (maxRating !== undefined) {
+            queryBuilder.andWhere('review.rating <= :maxRating', { maxRating });
+            console.log('Added maxRating filter:', maxRating);
+        }
+
+        // Add sorting
+        const validSortFields = ['rating', 'createdAt'];
+        const sortField = validSortFields.includes(sortBy) ? sortBy : 'createdAt';
+        queryBuilder.orderBy(`review.${sortField}`, sortOrder);
+        console.log('Sorting by:', sortField, sortOrder);
+
+        // Get total count
+        const totalItems = await queryBuilder.getCount();
+        console.log('Total reviews found:', totalItems);
+
+        // Apply pagination
+        const items = await queryBuilder
+            .skip((page - 1) * pageSize)
+            .take(pageSize)
+            .getMany();
+
+        console.log('Paginated items:', items.length);
+
+        // Calculate statistics
+        const statsQuery = this.reviewRepository
+            .createQueryBuilder('review')
+            .where('review.food_id = :foodId', { foodId })
+            .andWhere('review.type = :type', { type: 'food' })
+            .andWhere('review.rating IS NOT NULL');
+
+        const averageResult = await statsQuery
+            .select('AVG(review.rating)', 'average')
+            .getRawOne();
+
+        const averageRating = averageResult?.average ? 
+            Number(parseFloat(averageResult.average).toFixed(1)) : null;
+
+        // Get rating distribution
+        const distributionResult = await statsQuery
+            .select('review.rating', 'rating')
+            .addSelect('COUNT(*)', 'count')
+            .groupBy('review.rating')
+            .getRawMany();
+
+        const ratingDistribution: { [key: number]: number } = {};
+        for (let i = 1; i <= 5; i++) {
+            ratingDistribution[i] = 0;
+        }
+        distributionResult.forEach(item => {
+            if (item.rating) {
+                ratingDistribution[item.rating] = parseInt(item.count);
+            }
+        });
+
+        console.log('Statistics calculated:', {
+            averageRating,
+            ratingDistribution
+        });
+
+        // Format the response
+        const formattedItems = items.map(review => ({
+            id: review.id,
+            rating: review.rating,
+            comment: review.comment,
+            image: review.image,
+            createdAt: review.createdAt,
+            user: review.user ? {
+                id: review.user.id,
+                name: review.user.name,
+                avatar: review.user.avatar
+            } : null
+        }));
+
+        const result = {
+            items: formattedItems,
+            totalItems,
+            page,
+            pageSize,
+            totalPages: Math.ceil(totalItems / pageSize),
+            averageRating,
+            ratingDistribution
+        };
+
+        console.log('Final result:', {
+            totalItems: result.totalItems,
+            itemsCount: result.items.length,
+            totalPages: result.totalPages,
+            averageRating: result.averageRating
+        });
+        console.log('=== End getReviewsByFood Debug ===');
+
+        return result;
+    }
 }
 

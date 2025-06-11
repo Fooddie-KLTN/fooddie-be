@@ -5,6 +5,7 @@ import { Category } from './category.entity';
 import { Restaurant } from './restaurant.entity';
 import { OrderDetail } from './orderDetail.entity';
 import { Checkout } from './checkout.entity';
+import { Review } from './review.entity'; // Add this import
 import { ObjectType, Field, ID } from '@nestjs/graphql';
 
 @ObjectType()
@@ -86,4 +87,9 @@ export class Food {
     @Field(() => [OrderDetail], { nullable: true })
     @OneToMany(() => OrderDetail, (orderDetail) => orderDetail.food)
     orderDetails: OrderDetail[];
+
+    // Add the reviews relationship
+    @Field(() => [Review], { nullable: true })
+    @OneToMany(() => Review, (review) => review.food)
+    reviews?: Review[];
 }

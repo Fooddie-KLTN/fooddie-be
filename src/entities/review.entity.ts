@@ -23,12 +23,12 @@ export class Review {
     id: string;
 
     @Field(() => User)
-    @ManyToOne(() => User, { eager: true })
+    @ManyToOne(() => User) // Remove eager: true to avoid circular loading
     @JoinColumn({ name: 'user_id' })
     user: User;
 
     @Field(() => Food, { nullable: true })
-    @ManyToOne(() => Food, { eager: true })
+    @ManyToOne(() => Food) // Remove eager: true to avoid circular loading
     @JoinColumn({ name: 'food_id' })
     food: Food;
 
@@ -49,7 +49,7 @@ export class Review {
     type: 'food' | 'shipper';
 
     @Field(() => User, { nullable: true })
-    @ManyToOne(() => User, { eager: true })
+    @ManyToOne(() => User) // Remove eager: true to avoid circular loading
     @JoinColumn({ name: 'shipper_id' })
     shipper: User;
     

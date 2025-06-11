@@ -73,8 +73,8 @@ async updateMe(@Req() req, @Body() body: any): Promise<User> {
   }
 
   @Get()
-  @UseGuards(RolesGuard)
-  @Permissions(Permission.USER.READ)
+  //@UseGuards(RolesGuard)
+  //@Permissions(Permission.USER.READ)
   async findAll(): Promise<UserResponse[]> {
     return await this.usersService.findAll();
   }  

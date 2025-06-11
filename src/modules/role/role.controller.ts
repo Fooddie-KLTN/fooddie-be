@@ -1,49 +1,38 @@
 /* eslint-disable prettier/prettier */
 // src/roles/roles.controller.ts
-import { Controller, Post, Body, UseGuards, Get, Query, Req, UnauthorizedException, ForbiddenException, HttpCode, HttpStatus } from '@nestjs/common';
-import { RolesService } from './role.service';
+import { Controller, Post, Body, UseGuards, Get, Query, Req, UnauthorizedException, ForbiddenException, HttpCode, HttpStatus, Delete, Param, Put } from '@nestjs/common';
 import { CreateRoleDto } from './dto/create-role.dto';
 import { RolesGuard } from 'src/common/guard/role.guard';
 import { Permissions } from 'src/common/decorator/permissions.decorator';
-import { Permission } from 'src/constants/permission.enum';
+import { Permission, PermissionType } from 'src/constants/permission.enum';
 import { AuthGuard } from 'src/auth/auth.guard';
 import { Request } from 'express';
-import { DefaultRole } from 'src/entities/role.entity';
+import { DefaultRole, Role } from 'src/entities/role.entity';
+import { User } from 'src/entities/user.entity';
+import { RoleDetailsDto } from './dto/role-details.dto';
+import { UpdateRoleDto } from './dto/update-role.dto';
+import { RolesService } from './role.service';
+import { Permission as PermissionEntity } from '../../entities/permission.entity';
 
 @Controller('role')
-@UseGuards(RolesGuard)
+
 export class RoleController {
   constructor(private readonly roleService: RolesService) { }
 
   @Post()
+  @UseGuards(RolesGuard)
   @Permissions(Permission.ROLE.CREATE)  // Chỉ cho phép những user có permission 'create_role'
   async create(@Body() createRoleDto: CreateRoleDto) {
     return await this.roleService.createRole(createRoleDto);
   }
 
   @Get()
+  @UseGuards(RolesGuard)
   @Permissions(Permission.ROLE.READ)  // Ví dụ: xem danh sách role
   async findAll() {
     return await this.roleService.findAll();
   }
 
-  // @Get(':id')
-  // @Permissions(Permission.ROLE.READ)  // Ví dụ: xem thông tin role
-  // async findOne(@Body() id: string) {
-  //   return await this.roleService.findOne(id);
-  // }
-
-  // @Post(':id')
-  // @Permissions(Permission.ROLE.CREATE)  // Chỉ cho phép những user có permission 'update_role'
-  // async update(@Body() id: string, @Body() updateRoleDto: CreateRoleDto) {
-  //   return await this.roleService.update(id, updateRoleDto);
-  // }
-
-  // @Post(':id')
-  // @Permissions(Permission.ROLE.DELETE)  // Chỉ cho phép những user có permission 'delete_role'
-  // async delete(@Body() id: string) {
-  //   return await this.roleService.remove(id);
-  // } 
 
   /**
  * Adds users to a role.
@@ -62,22 +51,12 @@ export class RoleController {
  * 
  * This will add users with IDs "user456" and "user789" to the role with ID "role123".
  */
-  @Post('add-users')
-  @Permissions(Permission.ROLE.WRITE)
-  async addUsersToRole(@Body('roleId') roleId: string, @Body('userIds') userIds: string[]) {
-    return await this.roleService.addUsersToRole(roleId, userIds);
-  }
 
-  @Post('remove-users')
-  @Permissions(Permission.ROLE.WRITE)
-  async removeUsersFromRole(@Body('roleId') roleId: string, @Body('userIds') userIds: string[]) {
-    return await this.roleService.removeUsersFromRole(roleId, userIds);
-  }
-
-  @Get('users')
+  @Get('permissions')
+  @UseGuards(RolesGuard)
   @Permissions(Permission.ROLE.READ)
-  async getUsersByRole(@Query('roleId') roleId: string) {
-    return await this.roleService.getUsersByRole(roleId);
+  async getAllPermissions(): Promise<PermissionType[]> {
+    return this.roleService.getAllPermissions();
   }
 
   /**
@@ -119,4 +98,226 @@ export class RoleController {
       throw new ForbiddenException('Insufficient permissions.'); // This will result in an HTTP 403
     }
   }
+
+
+  /**
+   * Get role by ID
+   * 
+   * @param id - Role ID to find
+   * @returns The requested role
+   */
+  @Get(':id')
+  @UseGuards(RolesGuard)
+  @Permissions(Permission.ROLE.READ)
+  async findById(@Param('id') id: string): Promise<RoleDetailsDto> {
+    return this.roleService.getRoleDetails(id);
+  }
+  /**
+   * Update permissions for a role
+   * 
+   * @param roleId - Role ID to update permissions for
+   * @param permissions - Array of permission names to set
+   * @returns The updated role with new permissions
+   */
+  @Put(':id/permissions')
+  @UseGuards(RolesGuard)
+  @Permissions(Permission.ROLE.WRITE)
+  async updateRolePermissions(
+    @Param('id') roleId: string,
+    @Body('permissions') permissionNames: string[],
+  ): Promise<Role> {
+    return this.roleService.updateRolePermissions(roleId, permissionNames);
+  }
+  /**
+* Update role details
+* 
+* @param roleId - Role ID to update
+* @param updateRoleDto - The data to update the role with
+* @returns The updated role
+*/
+  @Put(':id')
+  @UseGuards(RolesGuard)
+  @Permissions(Permission.ROLE.WRITE)
+  async updateRoleDetails(
+    @Param('id') roleId: string,
+    @Body() updateRoleDto: UpdateRoleDto,
+  ): Promise<Role> {
+    return this.roleService.updateRoleDetails(roleId, updateRoleDto);
+  }
+  /**
+   * Get users who don't have a specific role
+   * 
+   * @param roleId - Role ID to exclude
+   * @param limit - Maximum number of users to return (optional)
+   * @param search - Search term to filter by name, username or email (optional)
+   * @returns List of users without the specified role
+   */
+  @Get(':id/users/available')
+  @UseGuards(RolesGuard)
+  @Permissions(Permission.ROLE.READ, Permission.USER.READ)
+  async getUsersWithoutRole(
+    @Param('id') roleId: string,
+    @Query('limit') limit?: number,
+    @Query('search') search?: string
+  ): Promise<User[]> {
+    return this.roleService.getUsersWithoutRole({
+      roleId,
+      limit: limit ? parseInt(limit.toString(), 10) : undefined,
+      searchTerm: search
+    });
+  }
+  /**
+ * Get permissions for a specific role
+ * 
+ * @param roleId - Role ID to get permissions for
+ * @returns List of role's permissions
+ */
+  @Get(':id/permissions')
+  @UseGuards(RolesGuard)
+  @Permissions(Permission.ROLE.READ)
+  async getRolePermissions(@Param('id') roleId: string): Promise<PermissionEntity[] | string[]> {
+    return this.roleService.getUserPermissions(roleId, true);
+  }
+
+  /**
+   * Add users to a role
+   * 
+   * @param roleId - Role ID to add users to
+   * @param userIds - Array of user IDs to add
+   * @returns The updated role
+   */
+  @Post(':id/users')
+  @UseGuards(RolesGuard)
+  @Permissions(Permission.ROLE.WRITE)
+  async addUsersToRole(
+    @Param('id') roleId: string,
+    @Body('userIds') userIds: string[],
+  ): Promise<Role> {
+    return this.roleService.addUsersToRole(roleId, userIds);
+  }
+  /**
+   * Assign multiple users to a role
+   * 
+   * @param roleId - Role ID to assign users to
+   * @param userIds - Array of user IDs to assign to the role
+   * @returns The updated role with assigned users
+   */
+  @Post(':id/assign-users')
+  @UseGuards(RolesGuard)
+  @Permissions(Permission.ROLE.WRITE, Permission.ROLE.WRITE)
+  async assignUsersToRole(
+    @Param('id') roleId: string,
+    @Body('userIds') userIds: string[],
+  ): Promise<Role> {
+    return this.roleService.assignUsersToRole(roleId, userIds);
+  }
+  /**
+   * Remove users from a role
+   * 
+   * @param roleId - Role ID to remove users from
+   * @param userIds - Array of user IDs to remove
+   * @returns The updated role
+   */
+  @Post(':id/users/remove')
+  @UseGuards(RolesGuard)
+  @Permissions(Permission.ROLE.WRITE)
+  async removeUsersFromRole(
+    @Param('id') roleId: string,
+    @Body('userIds') userIds: string[],
+  ): Promise<Role> {
+    return this.roleService.removeUsersFromRole(roleId, userIds);
+  }
+
+  /**
+   * Get all users with a specific role
+   * 
+   * @param roleId - Role ID to get users for
+   * @returns List of users with the role
+   */
+  @Get(':id/users')
+  @UseGuards(RolesGuard)
+  @Permissions(Permission.ROLE.READ, Permission.USER.READ)
+  async getUsersByRole(@Param('id') roleId: string): Promise<User[]> {
+    return this.roleService.getUsersByRole(roleId);
+  }
+
+  /**
+   * Get permissions for a specific user
+   * 
+   * @param userId - User ID to get permissions for
+   * @returns List of user's permissions
+   */
+  @Get('user/:userId/permissions')
+  @UseGuards(RolesGuard)
+  @Permissions(Permission.ROLE.READ, Permission.USER.READ)
+  async getUserRoleAndPermissionForSpecifictUser(@Param('userId') userId: string): Promise<PermissionEntity[] | string[]> {
+    return this.roleService.getUserPermissions(userId);
+  }
+
+  /**
+   * Check if a role has a specific permission
+   * 
+   * @param roleId - Role ID to check
+   * @param permissionName - Permission name to check
+   * @returns Boolean indicating if the role has the permission
+   */
+  @Get('check-permission/:roleId/:permissionName')
+  @UseGuards(RolesGuard)
+  @Permissions(Permission.ROLE.READ)
+  async hasPermission(
+    @Param('roleId') roleId: string,
+    @Param('permissionName') permissionName: string,
+  ): Promise<boolean> {
+    return this.roleService.hasPermission(roleId, permissionName);
+  }
+
+  /**
+   * Add permissions to a role
+   * 
+   * @param roleId - Role ID to add permissions to
+   * @param permissionNames - Array of permission names to add
+   * @returns The updated role with new permissions
+   */
+  @Post(':id/permissions')
+  @UseGuards(RolesGuard)
+  @Permissions(Permission.ROLE.WRITE)
+  async addPermissionsToRole(
+    @Param('id') roleId: string,
+    @Body('permissions') permissionNames: string[],
+  ): Promise<Role> {
+    return this.roleService.addPermissionsToRole(roleId, permissionNames);
+  }
+
+  /**
+   * Remove permissions from a role
+   * 
+   * @param roleId - Role ID to remove permissions from
+   * @param permissionNames - Array of permission names to remove
+   * @returns The updated role without the removed permissions
+   */
+  @Post(':id/permissions/remove')
+  @UseGuards(RolesGuard)
+  @Permissions(Permission.ROLE.WRITE)
+  async removePermissionsFromRole(
+    @Param('id') roleId: string,
+    @Body('permissions') permissionNames: string[],
+  ): Promise<Role> {
+    return this.roleService.removePermissionsFromRole(roleId, permissionNames);
+  }
+
+
+  /**
+   * Delete a role by ID
+   * 
+   * @param id - Role ID to delete
+   * @return Success message
+   */
+  @Delete(':id')
+  @UseGuards(RolesGuard)
+  @Permissions(Permission.ROLE.DELETE)
+  async remove(@Param('id') id: string): Promise<{ message: string }> {
+    await this.roleService.deleteRole(id);
+    return { message: 'Role deleted successfully' };
+  }
+
 }

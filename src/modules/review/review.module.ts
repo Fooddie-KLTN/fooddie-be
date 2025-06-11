@@ -8,9 +8,12 @@ import { Restaurant } from 'src/entities/restaurant.entity';
 import { User } from 'src/entities/user.entity';
 import { UsersService } from '../users/users.service';
 import { Address } from 'src/entities/address.entity';
+import { JwtModule } from '@nestjs/jwt';
 
 @Module({
-    imports: [TypeOrmModule.forFeature([Review, User, Restaurant, Role, Address])],
+    imports: [TypeOrmModule.forFeature([Review, User, Restaurant, Role, Address])
+    , JwtModule
+],
     controllers: [ReviewController],
     providers: [ReviewService, UsersService],
     exports: [ReviewService],

@@ -46,9 +46,10 @@ export class RolesGuard implements CanActivate {
     private readonly reflector: Reflector,
     private readonly userService: UsersService,
     private readonly jwtService: JwtService,
-    private readonly configService: ConfigService, // <-- inject ConfigService
+    private readonly configService: ConfigService,
   ) {
-    this.logger.debug(`JWT_SECRET in RolesGuard: ${this.configService.get('JWT_SECRET')}`);
+    const jwtSecret = this.configService.get('JWT_SECRET');
+    this.logger.debug(`JWT_SECRET in RolesGuard: ${jwtSecret ? 'Present' : 'Missing'}`);
   }
 
   /**
@@ -134,7 +135,15 @@ export class RolesGuard implements CanActivate {
    */
   private async verifyTokenAndGetUserId(token: string): Promise<string> {
     try {
-      const decodedToken = this.jwtService.verify<JwtPayload>(token);
+      const jwtSecret = this.configService.get<string>('JWT_SECRET');
+      
+      if (!jwtSecret) {
+        throw new Error('JWT_SECRET is not configured');
+      }
+
+      const decodedToken = this.jwtService.verify<JwtPayload>(token, {
+        secret: jwtSecret
+      });
 
       if (!decodedToken.sub) {
         throw new Error('Token payload does not contain a user ID');
@@ -142,6 +151,7 @@ export class RolesGuard implements CanActivate {
 
       return decodedToken.sub;
     } catch (error) {
+      this.logger.error(`Token verification error: ${error instanceof Error ? error.message : 'Unknown error'}`);
       throw new UnauthorizedException(
         `Failed to verify token: ${error instanceof Error ? error.message : 'Unknown error'}`
       );

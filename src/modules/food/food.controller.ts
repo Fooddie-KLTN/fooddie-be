@@ -92,31 +92,58 @@ export class FoodController {
     @Query('lng', new DefaultValuePipe(106.7009), ParseFloatPipe) lng: number = 106.7009,
     @Query('radius', new DefaultValuePipe(5), ParseIntPipe) radius: number = 5 // km
   ) {
-    return await this.foodService.searchFoods(query, page, pageSize, lat, lng, radius);
+    return await this.foodService.searchFoods(query, page, pageSize, lat, lng, 99999);
   }
 
   @Get('by-name')
   async findByName(
-    @Query('name') name: string,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('pageSize', new DefaultValuePipe(10), ParseIntPipe) pageSize: number,
     @Query('lat', new DefaultValuePipe(10.7769), ParseFloatPipe) lat: number = 10.7769, // HCM default
     @Query('lng', new DefaultValuePipe(106.7009), ParseFloatPipe) lng: number = 106.7009,
     @Query('radius', new DefaultValuePipe(5), ParseIntPipe) radius: number = 5, // km
+    @Query('name') name?: string, // Made optional
     @Query('categoryIds') categoryIds?: string, // comma-separated string
     @Query('minPrice') minPrice?: number,
     @Query('maxPrice') maxPrice?: number,
   ) {
-    if (!name) {
-      throw new BadRequestException('Name query is required');
-    }
+    console.log('=== Controller findByName ===');
+    console.log('Raw query parameters received:', {
+      name,
+      page,
+      pageSize,
+      lat,
+      lng,
+      radius,
+      categoryIds,
+      minPrice,
+      maxPrice
+    });
+
     // Parse categoryIds to array if provided
     let categoryIdList: string[] | undefined = undefined;
     if (categoryIds) {
       categoryIdList = categoryIds.split(',').map(id => id.trim()).filter(Boolean);
+      console.log('Parsed categoryIds:', categoryIdList);
     }
-    return await this.foodService.findByName(
+    if (name && name.trim() === '') {
+      name = undefined; // Treat empty name as undefined
+    }
+
+    console.log('Calling service with parameters:', {
       name,
+      page,
+      pageSize,
+      lat: lat ? Number(lat) : undefined,
+      lng: lng ? Number(lng) : undefined,
+      radius,
+      categoryIdList,
+      minPrice: minPrice !== undefined ? Number(minPrice) : undefined,
+      maxPrice: maxPrice !== undefined ? Number(maxPrice) : undefined,
+    });
+
+    const result = await this.foodService.findByName(
+      name, // Pass undefined if not provided
       page,
       pageSize,
       lat ? Number(lat) : undefined,
@@ -126,6 +153,16 @@ export class FoodController {
       minPrice !== undefined ? Number(minPrice) : undefined,
       maxPrice !== undefined ? Number(maxPrice) : undefined,
     );
+
+    console.log('Service returned:', {
+      totalItems: result.totalItems,
+      itemsCount: result.items.length,
+      page: result.page,
+      totalPages: result.totalPages
+    });
+    console.log('=== End Controller findByName ===');
+
+    return result;
   }
   @Get('top')
   async getTopFoodsByRestaurant(
@@ -237,6 +274,48 @@ export class FoodController {
     const userId = req.user?.id;
     if (!userId) throw new UnauthorizedException('Not authenticated');
     return await this.foodService.updateStatusIfOwner(id, status, userId);
+  }
+
+  @Get(':id/reviews')
+  async getReviewsByFood(
+    @Param('id') foodId: string,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('pageSize', new DefaultValuePipe(10), ParseIntPipe) pageSize: number,
+    @Query('sortBy', new DefaultValuePipe('createdAt')) sortBy: string,
+    @Query('sortOrder', new DefaultValuePipe('DESC')) sortOrder: 'ASC' | 'DESC',
+    @Query('minRating') minRating?: number,
+    @Query('maxRating') maxRating?: number,
+  ) {
+    console.log('=== Controller getReviewsByFood ===');
+    console.log('Request parameters:', {
+      foodId,
+      page,
+      pageSize,
+      sortBy,
+      sortOrder,
+      minRating,
+      maxRating
+    });
+
+    const result = await this.foodService.getReviewsByFood(
+      foodId,
+      page,
+      pageSize,
+      sortBy,
+      sortOrder,
+      minRating ? Number(minRating) : undefined,
+      maxRating ? Number(maxRating) : undefined,
+    );
+
+    console.log('Service returned:', {
+      totalItems: result.totalItems,
+      itemsCount: result.items.length,
+      page: result.page,
+      totalPages: result.totalPages
+    });
+    console.log('=== End Controller getReviewsByFood ===');
+
+    return result;
   }
 
 }
