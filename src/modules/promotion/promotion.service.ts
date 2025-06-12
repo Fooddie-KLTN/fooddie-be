@@ -144,21 +144,37 @@ export class PromotionService {
         };
     }
 
-    calculateDiscount(promotion: Promotion, orderValue: number): number {
-        let discount = 0;
+    calculateDiscount(promotion: Promotion, orderAmount: number): number {
+        try {
+            let discount = 0;
+            const amount = Number(orderAmount) || 0;
 
-        if (promotion.discountPercent) {
-            discount = (orderValue * promotion.discountPercent) / 100;
-        } else if (promotion.discountAmount) {
-            discount = promotion.discountAmount;
+            if (promotion.discountPercent && Number(promotion.discountPercent) > 0) {
+                // Percentage discount
+                discount = (amount * Number(promotion.discountPercent)) / 100;
+                
+                // Apply max discount limit if specified
+                if (promotion.maxDiscountAmount && Number(promotion.maxDiscountAmount) > 0) {
+                    discount = Math.min(discount, Number(promotion.maxDiscountAmount));
+                }
+            } else if (promotion.discountAmount && Number(promotion.discountAmount) > 0) {
+                // Fixed amount discount
+                discount = Number(promotion.discountAmount);
+            }
+
+            // Ensure discount is a valid number and not negative
+            if (isNaN(discount) || discount < 0) {
+                discount = 0;
+            }
+
+            // Don't let discount exceed the order amount
+            const finalDiscount = Math.min(discount, amount);
+            
+            
+            return finalDiscount;
+        } catch (error) {
+            return 0; // Return 0 discount on error
         }
-
-        // Apply maximum discount limit if set
-        if (promotion.maxDiscountAmount && discount > promotion.maxDiscountAmount) {
-            discount = promotion.maxDiscountAmount;
-        }
-
-        return Number(discount.toFixed(2));
     }
 
     async usePromotion(code: string, orderValue?: number): Promise<Promotion> {

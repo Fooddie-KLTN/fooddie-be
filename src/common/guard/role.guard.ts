@@ -77,10 +77,8 @@ export class RolesGuard implements CanActivate {
 
     try {
       const token = this.extractTokenFromRequest(request);
-      this.logger.debug(`Extracted token: ${token}`);
 
       const userId = await this.verifyTokenAndGetUserId(token);
-      this.logger.debug(`Verified user ID from token: ${userId}`);
 
       request.user = { id: userId };
 
