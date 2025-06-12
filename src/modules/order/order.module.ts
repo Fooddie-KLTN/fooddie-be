@@ -20,9 +20,15 @@ import { RestaurantService } from '../restaurant/restaurant.service';
 import { RestaurantModule } from '../restaurant/restaurant.module';
 import { PromotionService } from '../promotion/promotion.service';
 import { GoogleCloudStorageService } from 'src/gcs/gcs.service';
+import { QueueModule } from 'src/pg-boss/queue.module';
 
 @Module({
-    imports: [TypeOrmModule.forFeature([Order, User, Restaurant, OrderDetail, Role, Food, Address, Promotion, Checkout, Promotion]), JwtModule, PaymentModule, RestaurantModule],
+    imports: [TypeOrmModule.forFeature([Order, User, Restaurant, OrderDetail, Role, Food, Address, Promotion, Checkout, Promotion]),
+     JwtModule,
+      PaymentModule,
+       RestaurantModule,
+    QueueModule,
+    ],
     
     controllers: [OrderController],
     providers: [OrderService, UsersService, OrderResolver, PromotionService, GoogleCloudStorageService],
