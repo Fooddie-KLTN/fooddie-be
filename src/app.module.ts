@@ -27,6 +27,9 @@ import { GraphQLModule } from '@nestjs/graphql';
 import { ApolloDriverConfig, ApolloDriver } from '@nestjs/apollo';
 import { AppResolver } from './app.resolver';
 import { ShipperModule } from './modules/shipper/shipper.module';
+import { QueueModule } from './pg-boss/queue.module';
+import { PgBossModule } from './pg-boss/pg-boss.module'; // Add this import
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -64,6 +67,7 @@ import { ShipperModule } from './modules/shipper/shipper.module';
     }),
     
     // Core modules only
+    PgBossModule, // Add this line
     ChatModule,
     UsersModule,
     RoleModule,
@@ -77,6 +81,7 @@ import { ShipperModule } from './modules/shipper/shipper.module';
     CategoryModule,
     ShipperModule,
     
+    QueueModule,
     ScheduleModule.forRoot(),
     GraphQLModule.forRoot<ApolloDriverConfig>({
       driver: ApolloDriver,
