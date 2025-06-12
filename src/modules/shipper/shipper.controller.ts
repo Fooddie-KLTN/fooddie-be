@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards, Req, Param, Get } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Req, Param, Get, Query } from '@nestjs/common';
 import { AuthGuard } from 'src/auth/auth.guard';
 import { ShipperService } from './shipper.service';
 
@@ -34,5 +34,15 @@ export class ShipperController {
     return this.shipperService.assignOrderToShipper(orderId, shipperId);
   }
 
+  @Get('order-history')
+  @UseGuards(AuthGuard)  // Bảo vệ API bằng AuthGuard
+  async getOrderHistory(
+    @Req() req, 
+    @Query('page') page: number = 1,
+    @Query('pageSize') pageSize: number = 10
+  ) {
+    const shipperId = req.user.uid || req.user.id;
+    return this.shipperService.getOrderHistoryForShipper(shipperId, page, pageSize);
+  }
 
 }

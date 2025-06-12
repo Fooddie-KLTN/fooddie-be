@@ -325,4 +325,25 @@ export class ShipperService {
       }
     }
   }
+
+  async getOrderHistoryForShipper(shipperId: string, page: number, pageSize: number) {
+    // Tạo query để lấy các đơn hàng mà shipper xử lý
+    const query = this.shippingDetailRepository.createQueryBuilder('shippingDetail')
+      .innerJoinAndSelect('shippingDetail.order', 'order')
+      .where('shippingDetail.shipperId = :shipperId', { shipperId })
+      .skip((page - 1) * pageSize)
+      .take(pageSize)
+      .leftJoinAndSelect('order.shippingDetails', 'orderDetails'); // Liên kết với bảng orders
+
+    const shippingDetails = await query.getMany();
+    
+    return shippingDetails.map(detail => ({
+      orderId: detail.order.id,
+      orderStatus: detail.order.status,
+      shippingStatus: detail.status,  // Trạng thái giao hàng
+      estimatedDeliveryTime: detail.estimatedDeliveryTime,
+      actualDeliveryTime: detail.actualDeliveryTime,
+      trackingNumber: detail.trackingNumber,
+    }));
+  }
 }
