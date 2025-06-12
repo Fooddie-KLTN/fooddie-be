@@ -61,7 +61,7 @@ export class Order {
     date: string;
 
     @Field(() => Address, { nullable: true })
-    @ManyToOne(() => Address, { eager: true })
+    @ManyToOne(() => Address, { eager: true, onDelete: 'SET NULL' })
     @JoinColumn({ name: 'address_id' })
     address: Address;
 
