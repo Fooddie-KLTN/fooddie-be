@@ -17,6 +17,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { Checkout, CheckoutStatus } from 'src/entities/checkout.entity';
 import { pubSub } from 'src/pubsub';
 import { PromotionService } from '../promotion/promotion.service';
+import { PendingAssignmentService } from 'src/pg-boss/pending-assignment.service';
 
 @Injectable()
 export class OrderService {
@@ -41,6 +42,7 @@ export class OrderService {
         @InjectRepository(Checkout)
         private checkoutRepository: Repository<Checkout>,
         private promotionService: PromotionService, // Add promotion service
+        private pendingAssignmentService: PendingAssignmentService,
     ) { }
 
     private async validateAndCalculateOrderDetails(
@@ -313,6 +315,48 @@ export class OrderService {
         this.logger.log(`Order ${id} status updated to ${status}`);
 
         return updatedOrder;
+    }
+
+    async confirmOrder(orderId: string, restaurantOwnerId: string): Promise<Order> {
+        this.logger.log(`Confirming order ${orderId} for restaurant owner ${restaurantOwnerId}`);
+
+        const order = await this.getOrderById(orderId);
+
+        if (!order) {
+            throw new NotFoundException(`Order with ID ${orderId} not found`);
+        }
+
+        // Only confirm if order is in pending state
+        if (order.status !== 'pending') {
+            throw new BadRequestException(`Order is not in a confirmable state`);
+        }
+
+        // Update order status
+        order.status = 'confirmed';
+        const confirmedOrder = await this.orderRepository.save(order);
+
+        this.logger.log(`Order ${orderId} status updated to confirmed`);
+
+        try {
+            // Create pending shipper assignment - this will be picked up by the automated system
+            const pendingAssignment = await this.pendingAssignmentService.addPendingAssignment(
+                confirmedOrder.id,
+                1 // Priority: 1 = normal, higher numbers = higher priority
+            );
+
+            this.logger.log(`Created pending shipper assignment ${pendingAssignment.id} for order ${orderId}`);
+            this.logger.log(`Automated system will find and notify nearby shippers for order ${orderId}`);
+
+            return confirmedOrder;
+        } catch (error) {
+            this.logger.error(`Failed to create pending shipper assignment for order ${orderId}:`, error);
+            
+            // Don't fail the order confirmation, just log the error
+            // The assignment can be created manually or through retry mechanisms
+            this.logger.warn(`Order ${orderId} confirmed but shipper assignment failed - manual intervention may be required`);
+            
+            return confirmedOrder;
+        }
     }
 
     async calculateOrder(data: {

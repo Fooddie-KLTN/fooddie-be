@@ -29,6 +29,7 @@ import { AppResolver } from './app.resolver';
 import { ShipperModule } from './modules/shipper/shipper.module';
 import { QueueModule } from './pg-boss/queue.module';
 import { PgBossModule } from './pg-boss/pg-boss.module'; // Add this import
+import { Order } from './entities/order.entity';
 
 @Module({
   imports: [
@@ -82,6 +83,16 @@ import { PgBossModule } from './pg-boss/pg-boss.module'; // Add this import
     ShipperModule,
     
     QueueModule,
+    TypeOrmModule.forFeature([
+      User,
+      Role,
+      Review,
+      Address,
+      Promotion,
+      Permission,
+      Order
+    ]),
+
     ScheduleModule.forRoot(),
     GraphQLModule.forRoot<ApolloDriverConfig>({
       driver: ApolloDriver,

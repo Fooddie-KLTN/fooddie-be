@@ -16,7 +16,6 @@ import { Review } from 'src/entities/review.entity';
 import { Role } from 'src/entities/role.entity';
 import { PendingShipperAssignment } from 'src/entities/pendingShipperAssignment.entity';
 import { PendingAssignmentService } from './pending-assignment.service';
-import { ShipperAssignmentWorker } from './shipper-assignment.worker';
 
 
 @Module({
@@ -41,7 +40,6 @@ import { ShipperAssignmentWorker } from './shipper-assignment.worker';
     QueueService, 
     GoogleCloudStorageService,
     PendingAssignmentService,
-    ShipperAssignmentWorker
   ],
   exports: [QueueService, PendingAssignmentService],
 })
