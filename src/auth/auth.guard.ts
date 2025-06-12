@@ -28,7 +28,6 @@ export class AuthGuard implements CanActivate {
     // Expected header format: "Bearer <token>"
     const token = authHeader.split(' ')[1];
 
-    this.logger.log('extracted token:', token);
     if (!token) {
       throw new UnauthorizedException('Invalid token format');
     }
