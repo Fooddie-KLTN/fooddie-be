@@ -659,4 +659,92 @@ export class OrderService {
             orderTotal: orderCalculation.total
         };
     }
+
+    // Add new cron job to auto-cancel orders without shippers
+    @Cron(CronExpression.EVERY_10_MINUTES)
+    async autoCancelUnassignedOrders() {
+        const timeoutMinutes = 30; // Cancel orders after 30 minutes without shipper
+        const timeoutDate = new Date(Date.now() - timeoutMinutes * 60 * 1000);
+
+        this.logger.log(`🔍 Checking for pending assignments older than ${timeoutMinutes} minutes...`);
+
+        // Find pending assignments that are too old
+        const expiredAssignments = await this.pendingAssignmentService.getExpiredAssignments(timeoutDate);
+
+        if (expiredAssignments.length > 0) {
+            this.logger.log(`🚫 Found ${expiredAssignments.length} expired assignments to cancel`);
+        }
+
+        for (const assignment of expiredAssignments) {
+            try {
+                const order = assignment.order;
+                
+                // Double-check order is still confirmed and unassigned
+                if (order.status !== 'confirmed') {
+                    this.logger.log(`⏭️ Skipping order ${order.id} - status already changed to ${order.status}`);
+                    continue;
+                }
+
+                // Check if order already has a shipper
+                const currentOrder = await this.orderRepository.findOne({
+                    where: { id: order.id },
+                    relations: ['shippingDetail']
+                });
+
+                if (currentOrder?.shippingDetail) {
+                    this.logger.log(`⏭️ Skipping order ${order.id} - already assigned to shipper`);
+                    // Clean up the pending assignment
+                    await this.pendingAssignmentService.removePendingAssignment(order.id);
+                    continue;
+                }
+
+                // Update order status to canceled
+                order.status = 'canceled';
+                await this.orderRepository.save(order);
+
+                // Remove the pending assignment
+                await this.pendingAssignmentService.removePendingAssignmentById(assignment.id);
+
+                // Publish event for order cancellation
+                await pubSub.publish('orderStatusUpdated', {
+                    orderStatusUpdated: order
+                });
+
+                // Calculate how long the assignment was pending
+                const pendingDuration = Math.round((Date.now() - assignment.createdAt.getTime()) / (1000 * 60));
+                
+                this.logger.log(`❌ Auto-canceled order ${order.id} (${order.restaurant?.name}) - pending for ${pendingDuration} minutes without shipper`);
+
+                // Optional: Send notifications
+                await this.notifyOrderCancellation(order, 'No delivery driver available in your area');
+
+            } catch (error) {
+                this.logger.error(`❌ Failed to auto-cancel order ${assignment.order.id}:`, error);
+            }
+        }
+
+        if (expiredAssignments.length > 0) {
+            this.logger.log(`🎯 Auto-cancellation completed: ${expiredAssignments.length} orders canceled`);
+        }
+    }
+
+    /**
+     * Send notifications for order cancellation
+     */
+    private async notifyOrderCancellation(order: Order, reason: string = 'No shipper available'): Promise<void> {
+        try {
+            this.logger.log(`📧 Order ${order.id} canceled: ${reason}`);
+            
+            // Add your notification logic here:
+            // - Email notifications
+            // - Push notifications  
+            // - SMS notifications
+            // - In-app notifications
+            
+            this.logger.log(`✅ Cancellation notifications processed for order ${order.id}`);
+
+        } catch (error) {
+            this.logger.error(`❌ Failed to send cancellation notifications for order ${order.id}:`, error);
+        }
+    }
 }

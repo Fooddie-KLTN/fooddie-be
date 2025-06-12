@@ -148,6 +148,51 @@ export class PendingAssignmentService implements OnModuleInit {
   }
 
   /**
+   * Get expired pending assignments based on their creation time
+   */
+  async getExpiredAssignments(cutoffDate: Date): Promise<PendingShipperAssignment[]> {
+    this.logger.log(`🔍 Looking for pending assignments created before ${cutoffDate.toISOString()}`);
+    
+    const expiredAssignments = await this.pendingAssignmentRepository.find({
+        where: {
+            createdAt: LessThan(cutoffDate)
+        },
+        relations: ['order', 'order.restaurant', 'order.shippingDetail'],
+        order: {
+            createdAt: 'ASC' // Oldest first
+        }
+    });
+
+    this.logger.log(`📊 Found ${expiredAssignments.length} expired pending assignments`);
+    
+    return expiredAssignments;
+  }
+
+
+  /**
+   * Remove a pending assignment by assignment ID
+   */
+  async removePendingAssignmentById(assignmentId: string): Promise<boolean> {
+    try {
+        const assignment = await this.pendingAssignmentRepository.findOne({
+            where: { id: assignmentId }
+        });
+
+        if (assignment) {
+            await this.pendingAssignmentRepository.remove(assignment);
+            this.logger.log(`🗑️ Removed pending assignment ${assignmentId}`);
+            return true;
+        } else {
+            this.logger.log(`⚠️ Pending assignment ${assignmentId} not found`);
+            return false;
+        }
+    } catch (error) {
+        this.logger.error(`❌ Failed to remove pending assignment ${assignmentId}:`, error);
+        return false;
+    }
+  }
+
+  /**
    * Validate if a pending assignment is still valid for processing
    */
   private async validatePendingAssignment(assignment: PendingShipperAssignment): Promise<boolean> {
@@ -165,14 +210,16 @@ export class PendingAssignmentService implements OnModuleInit {
       return false;
     }
 
-    // Check if assignment has exceeded maximum attempts or age
-    const maxAttempts = 10;
-    const maxAgeHours = 24; // 24 hours
-    const maxAge = maxAgeHours * 60 * 60 * 1000;
-    const isExpired = Date.now() - assignment.createdAt.getTime() > maxAge;
+    // Check if assignment has exceeded maximum attempts or age based on assignment creation time
+    const maxAttempts = 15;
+    const maxAgeMinutes = 30; // 30 minutes from assignment creation
+    const maxAge = maxAgeMinutes * 60 * 1000;
+    const assignmentAge = Date.now() - assignment.createdAt.getTime();
+    const isExpired = assignmentAge > maxAge;
 
     if (assignment.attemptCount >= maxAttempts || isExpired) {
-      this.logger.log(`❌ Assignment ${assignment.id}: Exceeded max attempts (${assignment.attemptCount}) or expired`);
+      const ageMinutes = Math.round(assignmentAge / (1000 * 60));
+      this.logger.log(`❌ Assignment ${assignment.id}: Exceeded max attempts (${assignment.attemptCount}) or expired (${ageMinutes} minutes old)`);
       return false;
     }
 
@@ -379,24 +426,44 @@ export class PendingAssignmentService implements OnModuleInit {
     assignment.attemptCount += 1;
     assignment.lastAttemptAt = new Date();
 
-    // Calculate next attempt time with exponential backoff
-    const backoffMinutes = Math.min(assignment.attemptCount * 10, 60); // Max 1 hour
+    // Calculate assignment age to determine if we should continue
+    const assignmentAge = Date.now() - assignment.createdAt.getTime();
+    const assignmentAgeMinutes = Math.round(assignmentAge / (1000 * 60));
+    
+    // Don't schedule retries for assignments that are close to expiration
+    const maxAgeMinutes = 30;
+    if (assignmentAgeMinutes >= maxAgeMinutes - 5) { // Stop retrying 5 minutes before expiration
+        this.logger.log(`⏰ Assignment ${assignment.id} is ${assignmentAgeMinutes} minutes old, stopping retries`);
+        assignment.notes = `Stopped retrying: assignment too old (${assignmentAgeMinutes} minutes)`;
+        await this.pendingAssignmentRepository.save(assignment);
+        return;
+    }
+
+    // Shorter backoff times since assignments expire after 30 minutes
+    let backoffMinutes: number;
+    
+    if (assignment.attemptCount <= 3) {
+        backoffMinutes = 2; // First 3 attempts: retry every 2 minutes
+    } else if (assignment.attemptCount <= 6) {
+        backoffMinutes = 3; // Next 3 attempts: retry every 3 minutes  
+    } else {
+        backoffMinutes = 5; // Later attempts: retry every 5 minutes
+    }
+    
     assignment.nextAttemptAt = new Date(Date.now() + backoffMinutes * 60 * 1000);
 
     // Check if we should stop retrying
-    const maxAttempts = 10;
-    const maxAge = 24 * 60 * 60 * 1000; // 24 hours
-    const isExpired = Date.now() - assignment.createdAt.getTime() > maxAge;
+    const maxAttempts = 15;
 
-    if (assignment.attemptCount >= maxAttempts || isExpired) {
-      assignment.notes = `Assignment abandoned: ${assignment.attemptCount} attempts, expired: ${isExpired}`;
-      await this.pendingAssignmentRepository.save(assignment);
-      this.logger.warn(`😞 Abandoning assignment ${assignment.id} for order ${assignment.order.id} after ${assignment.attemptCount} attempts`);
-      return;
+    if (assignment.attemptCount >= maxAttempts) {
+        assignment.notes = `Assignment abandoned: ${assignment.attemptCount} attempts, ${assignmentAgeMinutes} minutes old`;
+        await this.pendingAssignmentRepository.save(assignment);
+        this.logger.warn(`😞 Abandoning assignment ${assignment.id} for order ${assignment.order.id} after ${assignment.attemptCount} attempts`);
+        return;
     }
 
     await this.pendingAssignmentRepository.save(assignment);
-    this.logger.log(`📅 Scheduled retry ${assignment.attemptCount + 1} for order ${assignment.order.id} in ${backoffMinutes} minutes`);
+    this.logger.log(`📅 Scheduled retry ${assignment.attemptCount + 1} for order ${assignment.order.id} in ${backoffMinutes} minutes (assignment age: ${assignmentAgeMinutes}m)`);
   }
 
   /**
