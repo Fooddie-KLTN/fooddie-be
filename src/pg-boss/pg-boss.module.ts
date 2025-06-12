@@ -31,12 +31,26 @@ export const PG_BOSS_INSTANCE = 'PG_BOSS_INSTANCE';
         }
 
         const connectionString = `postgres://${dbUser}:${dbPassword}@${dbHost}:${dbPort}/${dbName}`;
-        const boss = new PgBoss(connectionString);
+        const boss = new PgBoss({
+          connectionString,
+          retryLimit: 3,
+          retryDelay: 5000,
+          expireInHours: 2,
+          // Add monitoring options
+          monitorStateIntervalSeconds: 10,
+          maintenanceIntervalSeconds: 120,
+        });
 
         factoryLogger.log(`pg-boss instance created with connection string: ${connectionString}`);
         factoryLogger.log('pg-boss instance created successfully.');
+        
         // Use the logger for pg-boss internal errors
         boss.on('error', error => factoryLogger.error(`pg-boss internal error: ${error.message}`, error.stack));
+        
+        // Add job monitoring events
+        boss.on('monitor-states', states => {
+          factoryLogger.log(`📊 PG-Boss Queue States: ${JSON.stringify(states)}`);
+        });
 
         return boss;
       },
@@ -62,13 +76,58 @@ export class PgBossModule implements OnModuleInit, OnModuleDestroy {
 
       // Create all required queues
       await this.boss.createQueue(QueueNames.FIND_SHIPPER);
-      await this.boss.createQueue(QueueNames.NOTIFY_SHIPPERS);
       
       this.logger.log('All queues created successfully.');
+
+      // Start monitoring jobs every 30 seconds
+      this.startJobMonitoring();
+      
     } catch (error) {
       this.logger.error(`Failed to start pg-boss: ${error.message}`, error.stack);
       // Depending on the application's needs, you might want to re-throw or handle this differently
       throw error; // Re-throw to potentially stop application startup on failure
+    }
+  }
+
+  /**
+   * Monitor pending jobs periodically
+   */
+  private startJobMonitoring(): void {
+    setInterval(async () => {
+      try {
+        await this.logQueueStats();
+      } catch (error) {
+        this.logger.error('Error monitoring queue stats:', error);
+      }
+    }, 30000); // Every 30 seconds
+  }
+
+  /**
+   * Log current queue statistics
+   */
+  private async logQueueStats(): Promise<void> {
+    try {
+      // Get queue stats for all our queues
+      for (const queueName of Object.values(QueueNames)) {
+        const jobs = await this.boss.fetch(queueName); // Fix: use options object
+        
+        if (jobs && jobs.length > 0) {
+          this.logger.log(`📋 Queue '${queueName}' has ${jobs.length} pending jobs:`);
+          
+          jobs.forEach((job, index) => {
+            this.logger.log(`  ${index + 1}. Job ID: ${job.id}, Data: ${JSON.stringify(job.data)}`);
+          });
+        } else {
+          this.logger.log(`✅ Queue '${queueName}' is empty`);
+        }
+      }
+
+      // Get overall queue health
+      const queueSize = await this.boss.getQueueSize(QueueNames.FIND_SHIPPER);
+      this.logger.log(`📊 ${QueueNames.FIND_SHIPPER} queue size: ${queueSize}`);
+
+    } catch (error) {
+      this.logger.error('Error fetching queue stats:', error);
     }
   }
 
@@ -82,5 +141,32 @@ export class PgBossModule implements OnModuleInit, OnModuleDestroy {
     } catch (error) {
       this.logger.error(`Failed to stop pg-boss gracefully: ${error.message}`, error.stack);
     }
+  }
+
+  /**
+   * Get current queue statistics (for external monitoring)
+   */
+  async getQueueStats(): Promise<any> {
+    const stats = {};
+    
+    for (const queueName of Object.values(QueueNames)) {
+      try {
+        const size = await this.boss.getQueueSize(queueName);
+        const jobs = await this.boss.fetch(queueName, { batchSize: 10 }); // Fix: use options object
+        
+        stats[queueName] = {
+          size,
+          pendingJobs: jobs?.map(job => ({
+            id: job.id,
+            data: job.data,
+          })) || []
+        };
+      } catch (error) {
+        this.logger.error(`Error getting stats for queue ${queueName}:`, error);
+        stats[queueName] = { error: error.message };
+      }
+    }
+    
+    return stats;
   }
 }

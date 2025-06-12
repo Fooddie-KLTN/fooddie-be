@@ -3,9 +3,12 @@ import { Resolver, Subscription, Args, Mutation, Context, Query } from '@nestjs/
 import { pubSub } from 'src/pubsub';
 import { Order } from 'src/entities/order.entity';
 import { haversineDistance } from 'src/common/utils/helper';
+import { Logger } from '@nestjs/common';
 
 @Resolver(() => Order)
 export class OrderResolver {
+    private readonly logger = new Logger(OrderResolver.name);
+
     // Subscription for new pending orders for a restaurant
     @Subscription(() => Order, {
         filter: (payload, variables, context) => {
@@ -56,14 +59,26 @@ export class OrderResolver {
     // NEW: Subscription for shippers to get nearby confirmed orders
     @Subscription(() => Order, {
         filter: (payload, variables, context) => {
+            const logger = new Logger('OrderSubscriptionFilter');
             const order = payload.orderConfirmedForShippers;
             const shipperLat = parseFloat(variables.latitude);
             const shipperLng = parseFloat(variables.longitude);
-            const maxDistance = variables.maxDistance || 5; // Default 5km radius
-            console.log('[🔍] Running filter with variables:', variables);
-            console.log('[📦] Incoming order:', payload.orderConfirmedForShippers);
+            const maxDistance = variables.maxDistance || 99999; // Default 5km radius
+            
+            logger.log(`🔍 Running filter with variables: ${JSON.stringify(variables)}`);
+            logger.log(`📦 Incoming order: ${JSON.stringify({
+                id: order.id,
+                status: order.status,
+                restaurantId: order.restaurant?.id,
+                restaurantName: order.restaurant?.name,
+                restaurantLat: order.restaurant?.latitude,
+                restaurantLng: order.restaurant?.longitude,
+                hasShippingDetail: !!order.shippingDetail
+            })}`);
+
             // Check if order has restaurant coordinates
             if (!order.restaurant?.latitude || !order.restaurant?.longitude) {
+                logger.warn(`❌ Order ${order.id} restaurant has no coordinates`);
                 return false;
             }
 
@@ -75,18 +90,27 @@ export class OrderResolver {
                 parseFloat(order.restaurant.longitude)
             );
 
-            // Only send orders within the specified radius and confirmed status
-            return (
+            logger.log(`📏 Distance calculated: ${distance}km (max: ${maxDistance}km)`);
+
+            const shouldSend = (
                 order.status === 'confirmed' &&
                 distance <= maxDistance &&
                 !order.shippingDetail // Order not yet assigned to a shipper
             );
+
+            logger.log(`✅ Should send to shipper: ${shouldSend}`);
+            logger.log(`📊 Filter criteria: status=${order.status}, distance=${distance}km, hasShipper=${!!order.shippingDetail}`);
+
+            return shouldSend;
         },
         resolve: (payload) => {
+            const logger = new Logger('OrderSubscriptionResolve');
             const order = payload.orderConfirmedForShippers;
-            console.log('[📩] Sub payload:', payload.orderConfirmedForShippers);
+            
+            logger.log(`📩 Resolving subscription payload for order ${order.id}`);
+            
             // Add distance info to the order for shipper reference
-            return {
+            const resolvedOrder = {
                 ...order,
                 distanceFromShipper: haversineDistance(
                     parseFloat(payload.shipperLat),
@@ -95,17 +119,25 @@ export class OrderResolver {
                     parseFloat(order.restaurant.longitude)
                 )
             };
+
+            logger.log(`🚀 Sending order ${order.id} to shipper`);
+            return resolvedOrder;
         }
     })
     orderConfirmedForShippers(
         @Args('latitude') latitude: string,
         @Args('longitude') longitude: string,
-        @Args('maxDistance', { nullable: true, defaultValue: 5 }) maxDistance: number,
+        @Args('maxDistance', { nullable: true, defaultValue: 9999 }) maxDistance: number,
         @Context() context
     ) {
+        this.logger.log(`🔗 New shipper subscription: lat=${latitude}, lng=${longitude}, maxDistance=${maxDistance}`);
+        
         if (!latitude || !longitude) {
+            this.logger.error('❌ Shipper latitude and longitude are required');
             throw new Error('Shipper latitude and longitude are required');
         }
+        
+        this.logger.log(`✅ Shipper subscribed successfully`);
         return (pubSub).asyncIterableIterator('orderConfirmedForShippers');
     }
 
