@@ -266,7 +266,7 @@ export class ShipperService {
     const shippingDetail = new ShippingDetail();
     shippingDetail.order = order;
     shippingDetail.shipper = shipper;
-    shippingDetail.status = ShippingStatus.PENDING;
+    shippingDetail.status = ShippingStatus.SHIPPING;
     shippingDetail.estimatedDeliveryTime = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes from now
 
     await this.shippingDetailRepository.save(shippingDetail);

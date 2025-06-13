@@ -6,24 +6,6 @@ import { ShipperService } from './shipper.service';
 export class ShipperController {
   constructor(private readonly shipperService: ShipperService) {}
 
-  @Post('request-order')
-  @UseGuards(AuthGuard)
-  async requestOrder(
-    @Body('orderId') orderId: string,
-    @Req() req
-  ) {
-    const shipperId = req.user.uid || req.user.id;
-    return this.shipperService.requestOrderAssignment(orderId, shipperId);
-  }
-
-  @Get('pending-assignment')
-  @UseGuards(AuthGuard)
-  async getPendingAssignment(@Req() req) {
-    const shipperId = req.user.uid || req.user.id;
-    return this.shipperService.getPendingAssignmentForShipper(shipperId);
-  }
-
-  // Keep the original endpoint for backward compatibility
   @Post('accept-order')
   @UseGuards(AuthGuard)
   async acceptOrder(
@@ -40,6 +22,16 @@ export class ShipperController {
     const userId = req.user?.userId || req.user?.uid || req.user?.id;
     return this.shipperService.markOrderCompleted(orderId, userId);
   }
+
+  @Get('pending-assignment')
+  @UseGuards(AuthGuard)
+  async getPendingAssignment(@Req() req) {
+    const shipperId = req.user.uid || req.user.id;
+    return this.shipperService.getPendingAssignmentForShipper(shipperId);
+  }
+
+  // Keep the original endpoint for backward compatibility
+
 
   @UseGuards(AuthGuard)
   @Get('order-history')
