@@ -5,6 +5,7 @@ import { Order } from 'src/entities/order.entity';
 import { ShippingDetail, ShippingStatus } from 'src/entities/shippingDetail.entity';
 import { User } from 'src/entities/user.entity';
 import { pubSub } from 'src/pubsub';
+import { PendingAssignmentService } from 'src/pg-boss/pending-assignment.service';
 
 @Injectable()
 export class ShipperService {
@@ -28,6 +29,7 @@ export class ShipperService {
     private shippingDetailRepository: Repository<ShippingDetail>,
     @InjectRepository(User)
     private userRepository: Repository<User>,
+    private pendingAssignmentService: PendingAssignmentService, // Inject the service
   ) {}
 
   /**
@@ -269,6 +271,14 @@ export class ShipperService {
     // Update order status to delivering
     order.status = 'delivering';
     await this.orderRepository.save(order);
+
+    // Remove from pending assignments
+    try {
+      await this.pendingAssignmentService.removePendingAssignment(orderId);
+      this.logger.log(`Removed order ${orderId} from pending assignments after assignment to shipper`);
+    } catch (error) {
+      this.logger.error(`Failed to remove order ${orderId} from pending assignments: ${error.message}`);
+    }
 
     // Publish status update to user
     await pubSub.publish('orderStatusUpdated', {

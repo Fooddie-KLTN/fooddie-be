@@ -11,6 +11,7 @@ import { pubSub } from 'src/pubsub'; // THÊM IMPORT NÀY
 import { log } from 'console';
 import { RestaurantService } from '../restaurant/restaurant.service';
 import { AuthGuard } from 'src/auth/auth.guard';
+import { PendingAssignmentService } from 'src/pg-boss/pending-assignment.service';
 
 @Controller('orders')
 export class OrderController {
@@ -18,8 +19,9 @@ export class OrderController {
 
   constructor(
     private readonly orderService: OrderService,
-    private readonly paymentService: PaymentService, // Inject PaymentService
-    private readonly restaurantService: RestaurantService, // Inject RestaurantService
+    private readonly paymentService: PaymentService,
+    private readonly restaurantService: RestaurantService,
+    private readonly pendingAssignmentService: PendingAssignmentService, // Inject the new service
   ) {}
 
   @Post()
@@ -205,25 +207,29 @@ async getOrdersByMyRestaurant(
       orderStatusUpdated: updatedOrder
     });
 
-    // PUBLISH TO SHIPPERS ONLY WHEN CHANGING TO 'confirmed' STATUS
+    // ADD ORDER TO PENDING ASSIGNMENTS WHEN STATUS CHANGES TO 'confirmed'
     if (status === 'confirmed' && previousStatus !== 'confirmed') {
-      // Only publish if order is not already assigned to a shipper
+      // Only add if order is not already assigned to a shipper
       if (!updatedOrder.shippingDetail) {
-        await pubSub.publish('orderConfirmedForShippers', {
-          orderConfirmedForShippers: updatedOrder
-        });
-        this.logger.log(`Published order ${id} to nearby shippers for delivery`);
+        try {
+          await this.pendingAssignmentService.addPendingAssignment(id, 1);
+          this.logger.log(`Added order ${id} to pending shipper assignments`);
+        } catch (error) {
+          this.logger.error(`Failed to add order ${id} to pending assignments: ${error.message}`);
+        }
       } else {
-        this.logger.log(`Order ${id} already assigned to shipper, not publishing`);
+        this.logger.log(`Order ${id} already assigned to shipper, not adding to pending assignments`);
       }
     }
 
-    // STOP PUBLISHING TO SHIPPERS if status changes from 'confirmed' to something else
+    // REMOVE FROM PENDING ASSIGNMENTS if status changes from 'confirmed' to something else
     if (previousStatus === 'confirmed' && status !== 'confirmed') {
-      await pubSub.publish('orderRemovedFromShippers', {
-        orderRemovedFromShippers: { orderId: id }
-      });
-      this.logger.log(`Order ${id} removed from shipper pool due to status change from ${previousStatus} to ${status}`);
+      try {
+        await this.pendingAssignmentService.removePendingAssignment(id);
+        this.logger.log(`Removed order ${id} from pending assignments due to status change`);
+      } catch (error) {
+        this.logger.error(`Failed to remove order ${id} from pending assignments: ${error.message}`);
+      }
     }
 
     this.logger.log(`Order ${id} status updated to ${status} by restaurant owner ${userId}. User ${updatedOrder.user.id} notified.`);

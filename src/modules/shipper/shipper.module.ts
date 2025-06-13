@@ -8,10 +8,11 @@ import { ShippingDetail } from 'src/entities/shippingDetail.entity';
 import { UsersModule } from '../users/users.module';
 import { OrderModule } from '../order/order.module';
 import { JwtModule } from '@nestjs/jwt';
+import { QueueModule } from 'src/pg-boss/queue.module';
 
 
 @Module({
-    imports: [TypeOrmModule.forFeature([User, Order, ShippingDetail]), UsersModule, OrderModule, JwtModule] ,
+    imports: [TypeOrmModule.forFeature([User, Order, ShippingDetail]), UsersModule, OrderModule, JwtModule, QueueModule] ,
     controllers: [ShipperController],
     providers: [ShipperService],
     exports: [ShipperService],

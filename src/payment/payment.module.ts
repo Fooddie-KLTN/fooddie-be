@@ -20,11 +20,14 @@ import { VnpayPaymentGateway } from './gateways/vnpay-payment.gateway';
 import { Restaurant } from 'src/entities/restaurant.entity';
 import { Address } from 'src/entities/address.entity';
 import { GoogleCloudStorageService } from 'src/gcs/gcs.service';
+import { PendingAssignmentService } from 'src/pg-boss/pending-assignment.service';
+import { QueueModule } from 'src/pg-boss/queue.module';
 
 @Module({
 	imports: [
 		TypeOrmModule.forFeature([Order, OrderDetail, Checkout, User,Food, Role, Promotion, Restaurant, Address, Promotion]),
 		ConfigModule,
+		QueueModule,
 		JwtModule.registerAsync({
 			imports: [ConfigModule],
 			useFactory: async (configService: ConfigService) => ({
