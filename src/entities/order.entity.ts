@@ -17,7 +17,7 @@ export class Order {
     id: string;
 
     @Field(() => User, { nullable: true })
-    @ManyToOne(() => User, { eager: true })
+    @ManyToOne(() => User)
     @JoinColumn({ name: 'user_id' })
     user: User;
 

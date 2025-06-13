@@ -92,7 +92,7 @@ export class Restaurant {
   @OneToMany(() => Food, (food) => food.restaurant)
   foods: Food[];
 
-  @OneToOne(() => User, { eager: true })
+  @OneToOne(() => User)
   @JoinColumn({ name: 'owner_id' })
   owner: User;
 
