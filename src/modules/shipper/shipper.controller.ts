@@ -40,6 +40,28 @@ export class ShipperController {
     return this.shipperService.getCompletedOrdersByShipper(shipperId);
   }
 
+  @UseGuards(AuthGuard)
+  @Get('profile')
+  async getProfile(@Req() req) {
+    const userId = req.user.id || req.user.userId;
+    return this.shipperService.getDriverProfile(userId);
+  }
+
+
+  @Get('income-report')
+  @UseGuards(AuthGuard)
+  async getIncomeReport(
+    @Req() req,
+    @Query('range') range: 'today' | 'week' | 'month',
+    @Query('month') month?: string,
+    @Query('year') year?: string,
+) {
+    const shipperId = req.user.id || req.user.uid;
+    return this.shipperService.getIncomeReport(shipperId, range, month, year);
+  }
+  
+
+
 
   // @Get('order-history')
   // @UseGuards(AuthGuard)  // Bảo vệ API bằng AuthGuard
