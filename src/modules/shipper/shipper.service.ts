@@ -1,4 +1,4 @@
-import { Injectable, Logger, BadRequestException, ConflictException } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Order } from 'src/entities/order.entity';
@@ -336,24 +336,97 @@ export class ShipperService {
     }
   }
 
-  async getOrderHistoryForShipper(shipperId: string, page: number, pageSize: number) {
-    // Tạo query để lấy các đơn hàng mà shipper xử lý
-    const query = this.shippingDetailRepository.createQueryBuilder('shippingDetail')
-      .innerJoinAndSelect('shippingDetail.order', 'order')
-      .where('shippingDetail.shipperId = :shipperId', { shipperId })
-      .skip((page - 1) * pageSize)
-      .take(pageSize)
-      .leftJoinAndSelect('order.shippingDetails', 'orderDetails'); // Liên kết với bảng orders
-
-    const shippingDetails = await query.getMany();
-    
-    return shippingDetails.map(detail => ({
-      orderId: detail.order.id,
-      orderStatus: detail.order.status,
-      shippingStatus: detail.status,  // Trạng thái giao hàng
-      estimatedDeliveryTime: detail.estimatedDeliveryTime,
-      actualDeliveryTime: detail.actualDeliveryTime,
-      trackingNumber: detail.trackingNumber,
-    }));
+  async markOrderCompleted(orderId: string, shipperId: string) {
+    const shippingDetail = await this.shippingDetailRepository.findOne({
+      where: {
+        order: { id: orderId },
+        shipper: { id: shipperId },
+      },
+      relations: ['order', 'shipper'],
+    });
+  
+    if (!shippingDetail) {
+      throw new NotFoundException('Không tìm thấy thông tin vận chuyển');
+    }
+  
+    shippingDetail.status = ShippingStatus.COMPLETED;
+    shippingDetail.actualDeliveryTime = new Date();
+  
+    await this.shippingDetailRepository.save(shippingDetail);
+  
+    return { message: 'Đơn hàng đã được hoàn thành' };
   }
+
+  async getCompletedOrdersByShipper(shipperId: string) {
+    const completedDetails = await this.shippingDetailRepository.find({
+      where: {
+        shipper: { id: shipperId },
+        status: ShippingStatus.COMPLETED,
+      },
+      relations: [
+        'order',
+        'order.orderDetails',
+        'order.orderDetails.food',
+        'order.restaurant',
+        'order.user',
+        'order.address',
+      ],
+      order: { actualDeliveryTime: 'DESC' },
+    });
+  
+    return completedDetails.map(detail => {
+      const order = detail.order;
+      return {
+        id: order.id,
+        code: `ĐH${order.id.slice(0, 4).toUpperCase()}`,
+        status: order.status,
+        shipFee: 10000, // giả định nếu chưa lưu
+        total: order.total,
+        user: {
+          name: order.user?.name || 'Không rõ',
+        },
+        restaurant: {
+          name: order.restaurant?.name || '',
+        },
+        address: {
+          street: order.address?.street || '',
+        },
+        deliveryTo: [
+          order.address?.street,
+          order.address?.ward,
+          order.address?.district,
+          order.address?.city,
+        ].filter(Boolean).join(', '),
+        orderDetails: order.orderDetails.map(detail => ({
+          food: {
+            name: detail.food.name,
+          },
+          quantity: detail.quantity,
+          price: +detail.price,
+        })),
+      };
+    });
+  }
+  
+
+  // async getOrderHistoryForShipper(shipperId: string, page: number, pageSize: number) {
+  //   // Tạo query để lấy các đơn hàng mà shipper xử lý
+  //   const query = this.shippingDetailRepository.createQueryBuilder('shippingDetail')
+  //     .innerJoinAndSelect('shippingDetail.order', 'order')
+  //     .where('shippingDetail.shipperId = :shipperId', { shipperId })
+  //     .skip((page - 1) * pageSize)
+  //     .take(pageSize)
+  //     .leftJoinAndSelect('order.shippingDetails', 'orderDetails'); // Liên kết với bảng orders
+
+  //   const shippingDetails = await query.getMany();
+    
+  //   return shippingDetails.map(detail => ({
+  //     orderId: detail.order.id,
+  //     orderStatus: detail.order.status,
+  //     shippingStatus: detail.status,  // Trạng thái giao hàng
+  //     estimatedDeliveryTime: detail.estimatedDeliveryTime,
+  //     actualDeliveryTime: detail.actualDeliveryTime,
+  //     trackingNumber: detail.trackingNumber,
+  //   }));
+  // }
 }

@@ -34,15 +34,30 @@ export class ShipperController {
     return this.shipperService.assignOrderToShipper(orderId, shipperId);
   }
 
-  @Get('order-history')
-  @UseGuards(AuthGuard)  // Bảo vệ API bằng AuthGuard
-  async getOrderHistory(
-    @Req() req, 
-    @Query('page') page: number = 1,
-    @Query('pageSize') pageSize: number = 10
-  ) {
-    const shipperId = req.user.uid || req.user.id;
-    return this.shipperService.getOrderHistoryForShipper(shipperId, page, pageSize);
+  @UseGuards(AuthGuard)
+  @Post('complete-order')
+  async completeOrder(@Body('orderId') orderId: string, @Req() req) {
+    const userId = req.user?.userId || req.user?.uid || req.user?.id;
+    return this.shipperService.markOrderCompleted(orderId, userId);
   }
+
+  @UseGuards(AuthGuard)
+  @Get('order-history')
+  async getHistory(@Req() req) {
+    const shipperId = req.user.id || req.user.userId;
+    return this.shipperService.getCompletedOrdersByShipper(shipperId);
+  }
+
+
+  // @Get('order-history')
+  // @UseGuards(AuthGuard)  // Bảo vệ API bằng AuthGuard
+  // async getOrderHistory(
+  //   @Req() req, 
+  //   @Query('page') page: number = 1,
+  //   @Query('pageSize') pageSize: number = 10
+  // ) {
+  //   const shipperId = req.user.uid || req.user.id;
+  //   return this.shipperService.getOrderHistoryForShipper(shipperId, page, pageSize);
+  // }
 
 }
