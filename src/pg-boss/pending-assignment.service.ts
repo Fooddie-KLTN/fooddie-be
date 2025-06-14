@@ -10,6 +10,7 @@ import * as PgBoss from 'pg-boss';
 import { PG_BOSS_INSTANCE } from './pg-boss.module';
 import { pubSub } from 'src/pubsub';
 import { haversineDistance } from 'src/common/utils/helper';
+import { activeShipperTracker } from 'src/modules/order/order.resolver'; // Import the tracker
 
 // Import the active shipper tracker
 interface ActiveShipper {
@@ -60,9 +61,6 @@ export class PendingAssignmentService implements OnModuleInit {
     private readonly logger = new Logger(PendingAssignmentService.name);
     private workerId: string | null = null;
     private shipperTracker = new ShipperNotificationTracker();
-    
-    // Mock active shippers - in real app, this should come from your subscription tracker
-    private activeShippers: Map<string, ActiveShipper> = new Map();
 
     constructor(
         @InjectRepository(PendingShipperAssignment)
@@ -426,7 +424,7 @@ export class PendingAssignmentService implements OnModuleInit {
     }
 
     /**
-     * Find the nearest available shipper for an order
+     * Find the nearest available shipper for an order using the resolver's tracker
      */
     private async findNearestAvailableShipper(order: Order): Promise<ActiveShipper | null> {
         if (!order.restaurant?.latitude || !order.restaurant?.longitude) {
@@ -441,8 +439,14 @@ export class PendingAssignmentService implements OnModuleInit {
         let nearestShipper: ActiveShipper | null = null;
         let shortestDistance = Infinity;
 
-        // Get active shippers (in real app, get from subscription tracker)
-        const activeShippers = this.getActiveShippers();
+        // Get active shippers from the resolver's tracker - THIS IS THE FIX!
+        const activeShippers = activeShipperTracker.getAllShippers();
+        this.logger.log(`📋 Found ${activeShippers.length} active shippers from resolver tracker`);
+
+        // Debug: Log all active shippers
+        activeShippers.forEach(shipper => {
+            this.logger.log(`👤 Active shipper: ${shipper.shipperId} at lat=${shipper.latitude}, lng=${shipper.longitude}, maxDistance=${shipper.maxDistance}`);
+        });
 
         for (const shipper of activeShippers) {
             // Skip shippers already notified about this order
@@ -473,37 +477,6 @@ export class PendingAssignmentService implements OnModuleInit {
         }
 
         return nearestShipper;
-    }
-
-    /**
-     * Get active shippers (mock implementation - replace with real tracker)
-     */
-    private getActiveShippers(): ActiveShipper[] {
-        // In real implementation, get from OrderResolver's activeShipperTracker
-        // For now, return mock data or empty array
-        return Array.from(this.activeShippers.values());
-    }
-
-    /**
-     * Add method to register active shippers (called from subscription)
-     */
-    registerActiveShipper(shipperId: string, latitude: number, longitude: number, maxDistance: number): void {
-        this.activeShippers.set(shipperId, {
-            shipperId,
-            latitude,
-            longitude,
-            maxDistance,
-            lastSeen: new Date()
-        });
-        this.logger.log(`📝 Registered active shipper ${shipperId}`);
-    }
-
-    /**
-     * Remove active shipper (called when subscription ends)
-     */
-    unregisterActiveShipper(shipperId: string): void {
-        this.activeShippers.delete(shipperId);
-        this.logger.log(`🔌 Unregistered shipper ${shipperId}`);
     }
 
     /**
