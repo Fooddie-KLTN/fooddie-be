@@ -6,6 +6,7 @@ import { ObjectType, Field, ID } from '@nestjs/graphql';
 @Entity({ name: 'pending_shipper_assignments' })
 @Index(['createdAt']) // Index for cleanup queries
 @Index(['priority', 'createdAt']) // Index for priority-based retrieval
+@Index(['isSentToShipper']) // Index for tracking sent assignments
 export class PendingShipperAssignment {
     @Field(() => ID)
     @PrimaryGeneratedColumn("uuid")
@@ -39,4 +40,9 @@ export class PendingShipperAssignment {
     @Field({ nullable: true })
     @Column({ type: 'text', nullable: true })
     notes: string; // Store any additional info like rejection reasons
+
+        @Field()
+    @Column({ type: 'boolean', default: false })
+    isSentToShipper: boolean; // Track if order has been sent to a shipper
+
 }
