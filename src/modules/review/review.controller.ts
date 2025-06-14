@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Put, Delete, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Post, Get, Put, Delete, Body, Param, UseGuards, Req } from '@nestjs/common';
 import { ReviewService } from './review.service';
 import { CreateFoodReviewDto, CreateShipperReviewDto, UpdateReviewDto } from './dto/create-review.dto';
 import { AuthGuard } from 'src/auth/auth.guard';
@@ -9,14 +9,16 @@ export class ReviewController {
 
     @Post('food')
     @UseGuards(AuthGuard)
-    createFoodReview(@Body() createFoodReviewDto: CreateFoodReviewDto) {
-        return this.reviewService.createFoodReview(createFoodReviewDto);
+    createFoodReview(@Body() createFoodReviewDto: CreateFoodReviewDto, @Req() req: any) {
+        const userId = req.user.id || req.user.userId; // Lấy userId từ request
+        return this.reviewService.createFoodReview(createFoodReviewDto, userId);
     }
 
     @Post('shipper')
     @UseGuards(AuthGuard)
-    createShipperReview(@Body() createShipperReviewDto: CreateShipperReviewDto) {
-        return this.reviewService.createShipperReview(createShipperReviewDto);
+    createShipperReview(@Body() createShipperReviewDto: CreateShipperReviewDto, @Req() req: any) {
+        const userId = req.user.id || req.user.UID; 
+        return this.reviewService.createShipperReview(createShipperReviewDto, userId);
     }
 
     @Get('food/:foodId')

@@ -364,6 +364,17 @@ export class ShipperService {
     shippingDetail.actualDeliveryTime = new Date();
   
     await this.shippingDetailRepository.save(shippingDetail);
+
+    const order = await this.orderRepository.findOne({
+      where: {
+        id: orderId
+      }
+    })
+    if (!order) {
+      throw new NotFoundException('Đơn hàng không tồn tại');
+    }
+    order.status = 'completed';
+    await this.orderRepository.save(order);
   
     return { message: 'Đơn hàng đã được hoàn thành' };
   }

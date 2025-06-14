@@ -22,10 +22,11 @@ import { Address } from 'src/entities/address.entity';
 import { GoogleCloudStorageService } from 'src/gcs/gcs.service';
 import { PendingAssignmentService } from 'src/pg-boss/pending-assignment.service';
 import { QueueModule } from 'src/pg-boss/queue.module';
+import { Review } from 'src/entities/review.entity';
 
 @Module({
 	imports: [
-		TypeOrmModule.forFeature([Order, OrderDetail, Checkout, User,Food, Role, Promotion, Restaurant, Address, Promotion]),
+		TypeOrmModule.forFeature([Order, OrderDetail, Checkout, User,Food, Role, Promotion, Restaurant, Address, Promotion, Review]),
 		ConfigModule,
 		QueueModule,
 		JwtModule.registerAsync({
