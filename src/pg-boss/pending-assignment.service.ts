@@ -246,6 +246,13 @@ export class PendingAssignmentService implements OnModuleInit {
             return false;
         }
 
+
+        if (assignment.isSentToShipper == true)
+        {
+            this.logger.log(`❌ Assignment ${assignment.id}: Already sent to shipper, skipping`);
+            return false;
+        }
+
         // Check if assignment has exceeded maximum attempts or age based on assignment creation time
         const maxAttempts = 15;
         const maxAgeMinutes = 30; // 30 minutes from assignment creation
@@ -391,6 +398,10 @@ export class PendingAssignmentService implements OnModuleInit {
                 targetShipperId: nearestShipper.shipperId
             });
 
+            assignment.isSentToShipper = true;
+
+            await this.pendingAssignmentRepository.save(assignment);
+
             // Track that this shipper was notified
             this.shipperTracker.addNotifiedShipper(orderId, nearestShipper.shipperId);
             
@@ -399,6 +410,8 @@ export class PendingAssignmentService implements OnModuleInit {
             // Set timeout for shipper response (e.g., 2 minutes)
             this.shipperTracker.setResponseTimeout(orderId, async () => {
                 this.logger.log(`⏰ Shipper ${nearestShipper.shipperId} didn't respond to order ${orderId}, trying next shipper...`);
+                assignment.isSentToShipper = false;
+                await this.pendingAssignmentRepository.save(assignment);
                 await this.scheduleRetryForAssignment(assignment);
             }, 2 * 60 * 1000); // 2 minutes
 
@@ -628,6 +641,7 @@ export class PendingAssignmentService implements OnModuleInit {
             priority,
             attemptCount: 0,
             nextAttemptAt: new Date(), // Try immediately
+            isSentToShipper: false,
         });
 
         const saved = await this.pendingAssignmentRepository.save(pendingAssignment);

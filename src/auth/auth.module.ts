@@ -15,6 +15,7 @@ import { UsersModule } from 'src/modules/users/users.module';
 import { RoleModule } from 'src/modules/role/role.module';
 import { Address } from 'src/entities/address.entity';
 import { ShipperCertificateInfo } from 'src/entities/shipperCertificateInfo.entity';
+import { MailingService } from 'src/nodemailer/send-mail.service';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { ShipperCertificateInfo } from 'src/entities/shipperCertificateInfo.enti
     RolesService,
     AuthGuard,
     ConfigService,
+    MailingService
   ],
   exports: [AuthService, AuthGuard, JwtModule],
 })
