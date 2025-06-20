@@ -29,7 +29,10 @@ export class FoodService {
      */
     async getTopFoodsByRestaurant(restaurantId: string, limit = 5): Promise<any[]> {
         const foods = await this.foodRepository.find({
-            where: { restaurant: { id: restaurantId } },
+            where: { 
+                restaurant: { id: restaurantId },
+                status: 'available' // Add status filter
+            },
             order: { soldCount: 'DESC' },
             take: limit,
         });
@@ -161,6 +164,183 @@ export class FoodService {
             totalPages: Math.ceil(totalItems / pageSize),
         };
     }
+/**
+ * Search foods for store/admin with additional filtering options
+ */
+async searchFoodsForStore(
+  query: string,
+  page = 1,
+  pageSize = 10,
+  lat?: number,
+  lng?: number,
+  restaurantId?: string,
+  categoryId?: string,
+  radius = 99999 // Large radius for admin search
+): Promise<{
+  items: any[];
+  totalItems: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}> {
+  console.log('=== searchFoodsForStore Debug ===');
+  console.log('Input parameters:', {
+    query,
+    page,
+    pageSize,
+    lat,
+    lng,
+    restaurantId,
+    categoryId,
+    radius
+  });
+
+  const queryBuilder = this.foodRepository.createQueryBuilder('food')
+    .leftJoinAndSelect('food.restaurant', 'restaurant')
+    .leftJoinAndSelect('food.category', 'category')
+  // Add search condition
+  if (query && query.trim()) {
+    queryBuilder.where('food.name ILIKE :query OR food.description ILIKE :query', { 
+      query: `%${query.trim()}%` 
+    });
+    console.log('Added search filter for:', query.trim());
+  }
+
+  // Add restaurant filter if provided
+  if (restaurantId) {
+    const whereMethod = query && query.trim() ? 'andWhere' : 'where';
+    queryBuilder[whereMethod]('food.restaurant_id = :restaurantId', { restaurantId });
+    console.log('Added restaurant filter:', restaurantId);
+  }
+
+  // Add category filter if provided
+  if (categoryId) {
+    const whereMethod = (query && query.trim()) || restaurantId ? 'andWhere' : 'where';
+    queryBuilder[whereMethod]('food.category_id = :categoryId', { categoryId });
+    console.log('Added category filter:', categoryId);
+  }
+
+  console.log('Query SQL:', queryBuilder.getQuery());
+  console.log('Query parameters:', queryBuilder.getParameters());
+
+  // Get all matching items first
+  let items = await queryBuilder.getMany();
+  console.log('Raw items found:', items.length);
+
+  if (items.length > 0) {
+    console.log('First item example:', {
+      id: items[0].id,
+      name: items[0].name,
+      restaurant: items[0].restaurant?.name,
+      category: items[0].category?.name
+    });
+  }
+
+  // Add distance and apply location filtering if coordinates provided
+  if (lat && lng) {
+    console.log('Applying distance filtering...');
+    const beforeFilter = items.length;
+    
+    items = items
+      .filter(f => f.restaurant?.latitude && f.restaurant?.longitude)
+      .map(f => ({
+        ...f,
+        distance: haversineDistance(lat, lng, Number(f.restaurant.latitude), Number(f.restaurant.longitude))
+      }))
+      .filter(f => f.distance <= radius)
+      .sort((a, b) => a.distance - b.distance);
+
+    console.log(`Distance filter: ${beforeFilter} -> ${items.length} (within ${radius}km)`);
+  } else {
+    // Add null distance for consistency
+    items = items.map(f => ({ ...f, distance: null }));
+  }
+
+  // Calculate pagination
+  const totalItems = items.length;
+  const totalPages = Math.ceil(totalItems / pageSize);
+  const pagedItems = items.slice((page - 1) * pageSize, page * pageSize);
+
+  console.log('Final result:', {
+    totalItems,
+    pagedItemsCount: pagedItems.length,
+    page,
+    totalPages
+  });
+  console.log('=== End searchFoodsForStore Debug ===');
+
+  return {
+    items: pagedItems,
+    totalItems,
+    page,
+    pageSize,
+    totalPages,
+  };
+}
+    /**
+     * Get foods by restaurant ID and category ID with pagination
+     * @param restaurantId The restaurant ID
+     * @param categoryId The category ID
+     * @param page The page number
+     * @param pageSize The number of items per page
+     */
+    async findByRestaurantAndCategory(restaurantId: string, categoryId: string, page = 1, pageSize = 10, lat?: number, lng?: number): Promise<{
+        items: any[];
+        totalItems: number;
+        page: number;
+        pageSize: number;
+        totalPages: number;
+    }> {
+
+        
+        const restaurant = await this.restaurantRepository.findOne({
+            where: { id: restaurantId }
+        });
+
+        if (!restaurant) {
+            throw new NotFoundException(`Restaurant with ID ${restaurantId} not found`);
+        }
+
+        const category = await this.categoryRepository.findOne({
+            where: { id: categoryId }
+        });
+
+        if (!category) {
+            throw new NotFoundException(`Category with ID ${categoryId} not found`);
+        }
+
+        const [items, totalItems] = await this.foodRepository.findAndCount({
+            where: {
+                restaurant: { id: restaurantId },
+                category: { id: categoryId }
+            },
+            relations: ['restaurant', 'category'],
+            skip: (page - 1) * pageSize,
+            take: pageSize,
+        });
+
+        const itemsWithDistance = items.map(food => {
+            let distance : number | null = null;
+            if (lat && lng && food.restaurant?.latitude && food.restaurant?.longitude) {
+                distance = haversineDistance(
+                    lat,
+                    lng,
+                    Number(food.restaurant.latitude),
+                    Number(food.restaurant.longitude)
+                );
+            }
+            return { ...food, distance };
+        });
+
+        return {
+            items: itemsWithDistance,
+            totalItems,
+            page,
+            pageSize,
+            totalPages: Math.ceil(totalItems / pageSize),
+        };
+    }
+
 
     /**
      * Get foods by restaurant ID with pagination
@@ -877,10 +1057,10 @@ async findOne(id: string, lat?: number, lng?: number): Promise<any> {
     }
 
     async updateIfOwner(id: string, updateFoodDto: UpdateFoodDto, userId: string): Promise<Food> {
-        const food = await this.foodRepository.findOne({
-            where: { id },
-            relations: ['restaurant', 'restaurant.owner'],
-        });
+    const food = await this.foodRepository.findOne({
+        where: { id },
+        relations: ['restaurant', 'restaurant.owner'], // Make sure owner is loaded
+    });
         if (!food) throw new NotFoundException('Food not found');
         if (!food.restaurant || food.restaurant.owner.id !== userId) {
             throw new UnauthorizedException('You are not the owner of this restaurant');
@@ -914,10 +1094,10 @@ async findOne(id: string, lat?: number, lng?: number): Promise<any> {
     }
 
     async updateStatusIfOwner(foodId: string, status: string, userId: string): Promise<Food> {
-        const food = await this.foodRepository.findOne({
-            where: { id: foodId },
-            relations: ['restaurant'],
-        });
+   const food = await this.foodRepository.findOne({
+        where: { id: foodId },
+        relations: ['restaurant', 'restaurant.owner'], // Add the owner relation
+    });
         if (!food) throw new NotFoundException('Food not found');
         if (!food.restaurant || food.restaurant.owner.id !== userId) {
             throw new UnauthorizedException('You are not the owner of this restaurant');
@@ -1219,6 +1399,14 @@ async findOne(id: string, lat?: number, lng?: number): Promise<any> {
         console.log('=== End getReviewsByFood Debug ===');
 
         return result;
+    }
+
+    async delete(id: string): Promise<void> {
+        const result = await this.foodRepository.delete(id);
+
+        if (result.affected === 0) {
+            throw new NotFoundException(`Food with ID ${id} not found`);
+        }
     }
 }
 

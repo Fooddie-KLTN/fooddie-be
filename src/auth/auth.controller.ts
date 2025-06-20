@@ -111,4 +111,12 @@ export class AuthController {
   async loginDriver(@Body() body: LoginDriverDto) {
     return this.authService.loginDriver(body.username, body.password);
   }
+
+  @Post('check')
+  @UseGuards(AuthGuard)
+  async checkAuth(@Req() req) {
+    // Log the user ID for debugging
+    console.log('Authenticated user ID:', req.user.uid);
+    return { message: 'User is authenticated', user: req.user, isLogin: true  };
+  }
 }

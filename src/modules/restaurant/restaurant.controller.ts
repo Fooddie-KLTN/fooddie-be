@@ -26,6 +26,16 @@ export class RestaurantController {
     return await this.restaurantService.create(createRestaurantDto);
   }
 
+  @Get()
+  @UseGuards(RolesGuard)
+  @Permissions(Permission.STORE.READ)
+  async getAllRestaurants(
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number = 1,
+    @Query('pageSize', new DefaultValuePipe(10), ParseIntPipe) pageSize: number = 10,
+  ) {
+    return await this.restaurantService.findAll(page, pageSize);
+  }
+
   @Get('search')
   async searchRestaurants(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,

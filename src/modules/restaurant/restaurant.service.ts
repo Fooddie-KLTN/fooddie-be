@@ -691,6 +691,7 @@ export class RestaurantService {
         const query = this.restaurantRepository
             .createQueryBuilder('restaurant')
             .leftJoinAndSelect('restaurant.owner', 'owner')
+            .leftJoinAndSelect('restaurant.foods', 'foods')
             .leftJoinAndSelect('restaurant.address', 'address')
             .skip((page - 1) * pageSize)
             .take(pageSize);
