@@ -128,20 +128,32 @@ export class FoodService {
      * 
      * @param page The page number
      * @param pageSize The number of items per page
+     * @param lat Latitude for distance calculation
+     * @param lng Longitude for distance calculation
+     * @param status Status filter (available, hidden, etc.)
      * @returns List of all foods with pagination metadata
      */
-    async findAll(page = 1, pageSize = 10, lat?: number, lng?: number): Promise<{
+    async findAll(page = 1, pageSize = 10, lat?: number, lng?: number, status?: string): Promise<{
         items: any[];
         totalItems: number;
         page: number;
         pageSize: number;
         totalPages: number;
     }> {
-        const [items, totalItems] = await this.foodRepository.findAndCount({
-            relations: ['restaurant', 'category'],
-            skip: (page - 1) * pageSize,
-            take: pageSize,
-        });
+        const queryBuilder = this.foodRepository.createQueryBuilder('food')
+            .leftJoinAndSelect('food.restaurant', 'restaurant')
+            .leftJoinAndSelect('food.category', 'category');
+
+        // Add status filter if provided
+        if (status) {
+            queryBuilder.where('food.status = :status', { status });
+        }
+
+        queryBuilder
+            .skip((page - 1) * pageSize)
+            .take(pageSize);
+
+        const [items, totalItems] = await queryBuilder.getManyAndCount();
 
         const itemsWithDistance = items.map(food => {
             let distance: number | null = null;
@@ -283,8 +295,11 @@ async searchFoodsForStore(
      * @param categoryId The category ID
      * @param page The page number
      * @param pageSize The number of items per page
+     * @param lat Latitude for distance calculation
+     * @param lng Longitude for distance calculation
+     * @param status Status filter (available, hidden, etc.)
      */
-    async findByRestaurantAndCategory(restaurantId: string, categoryId: string, page = 1, pageSize = 10, lat?: number, lng?: number): Promise<{
+    async findByRestaurantAndCategory(restaurantId: string, categoryId: string, page = 1, pageSize = 10, lat?: number, lng?: number, status?: string): Promise<{
         items: any[];
         totalItems: number;
         page: number;
@@ -309,15 +324,22 @@ async searchFoodsForStore(
             throw new NotFoundException(`Category with ID ${categoryId} not found`);
         }
 
-        const [items, totalItems] = await this.foodRepository.findAndCount({
-            where: {
-                restaurant: { id: restaurantId },
-                category: { id: categoryId }
-            },
-            relations: ['restaurant', 'category'],
-            skip: (page - 1) * pageSize,
-            take: pageSize,
-        });
+        const queryBuilder = this.foodRepository.createQueryBuilder('food')
+            .leftJoinAndSelect('food.restaurant', 'restaurant')
+            .leftJoinAndSelect('food.category', 'category')
+            .where('food.restaurant_id = :restaurantId', { restaurantId })
+            .andWhere('food.category_id = :categoryId', { categoryId });
+
+        // Add status filter if provided
+        if (status) {
+            queryBuilder.andWhere('food.status = :status', { status });
+        }
+
+        queryBuilder
+            .skip((page - 1) * pageSize)
+            .take(pageSize);
+
+        const [items, totalItems] = await queryBuilder.getManyAndCount();
 
         const itemsWithDistance = items.map(food => {
             let distance : number | null = null;
@@ -350,7 +372,7 @@ async searchFoodsForStore(
      * @param pageSize The number of items per page
      * @returns List of foods for a specific restaurant with pagination metadata
      */
-    async findByRestaurant(restaurantId: string, page = 1, pageSize = 10, lat?: number, lng?: number): Promise<{
+    async findByRestaurant(restaurantId: string, page = 1, pageSize = 10, lat?: number, lng?: number, status?: string): Promise<{
         items: any[];
         totalItems: number;
         page: number;
@@ -365,12 +387,20 @@ async searchFoodsForStore(
             throw new NotFoundException(`Restaurant with ID ${restaurantId} not found`);
         }
 
-        const [items, totalItems] = await this.foodRepository.findAndCount({
-            where: { restaurant: { id: restaurantId } },
-            relations: ['category'],
-            skip: (page - 1) * pageSize,
-            take: pageSize,
-        });
+        const queryBuilder = this.foodRepository.createQueryBuilder('food')
+            .leftJoinAndSelect('food.category', 'category')
+            .where('food.restaurant_id = :restaurantId', { restaurantId });
+
+        // Add status filter if provided
+        if (status) {
+            queryBuilder.andWhere('food.status = :status', { status });
+        }
+
+        queryBuilder
+            .skip((page - 1) * pageSize)
+            .take(pageSize);
+
+        const [items, totalItems] = await queryBuilder.getManyAndCount();
 
         const itemsWithDistance = items.map(food => {
             let distance : number | null = null;

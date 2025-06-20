@@ -53,20 +53,10 @@ async findAllForStore(
   @Query('search') search?: string, // Add search param
   @Query('restaurantId') restaurantId?: string,
   @Query('categoryId') categoryId?: string,
+  @Query('status') status?: string, // Add status param
   @Query('lat') lat?: number,
   @Query('lng') lng?: number,
 ) {
-  console.log('=== findAllForStore Debug ===');
-  console.log('Query parameters:', {
-    page,
-    pageSize,
-    limit,
-    search,
-    restaurantId,
-    categoryId,
-    lat,
-    lng
-  });
 
   // Use limit if provided, otherwise use pageSize
   const actualPageSize = limit || pageSize;
@@ -76,13 +66,15 @@ async findAllForStore(
     ? restaurantId : undefined;
   const normalizedCategoryId = categoryId && categoryId !== 'all' && categoryId.trim() !== '' 
     ? categoryId : undefined;
+  const normalizedStatus = status && status !== 'all' && status.trim() !== '' ? status : undefined;
   const normalizedSearch = search && search.trim() !== '' ? search.trim() : undefined;
 
   console.log('Normalized parameters:', {
     normalizedRestaurantId,
     normalizedCategoryId,
+    normalizedStatus,
     normalizedSearch,
-    actualPageSize
+    actualPageSize,
   });
 
   const latitude = lat ? Number(lat) : undefined;
@@ -112,7 +104,8 @@ async findAllForStore(
       page,
       actualPageSize,
       latitude,
-      longitude
+      longitude,
+      normalizedStatus // Pass status filter
     );
   } else if (normalizedRestaurantId) {
     // Restaurant filter only
@@ -122,7 +115,8 @@ async findAllForStore(
       page,
       actualPageSize,
       latitude,
-      longitude
+      longitude,
+      normalizedStatus // Pass status filter
     );
   } else if (normalizedCategoryId) {
     // Category filter only
@@ -141,7 +135,8 @@ async findAllForStore(
       page,
       actualPageSize,
       latitude,
-      longitude
+      longitude,
+      normalizedStatus // Pass status filter
     );
   }
 }
