@@ -30,6 +30,7 @@ import { ShipperModule } from './modules/shipper/shipper.module';
 import { QueueModule } from './pg-boss/queue.module';
 import { PgBossModule } from './pg-boss/pg-boss.module'; // Add this import
 import { Order } from './entities/order.entity';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -81,6 +82,7 @@ import { Order } from './entities/order.entity';
     OrderModule,
     CategoryModule,
     ShipperModule,
+    DashboardModule,
     
     QueueModule,
     TypeOrmModule.forFeature([

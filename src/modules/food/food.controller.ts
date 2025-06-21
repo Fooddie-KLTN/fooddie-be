@@ -43,6 +43,100 @@ export class FoodController {
     return await this.foodService.createIfOwner(dto, userId);
   }
 
+@Get('all')
+@UseGuards(RolesGuard)
+@Permissions(Permission.FOOD.READ)
+async findAllForStore(
+  @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+  @Query('pageSize', new DefaultValuePipe(10), ParseIntPipe) pageSize: number,
+  @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number, // Add limit param
+  @Query('search') search?: string, // Add search param
+  @Query('restaurantId') restaurantId?: string,
+  @Query('categoryId') categoryId?: string,
+  @Query('status') status?: string, // Add status param
+  @Query('lat') lat?: number,
+  @Query('lng') lng?: number,
+) {
+
+  // Use limit if provided, otherwise use pageSize
+  const actualPageSize = limit || pageSize;
+
+  // Normalize parameters - treat empty strings and 'all' as undefined
+  const normalizedRestaurantId = restaurantId && restaurantId !== 'all' && restaurantId.trim() !== '' 
+    ? restaurantId : undefined;
+  const normalizedCategoryId = categoryId && categoryId !== 'all' && categoryId.trim() !== '' 
+    ? categoryId : undefined;
+  const normalizedStatus = status && status !== 'all' && status.trim() !== '' ? status : undefined;
+  const normalizedSearch = search && search.trim() !== '' ? search.trim() : undefined;
+
+  console.log('Normalized parameters:', {
+    normalizedRestaurantId,
+    normalizedCategoryId,
+    normalizedStatus,
+    normalizedSearch,
+    actualPageSize,
+  });
+
+  const latitude = lat ? Number(lat) : undefined;
+  const longitude = lng ? Number(lng) : undefined;
+
+  // If search is provided, use search functionality
+  if (normalizedSearch) {
+    console.log('Using search functionality');
+    return await this.foodService.searchFoodsForStore(
+      normalizedSearch,
+      page,
+      actualPageSize,
+      latitude,
+      longitude,
+      normalizedRestaurantId,
+      normalizedCategoryId
+    );
+  }
+
+  // Route to appropriate service method based on filters
+  if (normalizedRestaurantId && normalizedCategoryId) {
+    // Both restaurant and category filters
+    return await this.foodService.findByRestaurantAndCategory(
+      normalizedRestaurantId,
+      normalizedCategoryId,
+      page,
+      actualPageSize,
+      latitude,
+      longitude,
+      normalizedStatus // Pass status filter
+    );
+  } else if (normalizedRestaurantId) {
+    // Restaurant filter only
+    return await this.foodService.findByRestaurant(
+      normalizedRestaurantId,
+      page,
+      actualPageSize,
+      latitude,
+      longitude,
+      normalizedStatus // Pass status filter
+    );
+  } else if (normalizedCategoryId) {
+    // Category filter only
+    return await this.foodService.findByCategory(
+      normalizedCategoryId,
+      page,
+      actualPageSize,
+      latitude,
+      longitude
+    );
+  } else {
+    // No filters - get all foods
+    return await this.foodService.findAll(
+      page,
+      actualPageSize,
+      latitude,
+      longitude,
+      normalizedStatus // Pass status filter
+    );
+  }
+}
+
   @Get()
   async findAll(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
@@ -273,7 +367,10 @@ export class FoodController {
   ) {
     const userId = req.user?.id;
     if (!userId) throw new UnauthorizedException('Not authenticated');
-    return await this.foodService.updateStatusIfOwner(id, status, userId);
+    if (status !== 'available' && status !== 'hidden') {
+      throw new BadRequestException('Status must be either "available" or "hidden"');
+    }
+      return await this.foodService.updateStatusIfOwner(id, status, userId);
   }
 
   @Get(':id/reviews')
@@ -316,6 +413,18 @@ export class FoodController {
     console.log('=== End Controller getReviewsByFood ===');
 
     return result;
+  }
+
+  @Delete(":id")
+  @UseGuards(RolesGuard)
+  @Permissions(Permission.FOOD.DELETE)
+  async deleteFood(
+    @Param('id') id: string,
+    @Req() req: any
+  ) {
+    const userId = req.user?.id;
+    if (!userId) throw new UnauthorizedException('Not authenticated');
+    return await this.foodService.delete(id);
   }
 
 }

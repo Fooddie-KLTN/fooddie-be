@@ -22,11 +22,11 @@ export const Permission = {
     ALL: 'RULE_LIST',
   },
   STORE: {
-    CREATE: 'STORE_CREATE',
-    WRITE: 'STORE_UPDATE',
-    READ: 'STORE_READ',
-    DELETE: 'STORE_DELETE',
-    ALL: 'STORE_LIST',
+    CREATE: 'RESTAURANT_CREATE',
+    WRITE: 'RESTAURANT_UPDATE',
+    READ: 'RESTAURANT_READ',
+    DELETE: 'RESTAURANT_DELETE',
+    ALL: 'RESTAURANT_LIST',
   },
   CATEGORY: {
     CREATE: 'CATEGORY_CREATE',
@@ -63,6 +63,13 @@ export const Permission = {
     DELETE: 'PROMOTION_DELETE',
     ALL: 'PROMOTION_LIST',
   },
+  FOOD: {
+    CREATE: 'FOOD_CREATE',
+    WRITE: 'FOOD_UPDATE',
+    READ: 'FOOD_READ',
+    DELETE: 'FOOD_DELETE',
+    ALL: 'FOOD_LIST',
+  }
 } as const;
 
 export type PermissionType = (typeof Permission)[keyof typeof Permission];
