@@ -155,8 +155,8 @@ async getOrdersByMyRestaurant(
 }
 
   @Get(':id')
-  getOrderById(@Param('id') id: string) {
-    return this.orderService.getOrderById(id);
+  getOrderById(@Param('id') id: string, @Query('review') review?: boolean) {
+    return this.orderService.getOrderById(id, review);
   }
 
   @Get('user/:userId')

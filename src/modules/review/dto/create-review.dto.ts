@@ -1,8 +1,7 @@
 import { IsString, IsNumber, IsUUID } from 'class-validator';
 
 export class CreateFoodReviewDto {
-    @IsString()
-    userId: string;
+
 
     @IsUUID()
     foodId: string;
@@ -10,14 +9,16 @@ export class CreateFoodReviewDto {
     @IsString()
     comment: string;
 
+    @IsString()
+    image: string;
+
     @IsNumber()
     rating: number;
 }
 
 
 export class CreateShipperReviewDto {
-    @IsString()
-    userId: string;
+
 
     @IsString()
     shipperId: string;

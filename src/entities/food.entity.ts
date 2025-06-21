@@ -80,7 +80,7 @@ export class Food {
     preparationTime: number;
 
     @Field(() => Restaurant)
-    @ManyToOne(() => Restaurant, { eager: true })
+    @ManyToOne(() => Restaurant)
     @JoinColumn({ name: 'restaurant_id' })
     restaurant: Restaurant;
 
