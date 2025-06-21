@@ -97,7 +97,6 @@ async findAllForStore(
   // Route to appropriate service method based on filters
   if (normalizedRestaurantId && normalizedCategoryId) {
     // Both restaurant and category filters
-    console.log('Filtering by restaurant AND category');
     return await this.foodService.findByRestaurantAndCategory(
       normalizedRestaurantId,
       normalizedCategoryId,
@@ -109,7 +108,6 @@ async findAllForStore(
     );
   } else if (normalizedRestaurantId) {
     // Restaurant filter only
-    console.log('Filtering by restaurant only');
     return await this.foodService.findByRestaurant(
       normalizedRestaurantId,
       page,
@@ -120,7 +118,6 @@ async findAllForStore(
     );
   } else if (normalizedCategoryId) {
     // Category filter only
-    console.log('Filtering by category only');
     return await this.foodService.findByCategory(
       normalizedCategoryId,
       page,
@@ -130,7 +127,6 @@ async findAllForStore(
     );
   } else {
     // No filters - get all foods
-    console.log('No filters - getting all foods');
     return await this.foodService.findAll(
       page,
       actualPageSize,
