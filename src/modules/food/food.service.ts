@@ -1438,5 +1438,20 @@ async findOne(id: string, lat?: number, lng?: number): Promise<any> {
             throw new NotFoundException(`Food with ID ${id} not found`);
         }
     }
+    async getMenuForUser(userId: string) {
+        const restaurants = await this.restaurantRepository.find({
+          relations: ['foods'],  // Fetch foods for each restaurant
+        });
+      
+        return restaurants.map(restaurant => ({
+          name: restaurant.name,
+          address: restaurant.address,
+          foods: restaurant.foods.map(food => ({
+            name: food.name,
+            price: food.price,
+            description: food.description,
+          })),
+        }));
+      }
 }
 

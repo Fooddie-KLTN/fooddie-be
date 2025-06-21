@@ -721,6 +721,45 @@ export class OrderService {
             orderTotal: orderCalculation.total
         };
     }
+    
+    async getOrderHistory(userId: string, page: number = 1, pageSize: number = 10) {
+        // Tạo query để lấy các đơn hàng của người dùng
+        const query = this.orderRepository.createQueryBuilder('order')
+          .leftJoinAndSelect('order.orderDetails', 'orderDetail') // Lấy thông tin chi tiết món ăn
+          .leftJoinAndSelect('orderDetail.food', 'food') // Lấy thông tin món ăn từ orderDetails
+          .where('order.user_id = :userId', { userId })
+          .orderBy('order.createdAt', 'DESC'); // Sắp xếp theo ngày tạo đơn hàng (mới nhất lên đầu)
+      
+        // Áp dụng phân trang
+        const [orders, totalOrders] = await query
+          .skip((page - 1) * pageSize)
+          .take(pageSize)
+          .getManyAndCount();
+      
+        // Chuyển đổi và trả về dữ liệu
+        const ordersHistory = orders.map(order => ({
+          orderId: order.id,
+          restaurantName: order.restaurant?.name,
+          totalAmount: order.total,
+          status: order.status,
+          date: order.createdAt,
+          orderDetails: order.orderDetails.map(orderDetail => ({
+            foodName: orderDetail.food.name,
+            quantity: orderDetail.quantity,
+            price: orderDetail.price,
+            totalPrice: (parseFloat(orderDetail.price) * orderDetail.quantity).toFixed(2),
+          })),
+        }));
+      
+        return {
+          items: ordersHistory,
+          totalItems: totalOrders,
+          page,
+          pageSize,
+          totalPages: Math.ceil(totalOrders / pageSize),
+        };
+      }
+      
 
     // Add new cron job to auto-cancel orders without shippers
     @Cron(CronExpression.EVERY_10_MINUTES)
