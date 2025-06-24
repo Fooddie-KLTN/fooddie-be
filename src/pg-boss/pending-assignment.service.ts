@@ -410,9 +410,42 @@ export class PendingAssignmentService implements OnModuleInit {
             // Set timeout for shipper response (e.g., 2 minutes)
             this.shipperTracker.setResponseTimeout(orderId, async () => {
                 this.logger.log(`⏰ Shipper ${nearestShipper.shipperId} didn't respond to order ${orderId}, trying next shipper...`);
-                assignment.isSentToShipper = false;
-                await this.pendingAssignmentRepository.save(assignment);
-                await this.scheduleRetryForAssignment(assignment);
+                
+                try {
+                    // Fetch the latest assignment data to avoid stale entity issues
+                    const latestAssignment = await this.pendingAssignmentRepository.findOne({
+                        where: { id: assignment.id },
+                        relations: ['order']
+                    });
+                    
+                    if (!latestAssignment) {
+                        this.logger.warn(`⚠️ Assignment ${assignment.id} not found for retry`);
+                        return;
+                    }
+                    
+                    // Update the assignment to mark it as not sent to shipper
+                    latestAssignment.isSentToShipper = false;
+                    await this.pendingAssignmentRepository.save(latestAssignment);
+                    
+                    // Schedule retry with the fresh assignment data
+                    await this.scheduleRetryForAssignment(latestAssignment);
+                    
+                } catch (error) {
+                    this.logger.error(`❌ Error handling shipper timeout for assignment ${assignment.id}:`, error);
+                    
+                    // If there's an error, try to clean up by removing the assignment
+                    try {
+                        const assignmentToRemove = await this.pendingAssignmentRepository.findOne({
+                            where: { id: assignment.id }
+                        });
+                        if (assignmentToRemove) {
+                            await this.pendingAssignmentRepository.remove(assignmentToRemove);
+                            this.logger.log(`🗑️ Removed problematic assignment ${assignment.id} after timeout error`);
+                        }
+                    } catch (cleanupError) {
+                        this.logger.error(`💥 Failed to cleanup assignment ${assignment.id}:`, cleanupError);
+                    }
+                }
             }, 2 * 60 * 1000); // 2 minutes
 
             this.logger.log(`🎯 === COMPLETED PROCESSING FOR ORDER ${orderId} ===`);
@@ -504,49 +537,64 @@ export class PendingAssignmentService implements OnModuleInit {
      * Schedule a retry for a failed assignment attempt
      */
     private async scheduleRetryForAssignment(assignment: PendingShipperAssignment): Promise<void> {
-        assignment.attemptCount += 1;
-        assignment.lastAttemptAt = new Date();
-
-        // Calculate assignment age to determine if we should continue
-        const assignmentAge = Date.now() - assignment.createdAt.getTime();
-        const assignmentAgeMinutes = Math.round(assignmentAge / (1000 * 60));
+        const maxRetries = 10;
+        const baseDelay = 1; // 1 minute base delay
         
-        // Don't schedule retries for assignments that are close to expiration
-        const maxAgeMinutes = 30;
-        if (assignmentAgeMinutes >= maxAgeMinutes - 5) {
-            this.logger.log(`⏰ Assignment ${assignment.id} is ${assignmentAgeMinutes} minutes old, stopping retries`);
-            assignment.notes = `Stopped retrying: assignment too old (${assignmentAgeMinutes} minutes)`;
-            await this.pendingAssignmentRepository.save(assignment);
-            this.shipperTracker.clearOrder(assignment.order.id);
+        if (assignment.attemptCount >= maxRetries) {
+            this.logger.warn(`🚫 Max retries (${maxRetries}) reached for assignment ${assignment.id}, removing from queue`);
+            
+            try {
+                await this.pendingAssignmentRepository.remove(assignment);
+                this.logger.log(`🗑️ Removed assignment ${assignment.id} after max retries`);
+            } catch (error) {
+                this.logger.error(`❌ Failed to remove assignment ${assignment.id}:`, error);
+            }
+            
             return;
         }
 
-        // Shorter backoff times for individual shipper attempts
-        let backoffMinutes: number;
-        
-        if (assignment.attemptCount <= 5) {
-            backoffMinutes = 1; // First 5 attempts: retry every 1 minute (try different shippers quickly)
-        } else if (assignment.attemptCount <= 10) {
-            backoffMinutes = 2; // Next 5 attempts: retry every 2 minutes  
-        } else {
-            backoffMinutes = 3; // Later attempts: retry every 3 minutes
+        // Calculate exponential backoff delay
+        const delayMinutes = Math.min(baseDelay * Math.pow(2, assignment.attemptCount), 60); // Max 60 minutes
+        const nextAttempt = new Date(Date.now() + delayMinutes * 60 * 1000);
+
+        try {
+            // Fetch the latest assignment to avoid working with stale data
+            const latestAssignment = await this.pendingAssignmentRepository.findOne({
+                where: { id: assignment.id },
+                relations: ['order']
+            });
+
+            if (!latestAssignment) {
+                this.logger.warn(`⚠️ Assignment ${assignment.id} not found for retry scheduling`);
+                return;
+            }
+
+            // Update the existing assignment instead of creating a new one
+            latestAssignment.attemptCount += 1;
+            latestAssignment.lastAttemptAt = new Date();
+            latestAssignment.nextAttemptAt = nextAttempt;
+            latestAssignment.isSentToShipper = false; // Reset the flag for retry
+
+            await this.pendingAssignmentRepository.save(latestAssignment);
+            
+            this.logger.log(`🔄 Scheduled retry ${latestAssignment.attemptCount}/${maxRetries} for assignment ${assignment.id} in ${delayMinutes} minutes (next attempt: ${nextAttempt.toISOString()})`);
+            
+        } catch (error) {
+            this.logger.error(`❌ Failed to schedule retry for assignment ${assignment.id}:`, error);
+            
+            // If updating fails, try to remove the assignment to prevent further errors
+            try {
+                const assignmentToRemove = await this.pendingAssignmentRepository.findOne({
+                    where: { id: assignment.id }
+                });
+                if (assignmentToRemove) {
+                    await this.pendingAssignmentRepository.remove(assignmentToRemove);
+                    this.logger.log(`🗑️ Removed problematic assignment ${assignment.id}`);
+                }
+            } catch (removeError) {
+                this.logger.error(`💥 Failed to remove problematic assignment ${assignment.id}:`, removeError);
+            }
         }
-        
-        assignment.nextAttemptAt = new Date(Date.now() + backoffMinutes * 60 * 1000);
-
-        // Check if we should stop retrying
-        const maxAttempts = 15;
-
-        if (assignment.attemptCount >= maxAttempts) {
-            assignment.notes = `Assignment abandoned: ${assignment.attemptCount} attempts, ${assignmentAgeMinutes} minutes old`;
-            await this.pendingAssignmentRepository.save(assignment);
-            this.shipperTracker.clearOrder(assignment.order.id);
-            this.logger.warn(`😞 Abandoning assignment ${assignment.id} for order ${assignment.order.id} after ${assignment.attemptCount} attempts`);
-            return;
-        }
-
-        await this.pendingAssignmentRepository.save(assignment);
-        this.logger.log(`📅 Scheduled retry ${assignment.attemptCount + 1} for order ${assignment.order.id} in ${backoffMinutes} minutes (assignment age: ${assignmentAgeMinutes}m)`);
     }
 
     /**
