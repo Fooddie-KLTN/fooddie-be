@@ -10,54 +10,91 @@ export class ChatService {
     private readonly foodService: FoodService,
     private readonly orderService: OrderService,
   ) {}
-  async generateReply(userMessage: string, userId: string): Promise<string> {
+  async generateReply(userMessage: string, userId: string): Promise<{
+    reply: string;
+    suggestions?: {
+      id: string;
+      name: string;
+      price: number;
+      image: string;
+      link: string;
+    }[];
+    action?: string;
+    metadata?: any;
+  }> {
     try {
-      console.log('[START] generateReply', { userMessage, userId });
       const [menu, orderHistory] = await Promise.all([
         this.foodService.getMenuForUser(userId),
-        this.orderService.getOrderHistory(userId, 1, 5), // lấy 5 đơn gần nhất
+        this.orderService.getOrderHistory(userId, 1, 5),
       ]);
-      console.log('[MENU]', menu.length);
-      console.log('[ORDER HISTORY]', orderHistory.items?.length);
-      // Tạo danh sách món ăn
-      const menuText = menu.map(restaurant => {
-        const foodList = restaurant.foods
-          .map(food => `- ${food.name} (${food.price}đ): ${food.description}`)
-          .join('\n');
-        return `🏪 ${restaurant.name} - ${restaurant.address}\n${foodList}`;
-      }).join('\n\n');
   
-      // Phân tích lịch sử món ăn đã đặt
       const orderedFoods = orderHistory.items.flatMap(order =>
         order.orderDetails.map(detail => detail.foodName)
       );
-
-      console.log('[MENU]', JSON.stringify(menu, null, 2));
-      console.log('[ORDERS]', JSON.stringify(orderHistory, null, 2));
   
-      const topOrdered = this.getTopItems(orderedFoods); // lấy 3 món hay đặt nhất
+      // Tạo menuFlat: list món (bao gồm id để tạo link)
+      const menuFlat = menu.flatMap(r =>
+        r.foods.map(f => ({
+          id: f.id,
+          name: f.name,
+          price: f.price,
+          description: f.description,
+          image: f.image || 'https://via.placeholder.com/80x80',
+          link: `http://localhost:3000/food/${f.id}`,
+        }))
+      );
   
       const prompt = `
-  Bạn là FoodieBot. Nhiệm vụ:
-  - Tư vấn món ăn phù hợp theo lịch sử của người dùng và danh sách món ăn hiện có.
+  Bạn là FoodieBot – một trợ lý đặt món thân thiện. 
+  Dưới đây là thực đơn hiện tại (dạng JSON):
   
-  Dữ liệu hệ thống:
-  ${menuText}
+  ${JSON.stringify(menuFlat)}
   
-  Lịch sử món ăn người dùng từng đặt: ${topOrdered.join(', ')}
+  Lịch sử món người dùng đã từng đặt: ${orderedFoods.join(', ')}
   
   Người dùng nói: "${userMessage}"
   
-  Hãy phản hồi thân thiện, ngắn gọn và gợi ý ít nhất 1 món phù hợp với thói quen của người dùng.
+  Hãy phân tích ý định người dùng và phản hồi theo format sau (JSON):
+  {
+    "reply": "Câu trả lời ngắn gọn, lịch sự, không dùng từ cảm thán như 'Tuyệt vời!', 'Xuất sắc!', v.v. Hãy bắt đầu trực tiếp vào nội dung, ví dụ: 'Dựa trên sở thích của bạn, chúng tôi gợi ý...'",
+    "suggestions": [ { "id": "...", "name": "...", "price": ..., "image": "...", "link": "..." }, ... ],
+    "action": null hoặc "placeOrder" hoặc "trackOrder" hoặc v.v.,
+    "metadata": {
+      // dữ liệu bổ sung như orderData, items, ...
+    }
+  }
+  
+  Lưu ý:
+  - Nếu người dùng muốn gợi ý món hoặc hỏi món nào ngon, hãy đưa ra gợi ý từ menu.
+  - Nếu không có gì phù hợp, suggestions = [].
+  - Nếu họ yêu cầu đặt món thì trả action = "placeOrder" + metadata phù hợp.
   `;
   
-      const response = await this.callGemini(prompt);
-      return response;
+      const raw = await this.callGemini(prompt);
+      const match = raw.match(/\{[\s\S]*\}/);
+      if (!match) {
+        return {
+          reply: raw,
+          suggestions: [],
+        };
+      }
+  
+      const parsed = JSON.parse(match[0]);
+  
+      // fallback để đảm bảo không bị lỗi
+      return {
+        reply: parsed.reply || raw,
+        suggestions: Array.isArray(parsed.suggestions) ? parsed.suggestions : [],
+        action: parsed.action || null,
+        metadata: parsed.metadata || null,
+      };
     } catch (err) {
-      console.error('[generateReply] Lỗi xử lý:', err.message);
+      console.error('[generateReply] Lỗi:', err.message);
       throw new Error('Không thể tạo phản hồi từ hệ thống.');
     }
   }
+  
+  
   
   private getTopItems(items: string[], top: number = 3): string[] {
     const freq = items.reduce((acc, item) => {
