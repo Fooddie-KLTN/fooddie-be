@@ -17,6 +17,8 @@ import { AuthGuard } from './auth.guard';
 import { CreateShipperDto } from './dto/create-shipper.dto';
 import { ApiBody } from '@nestjs/swagger';
 import { LoginDriverDto } from './dto/login-driver.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) { }
@@ -60,10 +62,28 @@ export class AuthController {
   }
 
   @Post('forgot-password')
-  async forgotPassword(@Req() req) {
-    const { email } = req.body;
-    log('Received email:', email);
-    return await this.authService.forgotPassword(email);
+  @UsePipes(new ValidationPipe())
+  async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
+    return await this.authService.forgotPassword(forgotPasswordDto.email);
+  }
+
+  @Post('reset-password')
+  async resetPassword( @Req() req) {
+    const resetPasswordDto: ResetPasswordDto = {
+      token: req.body.token.token,
+      email: req.body.token.email,
+      newPassword: req.body.token.newPassword,
+    };
+    //log('Reset Password DTO:', resetPasswordDto);
+    return await this.authService.resetPassword(resetPasswordDto);
+  }
+
+  @Get('verify-reset-token')
+  async verifyResetToken(
+    @Query('token') token: string,
+    @Query('email') email: string
+  ) {
+    return await this.authService.verifyResetToken(token, email);
   }
   
   @Post('register-driver')

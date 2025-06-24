@@ -22,7 +22,9 @@ import { User } from 'src/entities/user.entity';
 import { CertificateStatus, ShipperCertificateInfo } from 'src/entities/shipperCertificateInfo.entity';
 import { Repository } from 'typeorm';
 import { nanoid } from 'nanoid/non-secure';
-
+import { MailingService } from 'src/nodemailer/send-mail.service';
+import { ResetPasswordDto } from './dto/reset-password.dto';
+import * as crypto from 'crypto';
 
 
 export enum AuthProvider {
@@ -55,6 +57,7 @@ export class AuthService {
     private readonly usersService: UsersService,
     private readonly rolesService: RolesService,
     private readonly jwtService: JwtService,
+    private readonly mailService: MailingService,
 
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
@@ -336,22 +339,6 @@ async registerDriver(dto: CreateShipperDto) {
   }
   
   
-
-  async forgotPassword(email: string): Promise<any> {
-    const user = await this.usersService.findByEmail(email);
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-    
-    
-    this.logger.log(`Password reset requested for user: ${email}`);
-    
-    return {
-      message: 'Password reset instructions sent to your email',
-      success: true,
-    };
-  }
-
   async register(registerDto: RegisterDto): Promise<any> {
     const { email, password, name } = registerDto;
 
@@ -491,5 +478,280 @@ async registerDriver(dto: CreateShipperDto) {
       );
     }
   }
-  
+  /**
+   * Generate a password reset token and send email
+   */
+  async forgotPassword(email: string): Promise<any> {
+    try {
+      const user = await this.usersService.findByEmail(email);
+      if (!user) {
+        // Don't reveal if email exists or not for security
+        return {
+          message: 'If an account with this email exists, you will receive password reset instructions.',
+          success: true,
+        };
+      }
+
+      // Generate secure reset token
+      const resetToken = crypto.randomBytes(32).toString('hex');
+      const resetTokenExpires = new Date(Date.now() + this.RESET_TOKEN_EXPIRATION_MINUTES * 60 * 1000); // 1 hour from now
+
+      // Save reset token to user
+      user.resetPasswordToken = resetToken;
+      user.resetPasswordExpires = resetTokenExpires;
+      await this.userRepo.save(user);
+
+      // Create reset URL (adjust based on your frontend)
+      const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`;
+
+      // Prepare email content
+      const emailContent = this.createPasswordResetEmailContent(user.name || 'User', resetUrl);
+
+      // Send email using your mailing service
+      await this.mailService.sendEmail({
+        from: process.env.PROJECT_EMAIL || 'noreply@fooddie.com',
+        to: email,
+        subject: 'Password Reset Request - Fooddie',
+        sender: 'Fooddie Support',
+        bodyHtml: emailContent
+      });
+
+      this.logger.log(`Password reset email sent to: ${email}`);
+
+      return {
+        message: 'If an account with this email exists, you will receive password reset instructions.',
+        success: true,
+      };
+    } catch (error) {
+      this.logger.error(`Failed to send password reset email: ${error.message}`);
+      throw new BadRequestException('Failed to process password reset request');
+    }
+  }
+
+  /**
+   * Reset password using token
+   */
+  async resetPassword(resetPasswordDto: ResetPasswordDto): Promise<any> {
+    const { token, email, newPassword } = resetPasswordDto;
+
+    try {
+      // Find user with valid reset token
+      const user = await this.userRepo.findOne({
+        where: {
+          email,
+          resetPasswordToken: token,
+        }
+      });
+
+      if (!user) {
+        throw new BadRequestException('Invalid or expired reset token');
+      }
+
+      // Check if token is expired
+      if (!user.resetPasswordExpires || user.resetPasswordExpires < new Date()) {
+        throw new BadRequestException('Reset token has expired');
+      }
+
+      // Hash new password
+      const hashedPassword = await bcrypt.hash(newPassword, this.BCRYPT_SALT_ROUNDS);
+
+      // Update user password and clear reset token
+      user.password = hashedPassword;
+      user.resetPasswordToken = undefined ;
+      user.resetPasswordExpires = new Date();
+      await this.userRepo.save(user);
+
+      // Send confirmation email
+      await this.sendPasswordChangeConfirmationEmail(user.email, user.name || 'User');
+
+      this.logger.log(`Password reset successful for user: ${email}`);
+
+      return {
+        message: 'Password has been reset successfully',
+        success: true,
+      };
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      this.logger.error(`Password reset failed: ${error.message}`);
+      throw new BadRequestException('Failed to reset password');
+    }
+  }
+
+  /**
+   * Verify reset token validity
+   */
+  async verifyResetToken(token: string, email: string): Promise<any> {
+    try {
+      const user = await this.userRepo.findOne({
+        where: {
+          email,
+          resetPasswordToken: token,
+        }
+      });
+
+      if (!user) {
+        return { valid: false, message: 'Invalid reset token' };
+      }
+
+      if (!user.resetPasswordExpires || user.resetPasswordExpires < new Date()) {
+        return { valid: false, message: 'Reset token has expired' };
+      }
+
+      return { 
+        valid: true, 
+        message: 'Token is valid',
+        expiresAt: user.resetPasswordExpires 
+      };
+    } catch (error) {
+      this.logger.error(`Token verification failed: ${error.message}`);
+      return { valid: false, message: 'Token verification failed' };
+    }
+  }
+
+  /**
+   * Create HTML content for password reset email
+   */
+  private createPasswordResetEmailContent(userName: string, resetUrl: string): string {
+    return `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Password Reset - Fooddie</title>
+        <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background-color: #ff6b35; color: white; padding: 20px; text-align: center; }
+            .content { padding: 30px; background-color: #f9f9f9; }
+            .button { 
+                display: inline-block; 
+                background-color: #ff6b35; 
+                color: white; 
+                padding: 12px 30px; 
+                text-decoration: none; 
+                border-radius: 5px; 
+                margin: 20px 0;
+            }
+            .footer { padding: 20px; text-align: center; font-size: 12px; color: #666; }
+            .warning { background-color: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 5px; margin: 20px 0; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>🍕 Fooddie</h1>
+                <h2>Password Reset Request</h2>
+            </div>
+            
+            <div class="content">
+                <h3>Hello ${userName},</h3>
+                
+                <p>We received a request to reset your password for your Fooddie account. If you didn't make this request, you can safely ignore this email.</p>
+                
+                <p>To reset your password, click the button below:</p>
+                
+                <div style="text-align: center;">
+                    <a href="${resetUrl}" class="button">Reset My Password</a>
+                </div>
+                
+                <p>Or copy and paste this link into your browser:</p>
+                <p style="word-break: break-all; background-color: #f0f0f0; padding: 10px; border-radius: 3px;">
+                    ${resetUrl}
+                </p>
+                
+                <div class="warning">
+                    <strong>⚠️ Important:</strong>
+                    <ul>
+                        <li>This link will expire in 1 hour for security reasons</li>
+                        <li>You can only use this link once</li>
+                        <li>If you didn't request this reset, please ignore this email</li>
+                    </ul>
+                </div>
+                
+                <p>If you're having trouble with the button above, copy and paste the URL into your web browser.</p>
+                
+                <p>Best regards,<br>The Fooddie Team</p>
+            </div>
+            
+            <div class="footer">
+                <p>This email was sent to ${userName} because a password reset was requested for your Fooddie account.</p>
+                <p>© ${new Date().getFullYear()} Fooddie. All rights reserved.</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    `;
+  }
+
+  /**
+   * Send password change confirmation email
+   */
+  private async sendPasswordChangeConfirmationEmail(email: string, userName: string): Promise<void> {
+    const emailContent = `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Password Changed - Fooddie</title>
+        <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background-color: #28a745; color: white; padding: 20px; text-align: center; }
+            .content { padding: 30px; background-color: #f9f9f9; }
+            .footer { padding: 20px; text-align: center; font-size: 12px; color: #666; }
+            .success { background-color: #d4edda; border: 1px solid #c3e6cb; padding: 15px; border-radius: 5px; margin: 20px 0; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>🍕 Fooddie</h1>
+                <h2>Password Successfully Changed</h2>
+            </div>
+            
+            <div class="content">
+                <h3>Hello ${userName},</h3>
+                
+                <div class="success">
+                    <strong>✅ Success!</strong> Your password has been successfully changed.
+                </div>
+                
+                <p>Your Fooddie account password was recently changed on ${new Date().toLocaleString()}.</p>
+                
+                <p>If you made this change, no further action is required.</p>
+                
+                <p><strong>If you did not make this change:</strong></p>
+                <ul>
+                    <li>Your account may have been compromised</li>
+                    <li>Please contact our support team immediately</li>
+                </ul>
+                
+                <p>Best regards,<br>The Fooddie Team</p>
+            </div>
+            
+            <div class="footer">
+                <p>© ${new Date().getFullYear()} Fooddie. All rights reserved.</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    `;
+
+    try {
+      await this.mailService.sendEmail({
+        from: process.env.PROJECT_EMAIL || 'noreply@fooddie.com',
+        to: email,
+        subject: 'Password Successfully Changed - Fooddie',
+        sender: 'Fooddie Support',
+        bodyHtml: emailContent
+      });
+    } catch (error) {
+      this.logger.error(`Failed to send password change confirmation: ${error.message}`);
+      // Don't throw error here as password was already changed successfully
+    }
+  }
 }

@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, LessThan } from 'typeorm';
+import { Repository, DataSource, LessThan, In } from 'typeorm';
 import { Order } from 'src/entities/order.entity';
 import { OrderDetail } from 'src/entities/orderDetail.entity';
 import { CreateOrderDto, CreateOrderDetailDto } from './dto/create-order.dto';
@@ -18,6 +18,7 @@ import { Checkout, CheckoutStatus } from 'src/entities/checkout.entity';
 import { pubSub } from 'src/pubsub';
 import { PromotionService } from '../promotion/promotion.service';
 import { PendingAssignmentService } from 'src/pg-boss/pending-assignment.service';
+import { Review } from 'src/entities/review.entity';
 
 @Injectable()
 export class OrderService {
@@ -41,8 +42,10 @@ export class OrderService {
         private dataSource: DataSource,
         @InjectRepository(Checkout)
         private checkoutRepository: Repository<Checkout>,
-        private promotionService: PromotionService, // Add promotion service
+        private promotionService: PromotionService,
         private pendingAssignmentService: PendingAssignmentService,
+        @InjectRepository(Review) // Add Review repository
+        private reviewRepository: Repository<Review>,
     ) { }
 
     private async validateAndCalculateOrderDetails(
@@ -194,22 +197,81 @@ export class OrderService {
         });
     }
 
-    async getOrderById(id: string) {
+    async getOrderById(id: string, includeReviewInfo: boolean = false): Promise<Order> {
         const order = await this.orderRepository.findOne({
             where: { id },
             relations: [
                 'user',
+                'user.role',
+                'user.address',
                 'restaurant',
+                'restaurant.address',
                 'orderDetails',
                 'orderDetails.food',
                 'shippingDetail',
+                'shippingDetail.shipper',
                 'promotionCode',
                 'address'
             ]
         });
 
         if (!order) throw new NotFoundException('Order not found');
+
+        // Add review information BEFORE cleaning sensitive data
+        if (includeReviewInfo) {
+            // Check if user has reviewed the food items in this order
+            const foodReviews = await this.reviewRepository.find({
+                where: {
+                    user: { id: order.user.id },
+                    food: { id: In(order.orderDetails.map(detail => detail.food.id)) },
+                    type: 'food'
+                },
+                relations: ['food']
+            });
+
+            // Check if user has reviewed the shipper (if order has shipper)
+            let shipperReview: Review | null = null;
+            if (order.shippingDetail?.shipper) {
+                shipperReview = await this.reviewRepository.findOne({
+                    where: {
+                        user: { id: order.user.id },
+                        shipper: { id: order.shippingDetail.shipper.id },
+                        type: 'shipper'
+                    }
+                });
+            }
+
+            // Add review information to the order object
+            (order as any).reviewInfo = {
+                hasReviewedFood: foodReviews.length > 0,
+                hasReviewedShipper: !!shipperReview,
+                foodReviews: foodReviews.map(review => ({
+                    id: review.id,
+                    foodId: review.food.id,
+                    rating: review.rating,
+                    comment: review.comment,
+                    createdAt: review.createdAt
+                })),
+                shipperReview: shipperReview ? {
+                    id: shipperReview.id,
+                    rating: shipperReview.rating,
+                    comment: shipperReview.comment,
+                    createdAt: shipperReview.createdAt
+                } : null,
+                canReviewFood: order.status === 'completed' && foodReviews.length === 0,
+                canReviewShipper: order.status === 'completed' && order.shippingDetail?.shipper && !shipperReview
+            };
+        }
+
+        // Clean sensitive data AFTER adding review info
+        this.cleanSensitiveData(order);
+
         return order;
+    }
+
+    // Add a new method specifically for getting order with review info
+    async getOrderByIdWithReviews(id: string) {
+        return this.getOrderById(id, true);
     }
 
     async getOrdersByUser(
@@ -786,6 +848,85 @@ export class OrderService {
             this.logger.error(`❌ Failed to send cancellation notifications for order ${order.id}:`, error);
         }
     }
+    /**
+ * Clean sensitive data from order and its relations
+ */
+private cleanSensitiveData(order: Order): void {
+    // Clean user data
+    if (order.user) {
+        delete (order.user as any).password;
+        delete (order.user as any).resetPasswordToken;
+        delete (order.user as any).resetPasswordExpires;
+        delete (order.user as any).birthday;
+        delete (order.user as any).lastLoginAt;
+        delete (order.user as any).createdAt;
+        delete (order.user as any).googleId;
 
-    
+        // Clean role data
+        if (order.user.role) {
+            delete (order.user.role as any).isSystem;
+            delete (order.user.role as any).description;
+            delete (order.user.role as any).createdAt;
+            delete (order.user.role as any).updatedAt;
+        }
+
+        // Clean address coordinates for privacy
+        if (order.user.address) {
+            order.user.address.forEach(addr => {
+                delete (addr as any).latitude;
+                delete (addr as any).longitude;
+            });
+        }
+    }
+
+    // Clean restaurant data
+    if (order.restaurant) {
+        delete (order.restaurant as any).openTime;
+        delete (order.restaurant as any).closeTime;
+        delete (order.restaurant as any).licenseCode;
+        delete (order.restaurant as any).certificateImage;
+        delete (order.restaurant as any).updatedAt;
+        delete (order.restaurant as any).createdAt;
+
+    }
+
+    // Clean food business data
+    if (order.orderDetails) {
+        order.orderDetails.forEach(detail => {
+            if (detail.food) {
+                delete (detail.food as any).soldCount;
+                delete (detail.food as any).purchasedNumber;
+            }
+        });
+    }
+
+    // Clean shipper sensitive data
+    if (order.shippingDetail?.shipper) {
+        const shipper = order.shippingDetail.shipper;
+        delete (shipper as any).password;
+        delete (shipper as any).resetPasswordToken;
+        delete (shipper as any).resetPasswordExpires;
+        delete (shipper as any).email;
+        delete (shipper as any).birthday;
+        delete (shipper as any).lastLoginAt;
+        delete (shipper as any).createdAt;
+        delete (shipper as any).googleId;
+        delete (shipper as any).address;
+        delete (shipper as any).role;
+    }
+
+    // Clean address coordinates for privacy
+    if (order.address) {
+        delete (order.address as any).latitude;
+        delete (order.address as any).longitude;
+    }
+
+    // Clean promotion sensitive data
+    if (order.promotionCode) {
+        delete (order.promotionCode as any).usageLimit;
+        delete (order.promotionCode as any).usageCount;
+        delete (order.promotionCode as any).createdAt;
+        delete (order.promotionCode as any).updatedAt;
+    }
+}
 }
