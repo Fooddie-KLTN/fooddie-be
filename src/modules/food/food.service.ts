@@ -1233,6 +1233,7 @@ async findOne(id: string, lat?: number, lng?: number): Promise<any> {
             name: food.name,
             price: food.price,
             description: food.description,
+            image: food.image,
           })),
         }));
       }
