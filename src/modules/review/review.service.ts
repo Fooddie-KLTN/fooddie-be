@@ -66,6 +66,13 @@ export class ReviewService {
         });
 
         const newRating = allReviews.reduce((acc, r) => acc + r.rating, 0) / allReviews.length;
+
+        // check if food is bad
+        if (food.reviews?.length && food.reviews.length > 10 && food.rating < 1.5 )
+        {
+            food.status = 'unavailable';
+            await this.foodRepository.save(food);
+        }
         
         // Update food rating without loading reviews to avoid circular reference
         await this.foodRepository.update(data.foodId, { 

@@ -8,6 +8,8 @@ import { Checkout } from './checkout.entity';
 import { Order } from './order.entity';
 import { Restaurant } from './restaurant.entity';
 import { ObjectType, Field, ID, registerEnumType } from '@nestjs/graphql';
+import { Conversation } from './conversation.entity';
+import { Message } from './message.entity';
 
 enum AuthProvider {
     EMAIL = 'email',
@@ -112,4 +114,16 @@ export class User {
     @Field(() => [Restaurant], { nullable: true })
     @OneToMany(() => Restaurant, restaurant => restaurant.owner)
     restaurants: Restaurant[];
+
+    @Field(() => [Conversation], { nullable: true })
+    @OneToMany(() => Conversation, conversation => conversation.participant1)
+    conversationsAsParticipant1: Conversation[];
+
+    @Field(() => [Conversation], { nullable: true })
+    @OneToMany(() => Conversation, conversation => conversation.participant2)
+    conversationsAsParticipant2: Conversation[];
+
+    @Field(() => [Message], { nullable: true })
+    @OneToMany(() => Message, message => message.sender)
+    sentMessages: Message[];
 }
