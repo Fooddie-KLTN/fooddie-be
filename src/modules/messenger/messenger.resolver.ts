@@ -1,4 +1,4 @@
-import { Resolver, Query, Mutation, Args, Context, Int } from '@nestjs/graphql';
+import { Resolver, Query, Mutation, Args, Context, Int, Subscription } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 import { MessengerService } from './messenger.service';
 import { Conversation } from 'src/entities/conversation.entity';
@@ -6,6 +6,7 @@ import { Message } from 'src/entities/message.entity';
 import { CreateConversationDto } from './dto/create-conversation.dto';
 import { SendMessageDto } from './dto/send-message.dto';
 import { AuthGuard } from 'src/auth/auth.guard';
+import { pubSub } from 'src/pubsub';
 
 @Resolver()
 @UseGuards(AuthGuard)
@@ -77,5 +78,17 @@ export class MessengerResolver {
     async getUnreadMessageCount(@Context() context: any): Promise<number> {
         const userId = context.req.user.uid || context.req.user.id;
         return await this.messengerService.getUnreadMessageCount(userId);
+    }
+
+    // Real-time message delivery
+    @Subscription(() => Message)
+    messageSent(@Args('conversationId') conversationId: string) {
+        return pubSub.asyncIterableIterator('messageSent');
+    }
+
+    // Live read receipts
+    @Subscription(() => Boolean)
+    messagesRead(@Args('conversationId') conversationId: string) {
+        return pubSub.asyncIterableIterator('messagesRead');
     }
 }
