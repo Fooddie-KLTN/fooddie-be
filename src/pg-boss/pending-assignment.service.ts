@@ -70,20 +70,20 @@ export class PendingAssignmentService implements OnModuleInit {
         private queueService: QueueService,
         @Inject(PG_BOSS_INSTANCE) private readonly boss: PgBoss,
     ) {
-        this.logger.log('🏗️ PendingAssignmentService constructor called');
+        // this.logger.log('🏗️ PendingAssignmentService constructor called');
     }
 
     /**
      * Initialize the worker when the module starts
      */
     async onModuleInit(): Promise<void> {
-        this.logger.log(`📝 PendingAssignmentService onModuleInit called!`);
-        this.logger.log(`📝 Registering worker for queue: ${QueueNames.FIND_SHIPPER}`);
+        // this.logger.log(`📝 PendingAssignmentService onModuleInit called!`);
+        // this.logger.log(`📝 Registering worker for queue: ${QueueNames.FIND_SHIPPER}`);
         
         // Give pg-boss time to fully initialize
         setTimeout(async () => {
             try {
-                this.logger.log(`🚀 Starting worker registration after delay...`);
+                // this.logger.log(`🚀 Starting worker registration after delay...`);
                 
                 // Worker options following pg-boss documentation
                 const workerOptions = {
@@ -93,7 +93,7 @@ export class PendingAssignmentService implements OnModuleInit {
                     priority: true
                 };
 
-                this.logger.log(`⚙️ Worker options: ${JSON.stringify(workerOptions)}`);
+                // this.logger.log(`⚙️ Worker options: ${JSON.stringify(workerOptions)}`);
 
                 // Register worker with correct handler signature
                 this.workerId = await this.boss.work(
@@ -102,11 +102,11 @@ export class PendingAssignmentService implements OnModuleInit {
                     this.handleFindShipperJobs.bind(this)
                 );
                 
-                this.logger.log(`✅ Worker for ${QueueNames.FIND_SHIPPER} registered successfully with ID: ${this.workerId}`);
+                // this.logger.log(`✅ Worker for ${QueueNames.FIND_SHIPPER} registered successfully with ID: ${this.workerId}`);
                 
                 // Perform initial check for existing pending assignments
                 setTimeout(async () => {
-                    this.logger.log(`🔍 Performing initial check for pending assignments...`);
+                    // this.logger.log(`🔍 Performing initial check for pending assignments...`);
                     await this.checkPendingAssignmentsAndCreateJobs();
                 }, 2000);
                 
@@ -115,7 +115,7 @@ export class PendingAssignmentService implements OnModuleInit {
             }
         }, 3000);
 
-        this.logger.log(`📝 PendingAssignmentService onModuleInit completed setup`);
+        // this.logger.log(`📝 PendingAssignmentService onModuleInit completed setup`);
     }
 
     /**
@@ -124,7 +124,7 @@ export class PendingAssignmentService implements OnModuleInit {
      */
     @Cron(CronExpression.EVERY_10_SECONDS) // Also check every 10 minutes for testing
     async checkPendingAssignmentsAndCreateJobs(): Promise<void> {
-        this.logger.log('🔍 === DAILY CHECK: Scanning database for pending shipper assignments ===');
+        // this.logger.log('🔍 === DAILY CHECK: Scanning database for pending shipper assignments ===');
         
         try {
             // Find all pending assignments that need processing
@@ -140,10 +140,10 @@ export class PendingAssignmentService implements OnModuleInit {
                 take: 50 // Limit to prevent overwhelming the system
             });
 
-            this.logger.log(`📊 Found ${pendingAssignments.length} pending assignments in database`);
+            // this.logger.log(`📊 Found ${pendingAssignments.length} pending assignments in database`);
 
             if (pendingAssignments.length === 0) {
-                this.logger.log('✅ No pending assignments found in database');
+                // this.logger.log('✅ No pending assignments found in database');
                 return;
             }
 
@@ -168,7 +168,7 @@ export class PendingAssignmentService implements OnModuleInit {
                     
                     if (jobId) {
                         jobsCreated++;
-                        this.logger.log(`✅ Created job ${jobId} for pending assignment ${assignment.id}`);
+                        // this.logger.log(`✅ Created job ${jobId} for pending assignment ${assignment.id}`);
                     }
 
                 } catch (error) {
@@ -176,7 +176,7 @@ export class PendingAssignmentService implements OnModuleInit {
                 }
             }
 
-            this.logger.log(`🎯 Daily check completed: ${jobsCreated} jobs created, ${assignmentsRemoved} invalid assignments removed`);
+            // this.logger.log(`🎯 Daily check completed: ${jobsCreated} jobs created, ${assignmentsRemoved} invalid assignments removed`);
 
         } catch (error) {
             this.logger.error('❌ Error during daily pending assignments check:', error);
@@ -187,7 +187,7 @@ export class PendingAssignmentService implements OnModuleInit {
      * Get expired pending assignments based on their creation time
      */
     async getExpiredAssignments(cutoffDate: Date): Promise<PendingShipperAssignment[]> {
-        this.logger.log(`🔍 Looking for pending assignments created before ${cutoffDate.toISOString()}`);
+        // this.logger.log(`🔍 Looking for pending assignments created before ${cutoffDate.toISOString()}`);
         
         const expiredAssignments = await this.pendingAssignmentRepository.find({
             where: {
@@ -199,7 +199,7 @@ export class PendingAssignmentService implements OnModuleInit {
             }
         });
 
-        this.logger.log(`📊 Found ${expiredAssignments.length} expired pending assignments`);
+        // this.logger.log(`📊 Found ${expiredAssignments.length} expired pending assignments`);
         
         return expiredAssignments;
     }
@@ -216,10 +216,10 @@ export class PendingAssignmentService implements OnModuleInit {
 
             if (assignment) {
                 await this.pendingAssignmentRepository.remove(assignment);
-                this.logger.log(`🗑️ Removed pending assignment ${assignmentId}`);
+                // this.logger.log(`🗑️ Removed pending assignment ${assignmentId}`);
                 return true;
             } else {
-                this.logger.log(`⚠️ Pending assignment ${assignmentId} not found`);
+                // this.logger.log(`⚠️ Pending assignment ${assignmentId} not found`);
                 return false;
             }
         } catch (error) {
@@ -236,20 +236,20 @@ export class PendingAssignmentService implements OnModuleInit {
 
         // Check if order still exists and is in confirmed status
         if (!order || order.status !== 'confirmed') {
-            this.logger.log(`❌ Assignment ${assignment.id}: Order ${order?.id} is not confirmed (status: ${order?.status})`);
+            // this.logger.log(`❌ Assignment ${assignment.id}: Order ${order?.id} is not confirmed (status: ${order?.status})`);
             return false;
         }
 
         // Check if order is already assigned to a shipper
         if (order.shippingDetail) {
-            this.logger.log(`❌ Assignment ${assignment.id}: Order ${order.id} already assigned to shipper`);
+            // this.logger.log(`❌ Assignment ${assignment.id}: Order ${order.id} already assigned to shipper`);
             return false;
         }
 
 
         if (assignment.isSentToShipper == true)
         {
-            this.logger.log(`❌ Assignment ${assignment.id}: Already sent to shipper, skipping`);
+            // this.logger.log(`❌ Assignment ${assignment.id}: Already sent to shipper, skipping`);
             return false;
         }
 
@@ -262,7 +262,7 @@ export class PendingAssignmentService implements OnModuleInit {
 
         if (assignment.attemptCount >= maxAttempts || isExpired) {
             const ageMinutes = Math.round(assignmentAge / (1000 * 60));
-            this.logger.log(`❌ Assignment ${assignment.id}: Exceeded max attempts (${assignment.attemptCount}) or expired (${ageMinutes} minutes old)`);
+            // this.logger.log(`❌ Assignment ${assignment.id}: Exceeded max attempts (${assignment.attemptCount}) or expired (${ageMinutes} minutes old)`);
             return false;
         }
 
@@ -293,7 +293,7 @@ export class PendingAssignmentService implements OnModuleInit {
                 jobOptions
             );
 
-            this.logger.log(`📤 Queued job ${jobId} for assignment ${assignment.id}, order ${assignment.order.id}`);
+            // this.logger.log(`📤 Queued job ${jobId} for assignment ${assignment.id}, order ${assignment.order.id}`);
             return jobId;
 
         } catch (error) {
@@ -307,24 +307,24 @@ export class PendingAssignmentService implements OnModuleInit {
      * This processes the jobs created by the daily check
      */
     private async handleFindShipperJobs(jobs: PgBoss.Job<FindShipperJobData>[]): Promise<void> {
-        this.logger.log(`🔥 Processing ${jobs.length} shipper assignment jobs`);
+        // this.logger.log(`🔥 Processing ${jobs.length} shipper assignment jobs`);
         
         if (!jobs || jobs.length === 0) {
-            this.logger.warn('⚠️ Received empty jobs array');
+            // this.logger.warn('⚠️ Received empty jobs array');
             return;
         }
 
         for (const job of jobs) {
             if (!job) {
-                this.logger.warn('⚠️ Received null/undefined job in batch');
+                // this.logger.warn('⚠️ Received null/undefined job in batch');
                 continue;
             }
 
-            this.logger.log(`📨 Processing job ${job.id} for finding nearest shipper`);
+            // this.logger.log(`📨 Processing job ${job.id} for finding nearest shipper`);
 
             try {
                 await this.processShipperAssignmentJob(job);
-                this.logger.log(`✅ Successfully processed job ${job.id}`);
+                // this.logger.log(`✅ Successfully processed job ${job.id}`);
             } catch (error) {
                 this.logger.error(`❌ Error processing job ${job.id}: ${error.message}`, error.stack);
                 throw error;
@@ -343,8 +343,8 @@ export class PendingAssignmentService implements OnModuleInit {
 
         const { pendingAssignmentId, orderId, attempt } = job.data;
         
-        this.logger.log(`🎯 === PROCESSING SHIPPER ASSIGNMENT FOR ORDER ${orderId} ===`);
-        this.logger.log(`🔄 Job ID: ${job.id}, Assignment ID: ${pendingAssignmentId}, Attempt: ${attempt}`);
+        // this.logger.log(`🎯 === PROCESSING SHIPPER ASSIGNMENT FOR ORDER ${orderId} ===`);
+        // this.logger.log(`🔄 Job ID: ${job.id}, Assignment ID: ${pendingAssignmentId}, Attempt: ${attempt}`);
 
         try {
             // Get the pending assignment and order details
@@ -354,7 +354,7 @@ export class PendingAssignmentService implements OnModuleInit {
             });
 
             if (!assignment) {
-                this.logger.warn(`⚠️ Pending assignment ${pendingAssignmentId} not found`);
+                // this.logger.warn(`⚠️ Pending assignment ${pendingAssignmentId} not found`);
                 return;
             }
 
@@ -362,7 +362,7 @@ export class PendingAssignmentService implements OnModuleInit {
 
             // Validate order is still assignable
             if (order.status !== 'confirmed') {
-                this.logger.log(`❌ Order ${orderId} status changed to ${order.status}, removing assignment`);
+                // this.logger.log(`❌ Order ${orderId} status changed to ${order.status}, removing assignment`);
                 await this.pendingAssignmentRepository.remove(assignment);
                 this.shipperTracker.clearOrder(orderId);
                 return;
@@ -375,7 +375,7 @@ export class PendingAssignmentService implements OnModuleInit {
             });
 
             if (currentOrder?.shippingDetail) {
-                this.logger.log(`✅ Order ${orderId} already assigned, removing from pending`);
+                // this.logger.log(`✅ Order ${orderId} already assigned, removing from pending`);
                 await this.pendingAssignmentRepository.remove(assignment);
                 this.shipperTracker.clearOrder(orderId);
                 return;
@@ -385,13 +385,13 @@ export class PendingAssignmentService implements OnModuleInit {
             const nearestShipper = await this.findNearestAvailableShipper(order);
             
             if (!nearestShipper) {
-                this.logger.log(`😞 No available shippers found for order ${orderId}, scheduling retry...`);
+                // this.logger.log(`😞 No available shippers found for order ${orderId}, scheduling retry...`);
                 await this.scheduleRetryForAssignment(assignment);
                 return;
             }
 
             // Notify ONLY this one shipper
-            this.logger.log(`📡 Notifying shipper ${nearestShipper.shipperId} about order ${orderId}...`);
+            // this.logger.log(`📡 Notifying shipper ${nearestShipper.shipperId} about order ${orderId}...`);
             
             await pubSub.publish('orderConfirmedForShippers', {
                 orderConfirmedForShippers: order,
@@ -405,11 +405,11 @@ export class PendingAssignmentService implements OnModuleInit {
             // Track that this shipper was notified
             this.shipperTracker.addNotifiedShipper(orderId, nearestShipper.shipperId);
             
-            this.logger.log(`✅ Notified shipper ${nearestShipper.shipperId} about order ${orderId}`);
+            // this.logger.log(`✅ Notified shipper ${nearestShipper.shipperId} about order ${orderId}`);
 
             // Set timeout for shipper response (e.g., 2 minutes)
             this.shipperTracker.setResponseTimeout(orderId, async () => {
-                this.logger.log(`⏰ Shipper ${nearestShipper.shipperId} didn't respond to order ${orderId}, trying next shipper...`);
+                // this.logger.log(`⏰ Shipper ${nearestShipper.shipperId} didn't respond to order ${orderId}, trying next shipper...`);
                 
                 try {
                     // Fetch the latest assignment data to avoid stale entity issues
@@ -419,7 +419,7 @@ export class PendingAssignmentService implements OnModuleInit {
                     });
                     
                     if (!latestAssignment) {
-                        this.logger.warn(`⚠️ Assignment ${assignment.id} not found for retry`);
+                        // this.logger.warn(`⚠️ Assignment ${assignment.id} not found for retry`);
                         return;
                     }
                     
@@ -440,7 +440,7 @@ export class PendingAssignmentService implements OnModuleInit {
                         });
                         if (assignmentToRemove) {
                             await this.pendingAssignmentRepository.remove(assignmentToRemove);
-                            this.logger.log(`🗑️ Removed problematic assignment ${assignment.id} after timeout error`);
+                            // this.logger.log(`🗑️ Removed problematic assignment ${assignment.id} after timeout error`);
                         }
                     } catch (cleanupError) {
                         this.logger.error(`💥 Failed to cleanup assignment ${assignment.id}:`, cleanupError);
@@ -448,7 +448,7 @@ export class PendingAssignmentService implements OnModuleInit {
                 }
             }, 2 * 60 * 1000); // 2 minutes
 
-            this.logger.log(`🎯 === COMPLETED PROCESSING FOR ORDER ${orderId} ===`);
+            // this.logger.log(`🎯 === COMPLETED PROCESSING FOR ORDER ${orderId} ===`);
 
         } catch (error) {
             this.logger.error(`💥 Error processing shipper assignment job ${job.id}:`, error);
@@ -474,7 +474,7 @@ export class PendingAssignmentService implements OnModuleInit {
      */
     private async findNearestAvailableShipper(order: Order): Promise<ActiveShipper | null> {
         if (!order.restaurant?.latitude || !order.restaurant?.longitude) {
-            this.logger.warn(`❌ Order ${order.id} restaurant has no coordinates`);
+            // this.logger.warn(`❌ Order ${order.id} restaurant has no coordinates`);
             return null;
         }
 
@@ -487,17 +487,17 @@ export class PendingAssignmentService implements OnModuleInit {
 
         // Get active shippers from the resolver's tracker - THIS IS THE FIX!
         const activeShippers = activeShipperTracker.getAllShippers();
-        this.logger.log(`📋 Found ${activeShippers.length} active shippers from resolver tracker`);
+        // this.logger.log(`📋 Found ${activeShippers.length} active shippers from resolver tracker`);
 
         // Debug: Log all active shippers
-        activeShippers.forEach(shipper => {
-            this.logger.log(`👤 Active shipper: ${shipper.shipperId} at lat=${shipper.latitude}, lng=${shipper.longitude}, maxDistance=${shipper.maxDistance}`);
-        });
+        // activeShippers.forEach(shipper => {
+        //     this.logger.log(`👤 Active shipper: ${shipper.shipperId} at lat=${shipper.latitude}, lng=${shipper.longitude}, maxDistance=${shipper.maxDistance}`);
+        // });
 
         for (const shipper of activeShippers) {
             // Skip shippers already notified about this order
             if (alreadyNotified.includes(shipper.shipperId)) {
-                this.logger.log(`⏭️ Skipping shipper ${shipper.shipperId} - already notified`);
+                // this.logger.log(`⏭️ Skipping shipper ${shipper.shipperId} - already notified`);
                 continue;
             }
 
@@ -508,7 +508,7 @@ export class PendingAssignmentService implements OnModuleInit {
                 restaurantLng
             );
 
-            this.logger.log(`📏 Shipper ${shipper.shipperId} distance: ${distance}km (max: ${shipper.maxDistance}km)`);
+            // this.logger.log(`📏 Shipper ${shipper.shipperId} distance: ${distance}km (max: ${shipper.maxDistance}km)`);
 
             if (distance <= shipper.maxDistance && distance < shortestDistance) {
                 shortestDistance = distance;
@@ -517,9 +517,9 @@ export class PendingAssignmentService implements OnModuleInit {
         }
 
         if (nearestShipper) {
-            this.logger.log(`🎯 Selected shipper ${nearestShipper.shipperId} at ${shortestDistance}km distance`);
+            // this.logger.log(`🎯 Selected shipper ${nearestShipper.shipperId} at ${shortestDistance}km distance`);
         } else {
-            this.logger.log(`😞 No suitable shippers found for order ${order.id}`);
+            // this.logger.log(`😞 No suitable shippers found for order ${order.id}`);
         }
 
         return nearestShipper;
@@ -530,7 +530,7 @@ export class PendingAssignmentService implements OnModuleInit {
      */
     async onOrderAssigned(orderId: string): Promise<void> {
         this.shipperTracker.clearOrder(orderId);
-        this.logger.log(`🎉 Order ${orderId} assigned, cleared notification tracking`);
+        // this.logger.log(`🎉 Order ${orderId} assigned, cleared notification tracking`);
     }
 
     /**
@@ -541,11 +541,11 @@ export class PendingAssignmentService implements OnModuleInit {
         const baseDelay = 1; // 1 minute base delay
         
         if (assignment.attemptCount >= maxRetries) {
-            this.logger.warn(`🚫 Max retries (${maxRetries}) reached for assignment ${assignment.id}, removing from queue`);
+            // this.logger.warn(`🚫 Max retries (${maxRetries}) reached for assignment ${assignment.id}, removing from queue`);
             
             try {
                 await this.pendingAssignmentRepository.remove(assignment);
-                this.logger.log(`🗑️ Removed assignment ${assignment.id} after max retries`);
+                // this.logger.log(`🗑️ Removed assignment ${assignment.id} after max retries`);
             } catch (error) {
                 this.logger.error(`❌ Failed to remove assignment ${assignment.id}:`, error);
             }
@@ -565,7 +565,7 @@ export class PendingAssignmentService implements OnModuleInit {
             });
 
             if (!latestAssignment) {
-                this.logger.warn(`⚠️ Assignment ${assignment.id} not found for retry scheduling`);
+                // this.logger.warn(`⚠️ Assignment ${assignment.id} not found for retry scheduling`);
                 return;
             }
 
@@ -577,7 +577,7 @@ export class PendingAssignmentService implements OnModuleInit {
 
             await this.pendingAssignmentRepository.save(latestAssignment);
             
-            this.logger.log(`🔄 Scheduled retry ${latestAssignment.attemptCount}/${maxRetries} for assignment ${assignment.id} in ${delayMinutes} minutes (next attempt: ${nextAttempt.toISOString()})`);
+            // this.logger.log(`🔄 Scheduled retry ${latestAssignment.attemptCount}/${maxRetries} for assignment ${assignment.id} in ${delayMinutes} minutes (next attempt: ${nextAttempt.toISOString()})`);
             
         } catch (error) {
             this.logger.error(`❌ Failed to schedule retry for assignment ${assignment.id}:`, error);
@@ -589,7 +589,7 @@ export class PendingAssignmentService implements OnModuleInit {
                 });
                 if (assignmentToRemove) {
                     await this.pendingAssignmentRepository.remove(assignmentToRemove);
-                    this.logger.log(`🗑️ Removed problematic assignment ${assignment.id}`);
+                    // this.logger.log(`🗑️ Removed problematic assignment ${assignment.id}`);
                 }
             } catch (removeError) {
                 this.logger.error(`💥 Failed to remove problematic assignment ${assignment.id}:`, removeError);
@@ -628,7 +628,7 @@ export class PendingAssignmentService implements OnModuleInit {
      * Add a confirmed order to pending assignments
      */
     async addPendingAssignment(orderId: string, priority: number = 1): Promise<PendingShipperAssignment> {
-        this.logger.log(`🚀 Adding pending assignment for order ${orderId} with priority ${priority}`);
+        // this.logger.log(`🚀 Adding pending assignment for order ${orderId} with priority ${priority}`);
 
         try {
             // Check if assignment already exists
@@ -637,7 +637,7 @@ export class PendingAssignmentService implements OnModuleInit {
             });
 
             if (existing) {
-                this.logger.warn(`⚠️ Pending assignment already exists for order ${orderId}`);
+                // this.logger.warn(`⚠️ Pending assignment already exists for order ${orderId}`);
                 return existing;
             }
 
@@ -647,7 +647,7 @@ export class PendingAssignmentService implements OnModuleInit {
             // Create pending assignment
             const assignment = await this.createPendingAssignment(order, priority);
 
-            this.logger.log(`✅ Created pending assignment ${assignment.id} for order ${orderId}`);
+            // this.logger.log(`✅ Created pending assignment ${assignment.id} for order ${orderId}`);
             
             return assignment;
         } catch (error) {
@@ -693,7 +693,7 @@ export class PendingAssignmentService implements OnModuleInit {
         });
 
         const saved = await this.pendingAssignmentRepository.save(pendingAssignment);
-        this.logger.log(`✅ Saved pending assignment ${saved.id} for order ${order.id}`);
+        // this.logger.log(`✅ Saved pending assignment ${saved.id} for order ${order.id}`);
 
         return saved;
     }
@@ -702,16 +702,16 @@ export class PendingAssignmentService implements OnModuleInit {
      * Remove pending assignment when order is assigned
      */
     async removePendingAssignment(orderId: string): Promise<void> {
-        this.logger.log(`🗑️ Removing pending assignment for order ${orderId}`);
+        // this.logger.log(`🗑️ Removing pending assignment for order ${orderId}`);
         
         const result = await this.pendingAssignmentRepository.delete({
             order: { id: orderId }
         });
 
         if (result.affected && result.affected > 0) {
-            this.logger.log(`✅ Removed pending assignment for order ${orderId}`);
+            // this.logger.log(`✅ Removed pending assignment for order ${orderId}`);
         } else {
-            this.logger.warn(`⚠️ No pending assignment found to remove for order ${orderId}`);
+            // this.logger.warn(`⚠️ No pending assignment found to remove for order ${orderId}`);
         }
     }
 
@@ -720,7 +720,7 @@ export class PendingAssignmentService implements OnModuleInit {
      */
     @Cron(CronExpression.EVERY_HOUR)
     async cleanupExpiredAssignments(): Promise<void> {
-        this.logger.log('🧹 Running cleanup of expired pending assignments...');
+        // this.logger.log('🧹 Running cleanup of expired pending assignments...');
         
         const cutoffTime = new Date(Date.now() - 48 * 60 * 60 * 1000); // 48 hours ago
 
@@ -729,9 +729,9 @@ export class PendingAssignmentService implements OnModuleInit {
         });
 
         if (result.affected && result.affected > 0) {
-            this.logger.log(`🗑️ Cleaned up ${result.affected} expired pending assignments`);
+            // this.logger.log(`🗑️ Cleaned up ${result.affected} expired pending assignments`);
         } else {
-            this.logger.log('✅ No expired pending assignments to clean up');
+            // this.logger.log('✅ No expired pending assignments to clean up');
         }
     }
 
@@ -744,13 +744,13 @@ export class PendingAssignmentService implements OnModuleInit {
             const dbPendingCount = await this.pendingAssignmentRepository.count();
             const queueSize = await this.queueService.getQueueSize(QueueNames.FIND_SHIPPER);
             
-            this.logger.log(`📊 System Stats: ${dbPendingCount} pending assignments in DB, ${queueSize} jobs in queue`);
+            // this.logger.log(`📊 System Stats: ${dbPendingCount} pending assignments in DB, ${queueSize} jobs in queue`);
             
             if (dbPendingCount > 0) {
                 const readyToProcess = await this.pendingAssignmentRepository.count({
                     where: { nextAttemptAt: LessThan(new Date()) }
                 });
-                this.logger.log(`⏰ ${readyToProcess} assignments ready for processing`);
+                // this.logger.log(`⏰ ${readyToProcess} assignments ready for processing`);
             }
         } catch (error) {
             this.logger.error('❌ Error collecting system stats:', error);
@@ -764,7 +764,7 @@ export class PendingAssignmentService implements OnModuleInit {
         if (this.workerId) {
             try {
                 await this.boss.offWork(this.workerId);
-                this.logger.log(`✅ Stopped worker ${this.workerId}`);
+                // this.logger.log(`✅ Stopped worker ${this.workerId}`);
             } catch (error) {
                 this.logger.error(`❌ Error stopping worker:`, error);
             }
