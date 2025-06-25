@@ -122,38 +122,22 @@ import { MessengerModule } from './modules/messenger/messenger.module';
         },
       },
       context: ({ req, connection, connectionParams }) => {
-        console.log('🏗️ Context function called with:', { 
-          hasReq: !!req, 
-          hasConnection: !!connection,
-          hasConnectionParams: !!connectionParams
-        });
-        
-        // For subscriptions (WebSocket) - check for connectionParams too
-        if (connection || connectionParams) {
-          console.log('🌐 WebSocket context created');
-          console.log('🔍 Connection object:', connection ? 'exists' : 'null');
-          console.log('🔍 ConnectionParams object:', connectionParams ? 'exists' : 'null');
-          
-          // Create a proper connection context
-          const connectionContext = connection || {
-            context: {
-              headers: {
-                authorization: connectionParams?.authorization || '',
+        if (connectionParams) {
+          // Create a proper connection context when connectionParams exist but connection doesn't
+          return {
+            connection: {
+              context: {
+                headers: {
+                  authorization: connectionParams.authorization || '',
+                }
               }
             }
           };
-          
-          return { connection: connectionContext };
         }
-        
-        // For queries/mutations (HTTP)
+        // For regular HTTP
         if (req) {
-          console.log('📡 HTTP context created');
           return { req };
         }
-        
-        // Fallback - this shouldn't happen but just in case
-        console.warn('⚠️ No valid context found, creating empty context');
         return {};
       },
       installSubscriptionHandlers: true,

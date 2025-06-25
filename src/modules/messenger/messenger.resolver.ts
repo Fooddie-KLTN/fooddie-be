@@ -58,7 +58,12 @@ export class MessengerResolver {
         const userId = context.req.user.uid || context.req.user.id;
         const message = await this.messengerService.sendMessage(userId, sendMessageDto);
         
-        // Publish the message to subscribers
+        console.log("📨 Publishing message to channel messageSent:", {
+            id: message.id,
+            conversationId: message.conversation.id,
+            text: message.content.substring(0, 20) // For privacy, just show the start
+        });
+        
         pubSub.publish('messageSent', { 
             messageSent: message,
             conversationId: message.conversation.id 
@@ -106,7 +111,10 @@ export class MessengerResolver {
   // WebSocket Subscriptions with proper filtering
     @Subscription(() => Message, {
         filter: (payload, variables) => {
-            // Only send messages for the specific conversation
+            console.log("Subscription payload:", payload);
+            console.log("Subscription variables:", variables);
+            
+            // Match the structure you use in pubSub.publish()
             return payload.conversationId === variables.conversationId;
         },
     })

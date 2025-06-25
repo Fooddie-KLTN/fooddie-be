@@ -9,6 +9,7 @@ import { Restaurant } from 'src/entities/restaurant.entity';
 import { ShippingDetail } from 'src/entities/shippingDetail.entity';
 import { CreateConversationDto } from './dto/create-conversation.dto';
 import { SendMessageDto } from './dto/send-message.dto';
+import { pubSub } from 'src/pubsub';
 
 @Injectable()
 export class MessengerService {
@@ -273,6 +274,18 @@ export class MessengerService {
         conversation.lastMessageAt = new Date();
         await this.conversationRepository.save(conversation);
 
+        // Publish message event for real-time updates
+        console.log("📨 Publishing message to channel messageSent:", {
+            id: savedMessage.id,
+            conversationId: savedMessage.conversation.id,
+            text: savedMessage.content.substring(0, 20) // For privacy, just show the start
+        });
+        
+        pubSub.publish('messageSent', { 
+            messageSent: savedMessage,
+            conversationId: savedMessage.conversation.id 
+        });
+
         return savedMessage;
     }
 
@@ -379,6 +392,13 @@ export class MessengerService {
             .andWhere('sender_id != :userId', { userId })
             .andWhere('isRead = false')
             .execute();
+        
+        // Publish read receipt event
+        console.log("📬 Publishing read receipt for conversation:", conversationId);
+        pubSub.publish('messagesRead', { 
+            messagesRead: true,
+            conversationId: conversationId 
+        });
     }
 
     /**
