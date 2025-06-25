@@ -103,20 +103,62 @@ import { MessengerModule } from './modules/messenger/messenger.module';
       autoSchemaFile: true,
       subscriptions: {
         'graphql-ws': {
-          onConnect: () => console.log('GraphQL WS connected'),
-          onDisconnect: () => console.log('GraphQL WS disconnected'),
-        }
+          onConnect: (context) => {
+            const { connectionParams } = context;
+            console.log('🔌 WebSocket connection established');
+            console.log('📝 Connection params:', connectionParams);
+            
+            // Return the connection context that will be available in the context function
+            return {
+              headers: {
+                authorization: connectionParams?.authorization || connectionParams?.Authorization || '',
+              },
+              user: null, // Will be set by the guard
+            };
+          },
+          onDisconnect: () => {
+            console.log('🔌 WebSocket connection closed');
+          },
+        },
       },
-      context: ({ req, connectionParams }) => {
-        if (req) return { req };
-        if (connectionParams?.Authorization) {
-          return { token: connectionParams.Authorization };
+      context: ({ req, connection, connectionParams }) => {
+        console.log('🏗️ Context function called with:', { 
+          hasReq: !!req, 
+          hasConnection: !!connection,
+          hasConnectionParams: !!connectionParams
+        });
+        
+        // For subscriptions (WebSocket) - check for connectionParams too
+        if (connection || connectionParams) {
+          console.log('🌐 WebSocket context created');
+          console.log('🔍 Connection object:', connection ? 'exists' : 'null');
+          console.log('🔍 ConnectionParams object:', connectionParams ? 'exists' : 'null');
+          
+          // Create a proper connection context
+          const connectionContext = connection || {
+            context: {
+              headers: {
+                authorization: connectionParams?.authorization || '',
+              }
+            }
+          };
+          
+          return { connection: connectionContext };
         }
+        
+        // For queries/mutations (HTTP)
+        if (req) {
+          console.log('📡 HTTP context created');
+          return { req };
+        }
+        
+        // Fallback - this shouldn't happen but just in case
+        console.warn('⚠️ No valid context found, creating empty context');
         return {};
       },
-      // Memory optimizations
+      installSubscriptionHandlers: true,
       introspection: process.env.NODE_ENV !== 'production',
-      playground: false, // Disable in production
+      playground: false,
       debug: false,
       formatError: (error) => ({
         message: error.message,
