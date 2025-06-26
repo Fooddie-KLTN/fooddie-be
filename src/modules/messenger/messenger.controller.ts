@@ -16,6 +16,7 @@ import { MessengerService } from './messenger.service';
 import { CreateConversationDto } from './dto/create-conversation.dto';
 import { SendMessageDto } from './dto/send-message.dto';
 import { AuthGuard } from 'src/auth/auth.guard';
+import { Conversation } from 'src/entities/conversation.entity';
 
 @Controller('messenger')
 @UseGuards(AuthGuard)
@@ -30,7 +31,12 @@ export class MessengerController {
         const userId = req.user.uid || req.user.id;
         return await this.messengerService.createOrGetConversation(userId, createConversationDto);
     }
-
+    @Get('conversation-ids')
+    async getAllConversationIds(@Req() req: any) {
+        const userId = req.user.uid || req.user.id;
+        const conversations = await this.messengerService.getUserConversations(userId, 1, 1000); // adjust pageSize as needed
+        return conversations.items.map((conv: Conversation) => conv.id);
+    }
     @Get('conversations')
     async getUserConversations(
         @Req() req: any,
