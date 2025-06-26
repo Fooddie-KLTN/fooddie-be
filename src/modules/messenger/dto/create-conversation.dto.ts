@@ -1,14 +1,26 @@
+import { Field, InputType } from '@nestjs/graphql';
 import { IsString, IsOptional, IsEnum } from 'class-validator';
+import { ConversationType } from 'src/entities/conversation.entity';
 
+@InputType()
 export class CreateConversationDto {
-    @IsString()
-    participantId: string; // The other participant (current user is automatically participant1)
-
+    @Field({ nullable: true })
     @IsOptional()
     @IsString()
-    orderId?: string;
+    participantId?: string; // O
 
+    @Field({ nullable: true })
     @IsOptional()
-    @IsEnum(['direct', 'support', 'order_related'])
-    conversationType?: string;
+    @IsString()
+    orderId?: string; // Required for shipper conversations
+
+    @Field({ nullable: true })
+    @IsOptional()
+    @IsString()
+    restaurantId?: string; // Required for shop conversations
+
+    @Field({ nullable: true })
+    @IsOptional()
+    @IsEnum(ConversationType)
+    conversationType?: ConversationType;
 }

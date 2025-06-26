@@ -1,7 +1,17 @@
 import { Entity, Column, ManyToOne, JoinColumn, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
 import { User } from './user.entity';
 import { Message } from './message.entity';
-import { ObjectType, Field, ID } from '@nestjs/graphql';
+import { ObjectType, Field, ID, registerEnumType } from '@nestjs/graphql';
+
+export enum ConversationType {
+    CUSTOMER_SHOP = 'customer_shop',
+    CUSTOMER_SHIPPER = 'customer_shipper',
+    SUPPORT = 'support'
+}
+
+registerEnumType(ConversationType, {
+    name: 'ConversationType',
+});
 
 @ObjectType()
 @Entity({ name: 'conversations' })
@@ -34,7 +44,7 @@ export class Conversation {
 
     @Field({ nullable: true })
     @Column({ nullable: true })
-    blockedBy: string; // User ID who blocked the conversation
+    blockedBy: string;
 
     @Field()
     @CreateDateColumn()
@@ -48,11 +58,19 @@ export class Conversation {
     @OneToMany(() => Message, message => message.conversation)
     messages: Message[];
 
-    @Field({ nullable: true })
-    @Column({ nullable: true })
-    conversationType: string; // 'direct', 'support', 'order_related'
+    @Field(() => ConversationType)
+    @Column({
+        type: 'enum',
+        enum: ConversationType,
+        default: ConversationType.CUSTOMER_SHOP
+    })
+    conversationType: ConversationType;
 
     @Field({ nullable: true })
-    @Column({ nullable: true })
-    orderId: string; // If conversation is related to an order
+    @Column({ type: 'uuid', nullable: true })
+    orderId?: string; // Required for customer-shipper conversations
+
+    @Field({ nullable: true })
+    @Column({ type: 'uuid', nullable: true })
+    restaurantId?: string; // Required for customer-shop conversations
 }

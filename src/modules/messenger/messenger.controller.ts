@@ -96,4 +96,10 @@ export class MessengerController {
         const count = await this.messengerService.getUnreadMessageCount(userId);
         return { unreadCount: count };
     }
+
+    @Get('available-partners')
+    async getAvailableChatPartners(@Req() req: any) {
+        const userId = req.user.uid || req.user.id;
+        return await this.messengerService.getAvailableChatPartners(userId);
+    }
 }

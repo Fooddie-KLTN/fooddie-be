@@ -1,4 +1,4 @@
-import { Resolver, Query, Mutation, Args, Context, Int } from '@nestjs/graphql';
+import { Resolver, Query, Mutation, Args, Context, Int, Subscription } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 import { MessengerService } from './messenger.service';
 import { Conversation } from 'src/entities/conversation.entity';
@@ -6,13 +6,15 @@ import { Message } from 'src/entities/message.entity';
 import { CreateConversationDto } from './dto/create-conversation.dto';
 import { SendMessageDto } from './dto/send-message.dto';
 import { AuthGuard } from 'src/auth/auth.guard';
+import { WebSocketAuthGuard } from 'src/auth/websocket-auth.guard';
+import { pubSub } from 'src/pubsub';
 
 @Resolver()
-@UseGuards(AuthGuard)
 export class MessengerResolver {
     constructor(private readonly messengerService: MessengerService) {}
 
     @Mutation(() => Conversation)
+    @UseGuards(AuthGuard)
     async createConversation(
         @Args('input') createConversationDto: CreateConversationDto,
         @Context() context: any
@@ -22,6 +24,7 @@ export class MessengerResolver {
     }
 
     @Query(() => [Conversation])
+    @UseGuards(AuthGuard)
     async getUserConversations(
         @Args('page', { type: () => Int, defaultValue: 1 }) page: number,
         @Args('pageSize', { type: () => Int, defaultValue: 10 }) pageSize: number,
@@ -32,16 +35,9 @@ export class MessengerResolver {
         return result.items;
     }
 
-    @Mutation(() => Message)
-    async sendMessage(
-        @Args('input') sendMessageDto: SendMessageDto,
-        @Context() context: any
-    ): Promise<Message> {
-        const userId = context.req.user.uid || context.req.user.id;
-        return await this.messengerService.sendMessage(userId, sendMessageDto);
-    }
 
     @Query(() => [Message])
+    @UseGuards(AuthGuard)
     async getConversationMessages(
         @Args('conversationId') conversationId: string,
         @Args('page', { type: () => Int, defaultValue: 1 }) page: number,
@@ -53,17 +49,49 @@ export class MessengerResolver {
         return result.items;
     }
 
+  @Mutation(() => Message)
+    @UseGuards(AuthGuard)
+    async sendMessage(
+        @Args('input') sendMessageDto: SendMessageDto,
+        @Context() context: any
+    ): Promise<Message> {
+        const userId = context.req.user.uid || context.req.user.id;
+        const message = await this.messengerService.sendMessage(userId, sendMessageDto);
+        
+        console.log("📨 Publishing message to channel messageSent:", {
+            id: message.id,
+            conversationId: message.conversation.id,
+            text: message.content.substring(0, 20) // For privacy, just show the start
+        });
+        
+        pubSub.publish('messageSent', { 
+            messageSent: message,
+            conversationId: message.conversation.id 
+        });
+        
+        return message;
+    }
+
     @Mutation(() => Boolean)
+    @UseGuards(AuthGuard)
     async markMessagesAsRead(
         @Args('conversationId') conversationId: string,
         @Context() context: any
     ): Promise<boolean> {
         const userId = context.req.user.uid || context.req.user.id;
         await this.messengerService.markMessagesAsRead(userId, conversationId);
+        
+        // Publish read receipt to subscribers
+        pubSub.publish('messagesRead', { 
+            messagesRead: true,
+            conversationId: conversationId 
+        });
+        
         return true;
     }
 
     @Mutation(() => Boolean)
+    @UseGuards(AuthGuard)
     async deleteMessage(
         @Args('messageId') messageId: string,
         @Context() context: any
@@ -74,8 +102,40 @@ export class MessengerResolver {
     }
 
     @Query(() => Int)
+    @UseGuards(AuthGuard)
     async getUnreadMessageCount(@Context() context: any): Promise<number> {
         const userId = context.req.user.uid || context.req.user.id;
         return await this.messengerService.getUnreadMessageCount(userId);
+    }
+
+  // WebSocket Subscriptions with proper filtering
+    @Subscription(() => Message, {
+        filter: (payload, variables) => {
+            console.log("Subscription payload:", payload);
+            console.log("Subscription variables:", variables);
+            
+            // Match the structure you use in pubSub.publish()
+            return payload.conversationId === variables.conversationId;
+        },
+    })
+    @UseGuards(WebSocketAuthGuard)
+    messageSent(
+        @Args('conversationId') conversationId: string,
+        @Context() context: any
+    ) {
+        return pubSub.asyncIterableIterator('messageSent');
+    }
+
+    @Subscription(() => Boolean, {
+        filter: (payload, variables) => {
+            return payload.conversationId === variables.conversationId;
+        },
+    })
+    @UseGuards(WebSocketAuthGuard)
+    messagesRead(
+        @Args('conversationId') conversationId: string,
+        @Context() context: any
+    ) {
+        return pubSub.asyncIterableIterator('messagesRead');
     }
 }

@@ -1,11 +1,15 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Conversation } from 'src/entities/conversation.entity';
+import { Conversation, ConversationType } from 'src/entities/conversation.entity';
 import { Message } from 'src/entities/message.entity';
 import { User } from 'src/entities/user.entity';
+import { Order } from 'src/entities/order.entity';
+import { Restaurant } from 'src/entities/restaurant.entity';
+import { ShippingDetail } from 'src/entities/shippingDetail.entity';
 import { CreateConversationDto } from './dto/create-conversation.dto';
 import { SendMessageDto } from './dto/send-message.dto';
+import { pubSub } from 'src/pubsub';
 
 @Injectable()
 export class MessengerService {
@@ -16,35 +20,72 @@ export class MessengerService {
         private messageRepository: Repository<Message>,
         @InjectRepository(User)
         private userRepository: Repository<User>,
-    ) {}
+        @InjectRepository(Order)
+        private orderRepository: Repository<Order>,
+        @InjectRepository(Restaurant)
+        private restaurantRepository: Repository<Restaurant>,
+        @InjectRepository(ShippingDetail)
+        private shippingDetailRepository: Repository<ShippingDetail>,
+    ) { }
 
     /**
-     * Create or get existing conversation between two users
+     * Create conversation with business logic validation
      */
     async createOrGetConversation(userId: string, createConversationDto: CreateConversationDto): Promise<Conversation> {
-        const { participantId, orderId, conversationType = 'direct' } = createConversationDto;
+        const { participantId, orderId, restaurantId, conversationType } = createConversationDto;
+        
+        // Get restaurant and its owner
+        const restaurant = await this.restaurantRepository.findOne({
+            where: { id: restaurantId },
+            relations: ['owner']
+        });
 
-        // Validate participants exist
-        const participant1 = await this.userRepository.findOne({ where: { id: userId } });
-        const participant2 = await this.userRepository.findOne({ where: { id: participantId } });
-
-        if (!participant1 || !participant2) {
-            throw new NotFoundException('One or both participants not found');
+        if (!restaurant) {
+            throw new BadRequestException('Restaurant not found');
         }
 
-        if (userId === participantId) {
-            throw new BadRequestException('Cannot create conversation with yourself');
+        // For restaurant conversations, use the restaurant owner as participant
+        const finalParticipantId = participantId || restaurant.owner.id;
+        const finalConversationType = conversationType || ConversationType.CUSTOMER_SHOP;
+        const finalOrderId = orderId;
+        const finalRestaurantId = restaurantId;
+
+        // Get user and participant
+        const user = await this.userRepository.findOne({ where: { id: userId } });
+        const participant = await this.userRepository.findOne({ where: { id: finalParticipantId } });
+
+        if (!user || !participant) {
+            throw new BadRequestException('User or participant not found');
         }
 
-        // Check if conversation already exists between these participants
+
+
+        // Validate conversation rules
+        if (finalConversationType === ConversationType.CUSTOMER_SHIPPER) {
+            if (!finalOrderId) {
+                throw new BadRequestException('Order ID is required for shipper conversations');
+            }
+            await this.validateShipperConversation(userId, finalParticipantId, finalOrderId);
+        } else if (finalConversationType === ConversationType.CUSTOMER_SHOP) {
+            if (!finalRestaurantId) {
+                throw new BadRequestException('Restaurant ID is required for shop conversations');
+            }
+            await this.validateShopConversation(userId, finalParticipantId, finalRestaurantId);
+        }
+
+        // Check if conversation already exists
         const existingConversation = await this.conversationRepository
             .createQueryBuilder('conversation')
             .where(
                 '(conversation.participant1_id = :userId AND conversation.participant2_id = :participantId) OR ' +
                 '(conversation.participant1_id = :participantId AND conversation.participant2_id = :userId)',
-                { userId, participantId }
+                { userId, participantId: finalParticipantId }
             )
-            .andWhere('conversation.conversationType = :conversationType', { conversationType })
+            .andWhere('conversation.conversationType = :conversationType', { conversationType: finalConversationType })
+            .andWhere(finalOrderId ? 'conversation.orderId = :orderId' : 'conversation.orderId IS NULL',
+                finalOrderId ? { orderId: finalOrderId } : {})
+            .andWhere(finalRestaurantId ? 'conversation.restaurantId = :restaurantId' : 'conversation.restaurantId IS NULL',
+                finalRestaurantId ? { restaurantId: finalRestaurantId } : {})
             .getOne();
 
         if (existingConversation) {
@@ -52,18 +93,116 @@ export class MessengerService {
         }
 
         // Create new conversation
-        const conversation = this.conversationRepository.create({
-            participant1,
-            participant2,
-            conversationType,
-            orderId,
-        });
+        const conversation = new Conversation();
+        conversation.participant1 = user;
+        conversation.participant2 = participant;
+        conversation.conversationType = finalConversationType;
+        
+        // Fix: Use undefined instead of null for optional fields
+        conversation.orderId = finalOrderId || undefined;
+        conversation.restaurantId = finalRestaurantId || undefined;
 
         return await this.conversationRepository.save(conversation);
     }
 
     /**
-     * Send a message in a conversation
+     * Validate shipper conversation rules
+     */
+    private async validateShipperConversation(userId: string, shipperId: string, orderId: string): Promise<void> {
+        if (!orderId) {
+            throw new BadRequestException('Order ID is required for shipper conversations');
+        }
+
+        // Check if order exists and belongs to the user
+        const order = await this.orderRepository.findOne({
+            where: { id: orderId, user: { id: userId } },
+            relations: ['shippingDetail', 'shippingDetail.shipper']
+        });
+
+        if (!order) {
+            throw new NotFoundException('Order not found or does not belong to you');
+        }
+
+        // Check if order has been assigned to the shipper
+        if (!order.shippingDetail || order.shippingDetail.shipper?.id !== shipperId) {
+            throw new ForbiddenException('You can only chat with the shipper assigned to your order');
+        }
+
+        // Check if order is in a state where communication is allowed
+        const allowedStatuses = ['confirmed', 'delivering', 'completed'];
+        if (!allowedStatuses.includes(order.status)) {
+            throw new ForbiddenException('You can only chat with shipper when order is confirmed or being delivered');
+        }
+    }
+
+    /**
+     * Validate shop conversation rules
+     */
+    private async validateShopConversation(userId: string, shopOwnerId: string, restaurantId: string): Promise<void> {
+        if (!restaurantId) {
+            throw new BadRequestException('Restaurant ID is required for shop conversations');
+        }
+
+        // Check if restaurant exists and belongs to the shop owner
+        const restaurant = await this.restaurantRepository.findOne({
+            where: { id: restaurantId, owner: { id: shopOwnerId } }
+        });
+
+        if (!restaurant) {
+            throw new NotFoundException('Restaurant not found or does not belong to the shop owner');
+        }
+
+        // Customers can always chat with shop owners about their restaurants
+        // No additional validation needed
+    }
+
+    /**
+     * Get available chat partners for a user
+     */
+    async getAvailableChatPartners(userId: string): Promise<{
+        shopOwners: { user: User; restaurant: any }[];
+        shippers: { user: User; order: any }[];
+    }> {
+        const user = await this.userRepository.findOne({
+            where: { id: userId },
+            relations: ['role']
+        });
+
+        if (!user) {
+            throw new NotFoundException('User not found');
+        }
+
+        // Get shop owners from restaurants (any restaurant the user might want to contact)
+        const shopOwners = await this.restaurantRepository
+            .createQueryBuilder('restaurant')
+            .leftJoinAndSelect('restaurant.owner', 'owner')
+            .where('restaurant.status = :status', { status: 'approved' })
+            .getMany();
+
+        // Get shippers from user's orders that are assigned and in progress
+        const shippers = await this.orderRepository
+            .createQueryBuilder('order')
+            .leftJoinAndSelect('order.shippingDetail', 'shippingDetail')
+            .leftJoinAndSelect('shippingDetail.shipper', 'shipper')
+            .where('order.user_id = :userId', { userId })
+            .andWhere('shippingDetail.shipper IS NOT NULL')
+            .andWhere('order.status IN (:...statuses)', { statuses: ['confirmed', 'delivering', 'completed'] })
+            .getMany();
+
+        return {
+            shopOwners: shopOwners.map(restaurant => ({
+                user: restaurant.owner,
+                restaurant: { id: restaurant.id, name: restaurant.name }
+            })),
+            shippers: shippers.map(order => ({
+                user: order.shippingDetail.shipper,
+                order: { id: order.id, status: order.status }
+            }))
+        };
+    }
+
+    /**
+     * Send a message with additional validation
      */
     async sendMessage(userId: string, sendMessageDto: SendMessageDto): Promise<Message> {
         const { conversationId, content, messageType = 'text', attachmentUrl, attachmentType, replyToMessageId, metadata } = sendMessageDto;
@@ -81,6 +220,18 @@ export class MessengerService {
         // Check if user is a participant in this conversation
         if (conversation.participant1.id !== userId && conversation.participant2.id !== userId) {
             throw new ForbiddenException('You are not a participant in this conversation');
+        }
+
+        // Additional validation for shipper conversations
+        if (conversation.conversationType === ConversationType.CUSTOMER_SHIPPER && conversation.orderId) {
+            const order = await this.orderRepository.findOne({
+                where: { id: conversation.orderId },
+                relations: ['shippingDetail']
+            });
+
+            if (order && !['confirmed', 'delivering', 'completed'].includes(order.status)) {
+                throw new ForbiddenException('Cannot send messages for orders that are not active');
+            }
         }
 
         // Check if conversation is blocked
@@ -122,6 +273,18 @@ export class MessengerService {
         conversation.lastMessage = content;
         conversation.lastMessageAt = new Date();
         await this.conversationRepository.save(conversation);
+
+        // Publish message event for real-time updates
+        console.log("📨 Publishing message to channel messageSent:", {
+            id: savedMessage.id,
+            conversationId: savedMessage.conversation.id,
+            text: savedMessage.content.substring(0, 20) // For privacy, just show the start
+        });
+        
+        pubSub.publish('messageSent', { 
+            messageSent: savedMessage,
+            conversationId: savedMessage.conversation.id 
+        });
 
         return savedMessage;
     }
@@ -183,9 +346,9 @@ export class MessengerService {
         }
 
         const [messages, totalItems] = await this.messageRepository.findAndCount({
-            where: { 
+            where: {
                 conversation: { id: conversationId },
-                isDeleted: false 
+                isDeleted: false
             },
             relations: ['sender'],
             order: { createdAt: 'DESC' },
@@ -229,6 +392,13 @@ export class MessengerService {
             .andWhere('sender_id != :userId', { userId })
             .andWhere('isRead = false')
             .execute();
+        
+        // Publish read receipt event
+        console.log("📬 Publishing read receipt for conversation:", conversationId);
+        pubSub.publish('messagesRead', { 
+            messagesRead: true,
+            conversationId: conversationId 
+        });
     }
 
     /**

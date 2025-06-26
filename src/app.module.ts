@@ -31,6 +31,7 @@ import { QueueModule } from './pg-boss/queue.module';
 import { PgBossModule } from './pg-boss/pg-boss.module'; // Add this import
 import { Order } from './entities/order.entity';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { MessengerModule } from './modules/messenger/messenger.module';
 
 @Module({
   imports: [
@@ -83,6 +84,7 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
     CategoryModule,
     ShipperModule,
     DashboardModule,
+    MessengerModule,
     
     QueueModule,
     TypeOrmModule.forFeature([
@@ -101,20 +103,46 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
       autoSchemaFile: true,
       subscriptions: {
         'graphql-ws': {
-          onConnect: () => console.log('GraphQL WS connected'),
-          onDisconnect: () => console.log('GraphQL WS disconnected'),
-        }
+          onConnect: (context) => {
+            const { connectionParams } = context;
+            console.log('🔌 WebSocket connection established');
+            console.log('📝 Connection params:', connectionParams);
+            
+            // Return the connection context that will be available in the context function
+            return {
+              headers: {
+                authorization: connectionParams?.authorization || connectionParams?.Authorization || '',
+              },
+              user: null, // Will be set by the guard
+            };
+          },
+          onDisconnect: () => {
+            console.log('🔌 WebSocket connection closed');
+          },
+        },
       },
-      context: ({ req, connectionParams }) => {
-        if (req) return { req };
-        if (connectionParams?.Authorization) {
-          return { token: connectionParams.Authorization };
+      context: ({ req, connection, connectionParams }) => {
+        if (connectionParams) {
+          // Create a proper connection context when connectionParams exist but connection doesn't
+          return {
+            connection: {
+              context: {
+                headers: {
+                  authorization: connectionParams.authorization || '',
+                }
+              }
+            }
+          };
+        }
+        // For regular HTTP
+        if (req) {
+          return { req };
         }
         return {};
       },
-      // Memory optimizations
+      installSubscriptionHandlers: true,
       introspection: process.env.NODE_ENV !== 'production',
-      playground: false, // Disable in production
+      playground: false,
       debug: false,
       formatError: (error) => ({
         message: error.message,
