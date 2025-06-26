@@ -9,13 +9,18 @@ export class ChatController {
 
   @UseGuards(AuthGuard)
   @Post()
-  async handleChat(@Body('userMessage') userMessage: string, @Req() req) {
+  async handleChat(
+    @Body('userMessage') userMessage: string,
+    @Req() req
+  ): Promise<{
+    reply: string;
+    suggestions?: any[];
+    action?: string;
+    metadata?: any;
+  }> {
     const userId = req.user?.id;
     if (!userId) throw new Error('User ID not found in token');
-    console.log('[ChatController] Received message:', userMessage);
-    console.log('[ChatController] userId:', userId);
-    const reply = await this.chatService.generateReply(userMessage, userId);
-    return { reply };
+    return await this.chatService.generateReply(userMessage, userId);
   }
 
 }

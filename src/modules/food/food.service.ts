@@ -1447,9 +1447,11 @@ async findOne(id: string, lat?: number, lng?: number): Promise<any> {
           name: restaurant.name,
           address: restaurant.address,
           foods: restaurant.foods.map(food => ({
+            id: food.id,
             name: food.name,
             price: food.price,
             description: food.description,
+            image: food.image,
           })),
         }));
       }
