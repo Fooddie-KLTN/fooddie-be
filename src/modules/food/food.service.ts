@@ -820,10 +820,11 @@ async searchFoods(
 
   // Add search condition - if no query provided, return all foods
   if (query && query.trim()) {
-    queryBuilder.where('food.name ILIKE :query OR food.description ILIKE :query', { 
-      query: `%${query.trim()}%` 
-    });
-    console.log('Added search filter for:', query.trim());
+    queryBuilder.where(
+      "(unaccent(LOWER(food.name)) LIKE unaccent(:name) OR unaccent(LOWER(food.description)) LIKE unaccent(:name))",
+      { name: `%${query.toLowerCase()}%` }
+    );
+    console.log('Added search filter (accent-insensitive):', query);
   } else {
     console.log('No search query provided, returning all foods');
   }
@@ -1173,8 +1174,11 @@ async findOne(id: string, lat?: number, lng?: number): Promise<any> {
 
   // Only add name filter if name is provided
   if (name && name.trim()) {
-    queryBuilder.where('LOWER(food.name) LIKE :name', { name: `%${name.toLowerCase()}%` });
-    console.log('Added name filter:', name);
+    queryBuilder.where(
+      "(unaccent(LOWER(food.name)) LIKE unaccent(:name) OR unaccent(LOWER(food.description)) LIKE unaccent(:name))",
+      { name: `%${name.toLowerCase()}%` }
+    );
+    console.log('Added name filter (accent-insensitive):', name);
   }
 
   // Filter by category IDs
