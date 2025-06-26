@@ -269,6 +269,8 @@ export class OrderResolver {
         return activeShipperTracker;
     }
 
+    
+
     // Thêm một query đơn giản để hợp lệ schema
     @Query(() => String)
     orderHello() {
