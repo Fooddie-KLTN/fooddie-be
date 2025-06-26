@@ -19,6 +19,7 @@ import { pubSub } from 'src/pubsub';
 import { PromotionService } from '../promotion/promotion.service';
 import { PendingAssignmentService } from 'src/pg-boss/pending-assignment.service';
 import { Review } from 'src/entities/review.entity';
+import { Notification } from 'src/entities/notification.entity';
 
 @Injectable()
 export class OrderService {
@@ -46,6 +47,8 @@ export class OrderService {
         private pendingAssignmentService: PendingAssignmentService,
         @InjectRepository(Review) // Add Review repository
         private reviewRepository: Repository<Review>,
+        @InjectRepository(Notification)
+        private notificationRepository: Repository<Notification>,
     ) { }
 
     private async validateAndCalculateOrderDetails(
@@ -375,6 +378,21 @@ export class OrderService {
         });
         
         this.logger.log(`Order ${id} status updated to ${status}`);
+
+
+
+        // Create notification
+        const notification = await this.notificationRepository.save({
+            description: 'Cập nhật trạng thái đơn hàng',
+            content: `Đơn hàng của bạn đã chuyển sang trạng thái: ${status}`,
+            receiveUser: order.user.id,
+            type: 'order',
+            isRead: false,
+        });
+
+        await pubSub.publish('notificationCreated', {
+            notificationCreated: notification
+        });
 
         return updatedOrder;
     }

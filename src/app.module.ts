@@ -32,6 +32,7 @@ import { PgBossModule } from './pg-boss/pg-boss.module'; // Add this import
 import { Order } from './entities/order.entity';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { MessengerModule } from './modules/messenger/messenger.module';
+import { NotificationModule } from './modules/notification/notification.module';
 
 @Module({
   imports: [
@@ -85,6 +86,7 @@ import { MessengerModule } from './modules/messenger/messenger.module';
     ShipperModule,
     DashboardModule,
     MessengerModule,
+    NotificationModule,
     
     QueueModule,
     TypeOrmModule.forFeature([

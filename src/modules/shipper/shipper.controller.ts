@@ -60,6 +60,16 @@ export class ShipperController {
     return this.shipperService.getIncomeReport(shipperId, range, month, year);
   }
   
+  @Post('update-location')
+  @UseGuards(AuthGuard)
+  async updateLocation(
+    @Body('latitude') latitude: number,
+    @Body('longitude') longitude: number,
+    @Req() req
+  ) {
+    const shipperId = req.user.uid || req.user.id;
+    return this.shipperService.updateLocation(shipperId, latitude, longitude);
+  }
 
 
 

@@ -538,6 +538,40 @@ export class ShipperService {
     };
   }
   
+  async updateLocation(shipperId: string, latitude: number, longitude: number) {
+    const shipper = await this.userRepository.findOne({
+      where: { id: shipperId },
+      relations: ['shipperCertificateInfo'],
+    });
+
+    if (!shipper) {
+      throw new NotFoundException('Shipper not found');
+    }
+
+    const order = await this.orderRepository.findOne({
+      where: { shippingDetail: { shipper: { id: shipperId } }, status: 'delivering' },
+      relations: ['user', 'shippingDetail', 'shippingDetail.shipper'],
+    });
+
+    if (!order || order.status !== 'delivering') {
+      throw new NotFoundException('No active delivery found for this shipper');
+    }
+
+
+    // Publish the location update
+    await pubSub.publish('shipperLocationUpdated', {
+      shipperLocationUpdated: {
+        shipperId,
+        latitude,
+        longitude,
+        updatedAt: new Date(),
+      },
+    });
+
+    this.logger.log(`Shipper ${shipperId} location updated to (${latitude}, ${longitude})`);
+
+    return { message: 'Location updated successfully', success: true };
+  }
 
   // async getOrderHistoryForShipper(shipperId: string, page: number, pageSize: number) {
   //   // Tạo query để lấy các đơn hàng mà shipper xử lý

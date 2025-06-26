@@ -11,7 +11,6 @@ import { GqlExecutionContext } from '@nestjs/graphql';
 
 @Injectable()
 export class WebSocketAuthGuard implements CanActivate {
-  private readonly logger = new Logger(WebSocketAuthGuard.name);
 
   constructor(
     private jwtService: JwtService,
@@ -19,14 +18,12 @@ export class WebSocketAuthGuard implements CanActivate {
   ) { }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    this.logger.log('WebSocketAuthGuard: Starting authentication check');
     
     const gqlContext = GqlExecutionContext.create(context);
     const ctx = gqlContext.getContext();
     
     // For WebSocket subscriptions
     if (!ctx.connection) {
-      this.logger.error('WebSocketAuthGuard: No WebSocket connection found in context');
       throw new UnauthorizedException('WebSocket connection required');
     }
 
@@ -57,7 +54,6 @@ export class WebSocketAuthGuard implements CanActivate {
       
       return true;
     } catch (error) {
-      this.logger.error(`WebSocketAuthGuard: Token verification failed: ${error.message}`);
       throw new UnauthorizedException('Invalid or expired token');
     }
   }

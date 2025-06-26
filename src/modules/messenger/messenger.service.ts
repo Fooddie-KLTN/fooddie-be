@@ -10,6 +10,7 @@ import { ShippingDetail } from 'src/entities/shippingDetail.entity';
 import { CreateConversationDto } from './dto/create-conversation.dto';
 import { SendMessageDto } from './dto/send-message.dto';
 import { pubSub } from 'src/pubsub';
+import { Notification } from 'src/entities/notification.entity';
 
 @Injectable()
 export class MessengerService {
@@ -26,6 +27,8 @@ export class MessengerService {
         private restaurantRepository: Repository<Restaurant>,
         @InjectRepository(ShippingDetail)
         private shippingDetailRepository: Repository<ShippingDetail>,
+        @InjectRepository(Notification)
+        private notificationRepository: Repository<Notification>,
     ) { }
 
     /**
@@ -286,7 +289,25 @@ export class MessengerService {
             conversationId: savedMessage.conversation.id 
         });
 
-        return savedMessage;
+        // Find the receiver (the other participant)
+        const receiverId =
+            conversation.participant1.id === userId
+            ? conversation.participant2.id
+            : conversation.participant1.id;
+
+        // Create notification
+        const notification = await this.notificationRepository.save({
+            description: 'Bạn có tin nhắn mới',
+            content: message.content,
+            receiveUser: receiverId,
+            type: 'message',
+            isRead: false,
+        });
+
+        // Publish notification for real-time subscription
+        pubSub.publish('notificationAdded', { notificationAdded: notification });
+
+        return message;
     }
 
     /**
