@@ -20,6 +20,7 @@ import { PromotionService } from '../promotion/promotion.service';
 import { PendingAssignmentService } from 'src/pg-boss/pending-assignment.service';
 import { Review } from 'src/entities/review.entity';
 import { Notification } from 'src/entities/notification.entity';
+import { ShippingDetail } from 'src/entities/shippingDetail.entity';
 
 @Injectable()
 export class OrderService {
@@ -49,6 +50,8 @@ export class OrderService {
         private reviewRepository: Repository<Review>,
         @InjectRepository(Notification)
         private notificationRepository: Repository<Notification>,
+        @InjectRepository(ShippingDetail)
+        private shippingDetailRepository: Repository<ShippingDetail>,
     ) { }
 
     private async validateAndCalculateOrderDetails(
@@ -218,7 +221,18 @@ export class OrderService {
             ]
         });
 
+       
+
         if (!order) throw new NotFoundException('Order not found');
+
+        const shippingDetail = await this.shippingDetailRepository.findOne({
+            where: { order: { id: order.id } },
+            relations: ['shipper']
+        })
+
+        if (shippingDetail) {
+            order.shippingDetail = shippingDetail;
+        }
 
         // Add review information BEFORE cleaning sensitive data
         if (includeReviewInfo) {
@@ -933,11 +947,6 @@ private cleanSensitiveData(order: Order): void {
         delete (shipper as any).role;
     }
 
-    // Clean address coordinates for privacy
-    if (order.address) {
-        delete (order.address as any).latitude;
-        delete (order.address as any).longitude;
-    }
 
     // Clean promotion sensitive data
     if (order.promotionCode) {

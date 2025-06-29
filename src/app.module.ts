@@ -107,8 +107,8 @@ import { NotificationModule } from './modules/notification/notification.module';
         'graphql-ws': {
           onConnect: (context) => {
             const { connectionParams } = context;
-            console.log('🔌 WebSocket connection established');
-            console.log('📝 Connection params:', connectionParams);
+            // console.log('🔌 WebSocket connection established');
+            // console.log('📝 Connection params:', connectionParams);
             
             // Return the connection context that will be available in the context function
             return {
@@ -132,7 +132,8 @@ import { NotificationModule } from './modules/notification/notification.module';
                 headers: {
                   authorization: connectionParams.authorization || '',
                 }
-              }
+              },
+              
             }
           };
         }

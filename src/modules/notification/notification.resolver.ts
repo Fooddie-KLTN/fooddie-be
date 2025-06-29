@@ -10,12 +10,6 @@ import { AuthGuard } from 'src/auth/auth.guard';
 export class NotificationResolver {
   constructor(private notificationService: NotificationService) {}
 
-  @Query(() => [Notification])
-  @UseGuards(AuthGuard) // <-- Use AuthGuard for queries
-  async getUserNotifications(@Context() context: any) {
-    const userId = context.req.user.uid || context.req.user.id;
-    return this.notificationService.getUserNotifications(userId);
-  }
 
   @Subscription(() => Notification, {
     filter: (payload, variables, context) =>

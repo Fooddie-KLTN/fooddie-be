@@ -24,10 +24,11 @@ import { PendingAssignmentService } from 'src/pg-boss/pending-assignment.service
 import { QueueModule } from 'src/pg-boss/queue.module';
 import { Review } from 'src/entities/review.entity';
 import { Notification } from 'src/entities/notification.entity';
+import { ShippingDetail } from 'src/entities/shippingDetail.entity';
 
 @Module({
 	imports: [
-		TypeOrmModule.forFeature([Order, OrderDetail, Checkout, User,Food, Role, Promotion, Restaurant, Address, Promotion, Review, Notification]),
+		TypeOrmModule.forFeature([Order, OrderDetail, Checkout, User,Food, Role, Promotion, Restaurant, Address, Promotion, Review, Notification, ShippingDetail]),
 		ConfigModule,
 		QueueModule,
 		JwtModule.registerAsync({

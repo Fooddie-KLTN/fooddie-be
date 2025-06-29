@@ -95,41 +95,41 @@ export class PgBossModule implements OnModuleInit, OnModuleDestroy {
   private startJobMonitoring(): void {
     setInterval(async () => {
       try {
-        await this.logQueueStats();
+        //await this.logQueueStats();
       } catch (error) {
         this.logger.error('Error monitoring queue stats:', error);
       }
     }, 30000); // Every 30 seconds
   }
 
-  /**
-   * Log current queue statistics
-   */
-  private async logQueueStats(): Promise<void> {
-    try {
-      // Get queue stats for all our queues
-      for (const queueName of Object.values(QueueNames)) {
-        const jobs = await this.boss.fetch(queueName); // Fix: use options object
+  // /**
+  //  * Log current queue statistics
+  //  */
+  // private async logQueueStats(): Promise<void> {
+  //   try {
+  //     // Get queue stats for all our queues
+  //     for (const queueName of Object.values(QueueNames)) {
+  //       const jobs = await this.boss.fetch(queueName); // Fix: use options object
         
-        if (jobs && jobs.length > 0) {
-          this.logger.log(`📋 Queue '${queueName}' has ${jobs.length} pending jobs:`);
+  //       if (jobs && jobs.length > 0) {
+  //         this.logger.log(`📋 Queue '${queueName}' has ${jobs.length} pending jobs:`);
           
-          jobs.forEach((job, index) => {
-            this.logger.log(`  ${index + 1}. Job ID: ${job.id}, Data: ${JSON.stringify(job.data)}`);
-          });
-        } else {
-          this.logger.log(`✅ Queue '${queueName}' is empty`);
-        }
-      }
+  //         jobs.forEach((job, index) => {
+  //           this.logger.log(`  ${index + 1}. Job ID: ${job.id}, Data: ${JSON.stringify(job.data)}`);
+  //         });
+  //       } else {
+  //         this.logger.log(`✅ Queue '${queueName}' is empty`);
+  //       }
+  //     }
 
-      // Get overall queue health
-      const queueSize = await this.boss.getQueueSize(QueueNames.FIND_SHIPPER);
-      this.logger.log(`📊 ${QueueNames.FIND_SHIPPER} queue size: ${queueSize}`);
+  //     // Get overall queue health
+  //     const queueSize = await this.boss.getQueueSize(QueueNames.FIND_SHIPPER);
+  //     this.logger.log(`📊 ${QueueNames.FIND_SHIPPER} queue size: ${queueSize}`);
 
-    } catch (error) {
-      this.logger.error('Error fetching queue stats:', error);
-    }
-  }
+  //   } catch (error) {
+  //     this.logger.error('Error fetching queue stats:', error);
+  //   }
+  // }
 
   /**
    * Stops the pg-boss instance when the application shuts down.
