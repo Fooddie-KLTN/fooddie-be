@@ -122,7 +122,7 @@ export class PendingAssignmentService implements OnModuleInit {
      * Daily check for pending assignments in database and create jobs for them
      * This is the main method that acts as a daily database check
      */
-    @Cron(CronExpression.EVERY_10_SECONDS) // Also check every 10 minutes for testing
+    @Cron(CronExpression.EVERY_5_SECONDS) // Also check every 10 minutes for testing
     async checkPendingAssignmentsAndCreateJobs(): Promise<void> {
         // this.logger.log('🔍 === DAILY CHECK: Scanning database for pending shipper assignments ===');
         
