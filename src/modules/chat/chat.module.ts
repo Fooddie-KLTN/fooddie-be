@@ -20,10 +20,13 @@ import { PromotionService } from '../promotion/promotion.service';
 import { PendingAssignmentService } from 'src/pg-boss/pending-assignment.service';
 import { PendingShipperAssignment } from 'src/entities/pendingShipperAssignment.entity';
 import { QueueService } from 'src/pg-boss/queue.service';
+import { AddressService } from '../address/address.service';
+import { RestaurantService } from '../restaurant/restaurant.service';
+import { GeocodingService } from 'src/services/geocoding.service';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Food, Order, Restaurant, Category, Review, OrderDetail, User, Address, Promotion, Checkout, PendingShipperAssignment])], 
   controllers: [ChatController],
-  providers: [ChatService, JwtModule, FoodService, OrderService, GoogleCloudStorageService, PromotionService, PendingAssignmentService, QueueService, JwtService],
+  providers: [ChatService, JwtModule, FoodService, OrderService, GoogleCloudStorageService, PromotionService, PendingAssignmentService, QueueService, JwtService, AddressService, RestaurantService, GeocodingService],
 })
 export class ChatModule {}

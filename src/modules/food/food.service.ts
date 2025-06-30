@@ -1444,6 +1444,7 @@ async findOne(id: string, lat?: number, lng?: number): Promise<any> {
         });
       
         return restaurants.map(restaurant => ({
+          id: restaurant.id,  // Thêm restaurantId vào đối tượng cửa hàng
           name: restaurant.name,
           address: restaurant.address,
           foods: restaurant.foods.map(food => ({
@@ -1452,6 +1453,7 @@ async findOne(id: string, lat?: number, lng?: number): Promise<any> {
             price: food.price,
             description: food.description,
             image: food.image,
+            restaurantId: restaurant.id,  // Thêm restaurantId vào từng món ăn
           })),
         }));
       }
