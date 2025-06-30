@@ -5,15 +5,18 @@ import { FoodService } from '../food/food.service';
 import { OrderService } from '../order/order.service';
 import { AddressService } from '../address/address.service';
 import { RestaurantService } from '../restaurant/restaurant.service';
+import { pubSub } from 'src/pubsub';
 
 @Injectable()
 export class ChatService {
+
   constructor(
     private readonly foodService: FoodService,
     private readonly orderService: OrderService,
     private readonly addressService: AddressService,
     private readonly restaurantService: RestaurantService,
-  ) {}
+  ) {
+  }
 
   async generateReply(userMessage: string, userId: string, metadata: any): Promise<{
     reply: string;
@@ -214,7 +217,6 @@ export class ChatService {
         // Hiển thị địa chỉ dưới dạng danh sách có số thứ tự
         const addressList = metadata.addresses
         .map((address, index) => `${index + 1}. ${address.street}, ${address.ward}, ${address.district}, ${address.city}`)
-        .join('<br>');  // Sử dụng <br> để xuống dòng trên giao diện HTML
       
       
         // Kiểm tra xem người dùng đã chọn địa chỉ chưa (dựa trên số thứ tự nhập vào)
@@ -261,6 +263,10 @@ export class ChatService {
         console.log('[ORDER DATA]', orderData);
 
         const orderResponse = await this.orderService.createOrder(orderData);
+        await pubSub.publish('orderCreated', { 
+          orderCreated: orderResponse 
+        });
+
         metadata.isPaymentConfirmed = false;
         metadata.isOrdering = false;
         metadata.isFoodConfirmed = false;
