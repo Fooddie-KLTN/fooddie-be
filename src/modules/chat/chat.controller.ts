@@ -11,6 +11,7 @@ export class ChatController {
   @Post()
   async handleChat(
     @Body('userMessage') userMessage: string,
+    @Body('metadata') metadata: any,
     @Req() req
   ): Promise<{
     reply: string;
@@ -20,7 +21,7 @@ export class ChatController {
   }> {
     const userId = req.user?.id;
     if (!userId) throw new Error('User ID not found in token');
-    return await this.chatService.generateReply(userMessage, userId);
+    return await this.chatService.generateReply(userMessage, userId, metadata);
   }
 
 }

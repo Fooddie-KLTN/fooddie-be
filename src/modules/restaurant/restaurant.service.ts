@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between, Not } from 'typeorm';
+import { Repository, Between, Not, In } from 'typeorm';
 import { Restaurant, RestaurantStatus } from 'src/entities/restaurant.entity';
 import { CreateRestaurantDto } from './dto/create-restaurant.dto';
 import { UpdateRestaurantDto } from './dto/update-restaurant.dto';
@@ -1031,5 +1031,19 @@ export class RestaurantService {
             orderCounts,
             revenues,
         };
+    }
+
+    async getNameById(id: string): Promise<string> {
+        const restaurant = await this.restaurantRepository
+            .createQueryBuilder('restaurant')  // Alias cho bảng restaurant
+            .where('restaurant.id = :id', { id })  // Dùng alias restaurant để tham chiếu cột id
+            .select(['restaurant.name'])  // Chỉ lấy cột 'name' từ bảng restaurant
+            .getOne();
+    
+        if (!restaurant) {
+            throw new NotFoundException(`Restaurant with ID ${id} not found`);
+        }
+    
+        return restaurant.name;  // Trả về tên của nhà hàng
     }
 }

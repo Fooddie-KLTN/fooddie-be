@@ -35,6 +35,13 @@ export class AddressService {
             .getMany();
     }
 
+    async getAddresseByUser(userId: string) {
+        return await this.addressRepository.find({
+            where: { user: { id: userId } },
+            relations: ['user'],  // Đảm bảo truy vấn liên quan tới user
+        });
+    }
+
     async updateAddress(id: string, data: UpdateAddressDto) {
         await this.addressRepository.update(id, data);
         return this.getAddressById(id);
