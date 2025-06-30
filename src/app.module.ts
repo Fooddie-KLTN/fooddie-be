@@ -32,6 +32,7 @@ import { PgBossModule } from './pg-boss/pg-boss.module'; // Add this import
 import { Order } from './entities/order.entity';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { MessengerModule } from './modules/messenger/messenger.module';
+import { NotificationModule } from './modules/notification/notification.module';
 
 @Module({
   imports: [
@@ -85,6 +86,7 @@ import { MessengerModule } from './modules/messenger/messenger.module';
     ShipperModule,
     DashboardModule,
     MessengerModule,
+    NotificationModule,
     
     QueueModule,
     TypeOrmModule.forFeature([
@@ -105,8 +107,8 @@ import { MessengerModule } from './modules/messenger/messenger.module';
         'graphql-ws': {
           onConnect: (context) => {
             const { connectionParams } = context;
-            console.log('🔌 WebSocket connection established');
-            console.log('📝 Connection params:', connectionParams);
+            // console.log('🔌 WebSocket connection established');
+            // console.log('📝 Connection params:', connectionParams);
             
             // Return the connection context that will be available in the context function
             return {
@@ -130,7 +132,8 @@ import { MessengerModule } from './modules/messenger/messenger.module';
                 headers: {
                   authorization: connectionParams.authorization || '',
                 }
-              }
+              },
+              
             }
           };
         }

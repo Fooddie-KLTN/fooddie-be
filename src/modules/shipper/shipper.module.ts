@@ -12,12 +12,13 @@ import { QueueModule } from 'src/pg-boss/queue.module';
 import { PendingShipperAssignment } from 'src/entities/pendingShipperAssignment.entity';
 import { Certificate } from 'crypto';
 import { ShipperCertificateInfo } from 'src/entities/shipperCertificateInfo.entity';
+import { ShipperResolver } from './shipper.resolver';
 
 
 @Module({
     imports: [TypeOrmModule.forFeature([User, Order, ShippingDetail, PendingShipperAssignment, ShipperCertificateInfo]), UsersModule, OrderModule, JwtModule, QueueModule] ,
     controllers: [ShipperController],
-    providers: [ShipperService],
+    providers: [ShipperService, ShipperResolver],
     exports: [ShipperService],
 })
 export class ShipperModule {}

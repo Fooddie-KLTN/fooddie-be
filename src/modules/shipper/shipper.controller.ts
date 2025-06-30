@@ -1,6 +1,7 @@
 import { Controller, Post, Body, UseGuards, Req, Param, Get, Query } from '@nestjs/common';
 import { AuthGuard } from 'src/auth/auth.guard';
 import { ShipperService } from './shipper.service';
+import { log } from 'console';
 
 @Controller('shippers')
 export class ShipperController {
@@ -60,6 +61,17 @@ export class ShipperController {
     return this.shipperService.getIncomeReport(shipperId, range, month, year);
   }
   
+  @Post('update-location')
+  @UseGuards(AuthGuard)
+  async updateLocation(
+    @Body('latitude') latitude: number,
+    @Body('longitude') longitude: number,
+    @Req() req
+  ) {
+    const shipperId = req.user.uid || req.user.id;
+    //log(`Updating location for shipper ${shipperId}: ${latitude}, ${longitude}`);
+    return this.shipperService.updateLocation(shipperId, latitude, longitude);
+  }
 
 
 

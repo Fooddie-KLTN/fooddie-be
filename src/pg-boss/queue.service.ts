@@ -23,7 +23,7 @@ export class QueueService {
     jobData: T,
     options?: PgBoss.SendOptions,
   ): Promise<string> {
-    this.logger.log(`Attempting to add job to queue '${queueName}'...`);
+    //this.logger.log(`Attempting to add job to queue '${queueName}'...`);
     try {
       // pg-boss send() should throw an error on failure, but we check jobId just in case.
       const jobId: string | null = await this.boss.send(queueName, jobData, options || {});
@@ -35,7 +35,7 @@ export class QueueService {
         throw new InternalServerErrorException(`Failed to obtain job ID from pg-boss for queue '${queueName}'.`);
       }
 
-      this.logger.log(`Job added to queue '${queueName}' with ID: ${jobId}`);
+      //this.logger.log(`Job added to queue '${queueName}' with ID: ${jobId}`);
       return jobId;
     } catch (error) {
 
@@ -57,12 +57,12 @@ export class QueueService {
    */
   async getQueueSize(queueName: string): Promise<number> {
     try {
-      this.logger.debug(`Getting queue size for '${queueName}'...`);
+      //this.logger.debug(`Getting queue size for '${queueName}'...`);
       const size = await this.boss.getQueueSize(queueName);
-      this.logger.debug(`Queue '${queueName}' has ${size} jobs`);
+      //this.logger.debug(`Queue '${queueName}' has ${size} jobs`);
       return size;
     } catch (error) {
-      this.logger.error(`Failed to get queue size for '${queueName}': ${error.message}`, error.stack);
+      //this.logger.error(`Failed to get queue size for '${queueName}': ${error.message}`, error.stack);
       throw new InternalServerErrorException(`Failed to get queue size for '${queueName}': ${error.message}`);
     }
   }
@@ -75,17 +75,17 @@ export class QueueService {
    */
   async getPendingJobs(queueName: string, limit: number = 10): Promise<PgBoss.Job<any>[]> {
     try {
-      this.logger.log(`Fetching up to ${limit} pending jobs from queue '${queueName}'...`);
+     // this.logger.log(`Fetching up to ${limit} pending jobs from queue '${queueName}'...`);
       
       const jobs = await this.boss.fetch(queueName);
       
       if (jobs && jobs.length > 0) {
-        this.logger.log(`📋 Found ${jobs.length} pending jobs in queue '${queueName}':`);
+        //this.logger.log(`📋 Found ${jobs.length} pending jobs in queue '${queueName}':`);
         jobs.forEach((job, index) => {
           this.logger.log(`  ${index + 1}. Job ID: ${job.id}, Data: ${JSON.stringify(job.data)}`);
         });
       } else {
-        this.logger.log(`✅ No pending jobs found in queue '${queueName}'`);
+       // this.logger.log(`✅ No pending jobs found in queue '${queueName}'`);
       }
       
       return jobs || [];
@@ -105,7 +105,7 @@ export class QueueService {
     pendingJobs: Array<{ id: string; data: any; }>;
   }> {
     try {
-      this.logger.debug(`Getting detailed stats for queue '${queueName}'...`);
+      //this.logger.debug(`Getting detailed stats for queue '${queueName}'...`);
       
       const [size, jobs] = await Promise.all([
         this.getQueueSize(queueName),
@@ -120,7 +120,7 @@ export class QueueService {
         }))
       };
 
-      this.logger.debug(`Stats for queue '${queueName}': ${JSON.stringify(stats, null, 2)}`);
+     // this.logger.debug(`Stats for queue '${queueName}': ${JSON.stringify(stats, null, 2)}`);
       return stats;
     } catch (error) {
       this.logger.error(`Failed to get queue stats for '${queueName}': ${error.message}`, error.stack);
@@ -136,9 +136,9 @@ export class QueueService {
    */
   async cancelJob(queueName: string, jobId: string): Promise<boolean> {
     try {
-      this.logger.log(`Attempting to cancel job ${jobId} in queue '${queueName}'...`);
+      //this.logger.log(`Attempting to cancel job ${jobId} in queue '${queueName}'...`);
       await this.boss.cancel(queueName, jobId);
-      this.logger.log(`Job ${jobId} cancelled successfully`);
+     // this.logger.log(`Job ${jobId} cancelled successfully`);
       return true;
     } catch (error) {
       this.logger.error(`Failed to cancel job ${jobId} in queue '${queueName}': ${error.message}`, error.stack);
@@ -154,9 +154,9 @@ export class QueueService {
    */
   async completeJob(queueName: string, jobId: string): Promise<boolean> {
     try {
-      this.logger.log(`Attempting to complete job ${jobId} in queue '${queueName}'...`);
+     // this.logger.log(`Attempting to complete job ${jobId} in queue '${queueName}'...`);
       await this.boss.complete(queueName, jobId);
-      this.logger.log(`Job ${jobId} completed successfully`);
+      //this.logger.log(`Job ${jobId} completed successfully`);
       return true;
     } catch (error) {
       this.logger.error(`Failed to complete job ${jobId} in queue '${queueName}': ${error.message}`, error.stack);

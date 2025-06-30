@@ -20,12 +20,20 @@ import { PromotionService } from '../promotion/promotion.service';
 import { PendingAssignmentService } from 'src/pg-boss/pending-assignment.service';
 import { PendingShipperAssignment } from 'src/entities/pendingShipperAssignment.entity';
 import { QueueService } from 'src/pg-boss/queue.service';
+
+import { Notification } from 'src/entities/notification.entity';
+import { OrderModule } from '../order/order.module';
+import { ShippingDetail } from 'src/entities/shippingDetail.entity';
+
 import { AddressService } from '../address/address.service';
 import { RestaurantService } from '../restaurant/restaurant.service';
 import { GeocodingService } from 'src/services/geocoding.service';
 
+
 @Module({
-  imports: [TypeOrmModule.forFeature([Food, Order, Restaurant, Category, Review, OrderDetail, User, Address, Promotion, Checkout, PendingShipperAssignment])], 
+  imports: [TypeOrmModule.forFeature([Food, Order, Restaurant, Category, Review, OrderDetail, User, Address, Promotion, Checkout, PendingShipperAssignment, Notification, ShippingDetail]),
+  OrderModule
+], 
   controllers: [ChatController],
   providers: [ChatService, JwtModule, FoodService, OrderService, GoogleCloudStorageService, PromotionService, PendingAssignmentService, QueueService, JwtService, AddressService, RestaurantService, GeocodingService],
 })

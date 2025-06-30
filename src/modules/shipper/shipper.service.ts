@@ -10,6 +10,7 @@ import { PendingShipperAssignment } from 'src/entities/pendingShipperAssignment.
 import { format, addDays, startOfDay, startOfWeek, startOfMonth } from 'date-fns';
 import { UpdateDriverProfileDto } from './dto/update-driver-dto';
 import { ShipperCertificateInfo } from 'src/entities/shipperCertificateInfo.entity';
+import { OrderService } from '../order/order.service';
 
 @Injectable()
 export class ShipperService {
@@ -38,6 +39,7 @@ export class ShipperService {
     @InjectRepository(ShipperCertificateInfo)
     private readonly certRepo: Repository<ShipperCertificateInfo>,
     private pendingAssignmentService: PendingAssignmentService, // Inject the service
+    private orderService: OrderService, // Inject the OrderService for finalizing assignments
   ) {}
 
   /**
@@ -375,6 +377,8 @@ export class ShipperService {
     }
     order.status = 'completed';
     await this.orderRepository.save(order);
+
+    await this.orderService.updateOrderStatus(orderId, 'completed');
   
     return { message: 'Đơn hàng đã được hoàn thành' };
   }
@@ -538,6 +542,31 @@ export class ShipperService {
     };
   }
   
+  async updateLocation(shipperId: string, latitude: number, longitude: number) {
+    const shipper = await this.userRepository.findOne({
+      where: { id: shipperId },
+      relations: ['shipperCertificateInfo'],
+    });
+
+    if (!shipper) {
+      throw new NotFoundException('Shipper not found');
+    }
+
+
+    // Publish the location update
+    const result = await pubSub.publish('shipperLocationUpdated', {
+      shipperLocationUpdated: {
+        shipperId,
+        latitude,
+        longitude,
+        updatedAt: new Date(),
+      },
+    });
+
+    //console.log(`Location update published: ${result}`);
+
+    return { message: 'Location updated successfully', success: true };
+  }
 
   // async getOrderHistoryForShipper(shipperId: string, page: number, pageSize: number) {
   //   // Tạo query để lấy các đơn hàng mà shipper xử lý

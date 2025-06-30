@@ -4,6 +4,7 @@ import { pubSub } from 'src/pubsub';
 import { Order } from 'src/entities/order.entity';
 import { haversineDistance } from 'src/common/utils/helper';
 import { Logger } from '@nestjs/common';
+import { log } from 'console';
 
 // Add a service to track active shippers
 class ActiveShipperTracker {
@@ -114,6 +115,7 @@ export class OrderResolver {
         if (!userId) {
             throw new Error('userId is required for orderStatusUpdated subscription');
         }
+        //log(`🔗 New order status subscription for user ${userId}`);
         return (pubSub).asyncIterableIterator('orderStatusUpdated');
     }
 
@@ -268,6 +270,8 @@ export class OrderResolver {
     static getActiveShipperTracker() {
         return activeShipperTracker;
     }
+
+    
 
     // Thêm một query đơn giản để hợp lệ schema
     @Query(() => String)

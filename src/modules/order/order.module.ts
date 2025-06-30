@@ -22,10 +22,14 @@ import { PromotionService } from '../promotion/promotion.service';
 import { GoogleCloudStorageService } from 'src/gcs/gcs.service';
 import { QueueModule } from 'src/pg-boss/queue.module';
 import { Review } from 'src/entities/review.entity';
+import { Notification } from 'src/entities/notification.entity';
+import { ShippingDetail } from 'src/entities/shippingDetail.entity';
 
 @Module({
     imports: [TypeOrmModule.forFeature([Order, User, Restaurant, OrderDetail, Role, Food, Address, Promotion, Checkout, Promotion,
-        Review
+        Review,
+        Notification,
+        ShippingDetail
     ]),
      JwtModule,
       PaymentModule,

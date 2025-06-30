@@ -12,6 +12,7 @@ import { ShippingDetail } from 'src/entities/shippingDetail.entity';
 import { UsersModule } from '../users/users.module';
 import { RestaurantModule } from '../restaurant/restaurant.module';
 import { JwtModule } from '@nestjs/jwt';
+import { Notification } from 'src/entities/notification.entity';
 
 @Module({
     imports: [
@@ -21,7 +22,8 @@ import { JwtModule } from '@nestjs/jwt';
             User, 
             Order, 
             Restaurant, 
-            ShippingDetail
+            ShippingDetail,
+            Notification
         ]),
         UsersModule,
         RestaurantModule,

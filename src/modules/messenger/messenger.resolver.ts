@@ -58,12 +58,7 @@ export class MessengerResolver {
         const userId = context.req.user.uid || context.req.user.id;
         const message = await this.messengerService.sendMessage(userId, sendMessageDto);
         
-        console.log("📨 Publishing message to channel messageSent:", {
-            id: message.id,
-            conversationId: message.conversation.id,
-            text: message.content.substring(0, 20) // For privacy, just show the start
-        });
-        
+
         pubSub.publish('messageSent', { 
             messageSent: message,
             conversationId: message.conversation.id 
