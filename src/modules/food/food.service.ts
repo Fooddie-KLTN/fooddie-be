@@ -10,6 +10,10 @@ import { Review } from 'src/entities/review.entity'; // Add this import
 import { GoogleCloudStorageService } from 'src/gcs/gcs.service';
 import { haversineDistance } from 'src/common/utils/helper';
 import { log } from 'console';
+import { Topping } from 'src/entities/topping.entity';
+import { fdatasync } from 'fs';
+import { CreateToppingDto } from './dto/create-topping.dto';
+import { UpdateToppingDto } from './dto/update-topping.dto';
 
 @Injectable()
 export class FoodService {
@@ -22,14 +26,16 @@ export class FoodService {
         private categoryRepository: Repository<Category>,
         @InjectRepository(Review) // Add this injection
         private reviewRepository: Repository<Review>,
+        @InjectRepository(Topping)
+        private toppingRepository: Repository<Topping>,
         private readonly gcsService: GoogleCloudStorageService,
     ) { }
-/**
-     * Get top foods by sold count for a restaurant
-     */
+    /**
+         * Get top foods by sold count for a restaurant
+         */
     async getTopFoodsByRestaurant(restaurantId: string, limit = 5): Promise<any[]> {
         const foods = await this.foodRepository.find({
-            where: { 
+            where: {
                 restaurant: { id: restaurantId },
                 status: 'available' // Add status filter
             },
@@ -97,7 +103,30 @@ export class FoodService {
 
             // Save the entity
             const savedFood = await this.foodRepository.save(food);
-            return savedFood;
+
+            // Create toppings if provided
+            if (createFoodDto.toppings && createFoodDto.toppings.length > 0) {
+                const toppings = createFoodDto.toppings.map(toppingDto => {
+                    const topping = new Topping();
+                    topping.name = toppingDto.name;
+                    topping.price = parseFloat(toppingDto.price);
+                    topping.isAvailable = toppingDto.isAvailable !== undefined ? toppingDto.isAvailable : true;
+                    topping.food = savedFood;
+                    return topping;
+                });
+
+                await this.toppingRepository.save(toppings);
+            }
+
+            // Return the food with toppings
+            const fd = await this.foodRepository.findOne({
+                where: { id: savedFood.id },
+                relations: ['restaurant', 'category', 'toppings']
+            });
+            if (!fd) {
+                throw new NotFoundException(`Food with ID ${savedFood.id} not found after creation`);
+            }
+            return fd;
 
         } catch (error) {
             if (error instanceof BadRequestException) {
@@ -176,119 +205,119 @@ export class FoodService {
             totalPages: Math.ceil(totalItems / pageSize),
         };
     }
-/**
- * Search foods for store/admin with additional filtering options
- */
-async searchFoodsForStore(
-  query: string,
-  page = 1,
-  pageSize = 10,
-  lat?: number,
-  lng?: number,
-  restaurantId?: string,
-  categoryId?: string,
-  radius = 99999 // Large radius for admin search
-): Promise<{
-  items: any[];
-  totalItems: number;
-  page: number;
-  pageSize: number;
-  totalPages: number;
-}> {
-  console.log('=== searchFoodsForStore Debug ===');
-  console.log('Input parameters:', {
-    query,
-    page,
-    pageSize,
-    lat,
-    lng,
-    restaurantId,
-    categoryId,
-    radius
-  });
+    /**
+     * Search foods for store/admin with additional filtering options
+     */
+    async searchFoodsForStore(
+        query: string,
+        page = 1,
+        pageSize = 10,
+        lat?: number,
+        lng?: number,
+        restaurantId?: string,
+        categoryId?: string,
+        radius = 99999 // Large radius for admin search
+    ): Promise<{
+        items: any[];
+        totalItems: number;
+        page: number;
+        pageSize: number;
+        totalPages: number;
+    }> {
+        console.log('=== searchFoodsForStore Debug ===');
+        console.log('Input parameters:', {
+            query,
+            page,
+            pageSize,
+            lat,
+            lng,
+            restaurantId,
+            categoryId,
+            radius
+        });
 
-  const queryBuilder = this.foodRepository.createQueryBuilder('food')
-    .leftJoinAndSelect('food.restaurant', 'restaurant')
-    .leftJoinAndSelect('food.category', 'category')
-  // Add search condition
-  if (query && query.trim()) {
-    queryBuilder.where('food.name ILIKE :query OR food.description ILIKE :query', { 
-      query: `%${query.trim()}%` 
-    });
-    console.log('Added search filter for:', query.trim());
-  }
+        const queryBuilder = this.foodRepository.createQueryBuilder('food')
+            .leftJoinAndSelect('food.restaurant', 'restaurant')
+            .leftJoinAndSelect('food.category', 'category')
+        // Add search condition
+        if (query && query.trim()) {
+            queryBuilder.where('food.name ILIKE :query OR food.description ILIKE :query', {
+                query: `%${query.trim()}%`
+            });
+            console.log('Added search filter for:', query.trim());
+        }
 
-  // Add restaurant filter if provided
-  if (restaurantId) {
-    const whereMethod = query && query.trim() ? 'andWhere' : 'where';
-    queryBuilder[whereMethod]('food.restaurant_id = :restaurantId', { restaurantId });
-    console.log('Added restaurant filter:', restaurantId);
-  }
+        // Add restaurant filter if provided
+        if (restaurantId) {
+            const whereMethod = query && query.trim() ? 'andWhere' : 'where';
+            queryBuilder[whereMethod]('food.restaurant_id = :restaurantId', { restaurantId });
+            console.log('Added restaurant filter:', restaurantId);
+        }
 
-  // Add category filter if provided
-  if (categoryId) {
-    const whereMethod = (query && query.trim()) || restaurantId ? 'andWhere' : 'where';
-    queryBuilder[whereMethod]('food.category_id = :categoryId', { categoryId });
-    console.log('Added category filter:', categoryId);
-  }
+        // Add category filter if provided
+        if (categoryId) {
+            const whereMethod = (query && query.trim()) || restaurantId ? 'andWhere' : 'where';
+            queryBuilder[whereMethod]('food.category_id = :categoryId', { categoryId });
+            console.log('Added category filter:', categoryId);
+        }
 
-  console.log('Query SQL:', queryBuilder.getQuery());
-  console.log('Query parameters:', queryBuilder.getParameters());
+        console.log('Query SQL:', queryBuilder.getQuery());
+        console.log('Query parameters:', queryBuilder.getParameters());
 
-  // Get all matching items first
-  let items = await queryBuilder.getMany();
-  console.log('Raw items found:', items.length);
+        // Get all matching items first
+        let items = await queryBuilder.getMany();
+        console.log('Raw items found:', items.length);
 
-  if (items.length > 0) {
-    console.log('First item example:', {
-      id: items[0].id,
-      name: items[0].name,
-      restaurant: items[0].restaurant?.name,
-      category: items[0].category?.name
-    });
-  }
+        if (items.length > 0) {
+            console.log('First item example:', {
+                id: items[0].id,
+                name: items[0].name,
+                restaurant: items[0].restaurant?.name,
+                category: items[0].category?.name
+            });
+        }
 
-  // Add distance and apply location filtering if coordinates provided
-  if (lat && lng) {
-    console.log('Applying distance filtering...');
-    const beforeFilter = items.length;
-    
-    items = items
-      .filter(f => f.restaurant?.latitude && f.restaurant?.longitude)
-      .map(f => ({
-        ...f,
-        distance: haversineDistance(lat, lng, Number(f.restaurant.latitude), Number(f.restaurant.longitude))
-      }))
-      .filter(f => f.distance <= radius)
-      .sort((a, b) => a.distance - b.distance);
+        // Add distance and apply location filtering if coordinates provided
+        if (lat && lng) {
+            console.log('Applying distance filtering...');
+            const beforeFilter = items.length;
 
-    console.log(`Distance filter: ${beforeFilter} -> ${items.length} (within ${radius}km)`);
-  } else {
-    // Add null distance for consistency
-    items = items.map(f => ({ ...f, distance: null }));
-  }
+            items = items
+                .filter(f => f.restaurant?.latitude && f.restaurant?.longitude)
+                .map(f => ({
+                    ...f,
+                    distance: haversineDistance(lat, lng, Number(f.restaurant.latitude), Number(f.restaurant.longitude))
+                }))
+                .filter(f => f.distance <= radius)
+                .sort((a, b) => a.distance - b.distance);
 
-  // Calculate pagination
-  const totalItems = items.length;
-  const totalPages = Math.ceil(totalItems / pageSize);
-  const pagedItems = items.slice((page - 1) * pageSize, page * pageSize);
+            console.log(`Distance filter: ${beforeFilter} -> ${items.length} (within ${radius}km)`);
+        } else {
+            // Add null distance for consistency
+            items = items.map(f => ({ ...f, distance: null }));
+        }
 
-  console.log('Final result:', {
-    totalItems,
-    pagedItemsCount: pagedItems.length,
-    page,
-    totalPages
-  });
-  console.log('=== End searchFoodsForStore Debug ===');
+        // Calculate pagination
+        const totalItems = items.length;
+        const totalPages = Math.ceil(totalItems / pageSize);
+        const pagedItems = items.slice((page - 1) * pageSize, page * pageSize);
 
-  return {
-    items: pagedItems,
-    totalItems,
-    page,
-    pageSize,
-    totalPages,
-  };
-}
+        console.log('Final result:', {
+            totalItems,
+            pagedItemsCount: pagedItems.length,
+            page,
+            totalPages
+        });
+        console.log('=== End searchFoodsForStore Debug ===');
+
+        return {
+            items: pagedItems,
+            totalItems,
+            page,
+            pageSize,
+            totalPages,
+        };
+    }
     /**
      * Get foods by restaurant ID and category ID with pagination
      * @param restaurantId The restaurant ID
@@ -307,7 +336,7 @@ async searchFoodsForStore(
         totalPages: number;
     }> {
 
-        
+
         const restaurant = await this.restaurantRepository.findOne({
             where: { id: restaurantId }
         });
@@ -342,7 +371,7 @@ async searchFoodsForStore(
         const [items, totalItems] = await queryBuilder.getManyAndCount();
 
         const itemsWithDistance = items.map(food => {
-            let distance : number | null = null;
+            let distance: number | null = null;
             if (lat && lng && food.restaurant?.latitude && food.restaurant?.longitude) {
                 distance = haversineDistance(
                     lat,
@@ -403,7 +432,7 @@ async searchFoodsForStore(
         const [items, totalItems] = await queryBuilder.getManyAndCount();
 
         const itemsWithDistance = items.map(food => {
-            let distance : number | null = null;
+            let distance: number | null = null;
             if (lat && lng && restaurant.latitude && restaurant.longitude) {
                 distance = haversineDistance(
                     lat,
@@ -455,7 +484,7 @@ async searchFoodsForStore(
         });
 
         const itemsWithDistance = items.map(food => {
-            let distance : number | null = null;
+            let distance: number | null = null;
             if (lat && lng && food.restaurant?.latitude && food.restaurant?.longitude) {
                 distance = haversineDistance(
                     lat,
@@ -500,7 +529,7 @@ async searchFoodsForStore(
         });
 
         const itemsWithDistance = items.map(food => {
-            let distance : number | null = null;
+            let distance: number | null = null;
             if (lat && lng && food.restaurant?.latitude && food.restaurant?.longitude) {
                 distance = haversineDistance(
                     lat,
@@ -546,7 +575,7 @@ async searchFoodsForStore(
         });
 
         const itemsWithDistance = items.map(food => {
-            let distance : number | null = null;
+            let distance: number | null = null;
             if (lat && lng && food.restaurant?.latitude && food.restaurant?.longitude) {
                 distance = haversineDistance(
                     lat,
@@ -601,7 +630,7 @@ async searchFoodsForStore(
         });
 
         const itemsWithDistance = items.map(food => {
-            let distance : number | null = null;
+            let distance: number | null = null;
             if (lat && lng && restaurant.latitude && restaurant.longitude) {
                 distance = haversineDistance(
                     lat,
@@ -664,7 +693,7 @@ async searchFoodsForStore(
         });
 
         const itemsWithDistance = items.map(food => {
-            let distance : number | null = null;
+            let distance: number | null = null;
             if (lat && lng && restaurant.latitude && restaurant.longitude) {
                 distance = haversineDistance(
                     lat,
@@ -712,7 +741,7 @@ async searchFoodsForStore(
         const items = await queryBuilder.getMany();
 
         const itemsWithDistance = items.map(food => {
-            let distance : number | null = null;
+            let distance: number | null = null;
             if (lat && lng && food.restaurant?.latitude && food.restaurant?.longitude) {
                 distance = haversineDistance(
                     lat,
@@ -769,7 +798,7 @@ async searchFoodsForStore(
         const items = await queryBuilder.getMany();
 
         const itemsWithDistance = items.map(food => {
-            let distance : number | null = null;
+            let distance: number | null = null;
             if (lat && lng && restaurant.latitude && restaurant.longitude) {
                 distance = haversineDistance(
                     lat,
@@ -790,229 +819,238 @@ async searchFoodsForStore(
         };
     }
 
-async searchFoods(
-  query: string,
-  page = 1,
-  pageSize = 10,
-  lat?: number,
-  lng?: number,
-  radius = 5
-): Promise<{
-  items: any[];
-  totalItems: number;
-  page: number;
-  pageSize: number;
-  totalPages: number;
-}> {
-  console.log('=== searchFoods Debug ===');
-  console.log('Input parameters:', {
-    query,
-    page,
-    pageSize,
-    lat,
-    lng,
-    radius
-  });
+    async searchFoods(
+        query: string,
+        page = 1,
+        pageSize = 10,
+        lat?: number,
+        lng?: number,
+        radius = 5
+    ): Promise<{
+        items: any[];
+        totalItems: number;
+        page: number;
+        pageSize: number;
+        totalPages: number;
+    }> {
+        console.log('=== searchFoods Debug ===');
+        console.log('Input parameters:', {
+            query,
+            page,
+            pageSize,
+            lat,
+            lng,
+            radius
+        });
 
-  const queryBuilder = this.foodRepository.createQueryBuilder('food')
-    .leftJoinAndSelect('food.restaurant', 'restaurant')
-    .leftJoinAndSelect('food.category', 'category');
+        const queryBuilder = this.foodRepository.createQueryBuilder('food')
+            .leftJoinAndSelect('food.restaurant', 'restaurant')
+            .leftJoinAndSelect('food.category', 'category');
 
-  // Add search condition - if no query provided, return all foods
-  if (query && query.trim()) {
-    queryBuilder.where(
-      "(unaccent(LOWER(food.name)) LIKE unaccent(:name) OR unaccent(LOWER(food.description)) LIKE unaccent(:name))",
-      { name: `%${query.toLowerCase()}%` }
-    );
-    console.log('Added search filter (accent-insensitive):', query);
-  } else {
-    console.log('No search query provided, returning all foods');
-  }
+        // Add search condition - if no query provided, return all foods
+        if (query && query.trim()) {
+            queryBuilder.where(
+                "(unaccent(LOWER(food.name)) LIKE unaccent(:name) OR unaccent(LOWER(food.description)) LIKE unaccent(:name))",
+                { name: `%${query.toLowerCase()}%` }
+            );
+            console.log('Added search filter (accent-insensitive):', query);
+        } else {
+            console.log('No search query provided, returning all foods');
+        }
 
-  console.log('Query SQL:', queryBuilder.getQuery());
-  console.log('Query parameters:', queryBuilder.getParameters());
+        console.log('Query SQL:', queryBuilder.getQuery());
+        console.log('Query parameters:', queryBuilder.getParameters());
 
-  // Get all matching items first
-  let items = await queryBuilder.getMany();
-  console.log('Raw items found:', items.length);
+        // Get all matching items first
+        let items = await queryBuilder.getMany();
+        console.log('Raw items found:', items.length);
 
-  if (items.length > 0) {
-    console.log('First item example:', {
-      id: items[0].id,
-      name: items[0].name,
-      restaurant: items[0].restaurant?.name
-    });
-  }
+        if (items.length > 0) {
+            console.log('First item example:', {
+                id: items[0].id,
+                name: items[0].name,
+                restaurant: items[0].restaurant?.name
+            });
+        }
 
-  // Add distance and apply location filtering if coordinates provided
-  if (lat && lng) {
-    console.log('Applying distance filtering...');
-    const beforeFilter = items.length;
-    
-    items = items
-      .filter(f => f.restaurant?.latitude && f.restaurant?.longitude)
-      .map(f => ({
-        ...f,
-        distance: haversineDistance(lat, lng, Number(f.restaurant.latitude), Number(f.restaurant.longitude))
-      }))
-      .filter(f => f.distance <= radius)
-      .sort((a, b) => a.distance - b.distance);
+        // Add distance and apply location filtering if coordinates provided
+        if (lat && lng) {
+            console.log('Applying distance filtering...');
+            const beforeFilter = items.length;
 
-    console.log(`Distance filter: ${beforeFilter} -> ${items.length} (within ${radius}km)`);
-    
-    if (items.length > 0) {
-      console.log('Distance examples:', items.slice(0, 3).map(f => ({
-        name: f.name,
-        distance: haversineDistance(lat, lng, Number(f.restaurant.latitude), Number(f.restaurant.longitude))
-      })));
+            items = items
+                .filter(f => f.restaurant?.latitude && f.restaurant?.longitude)
+                .map(f => ({
+                    ...f,
+                    distance: haversineDistance(lat, lng, Number(f.restaurant.latitude), Number(f.restaurant.longitude))
+                }))
+                .filter(f => f.distance <= radius)
+                .sort((a, b) => a.distance - b.distance);
+
+            console.log(`Distance filter: ${beforeFilter} -> ${items.length} (within ${radius}km)`);
+
+            if (items.length > 0) {
+                console.log('Distance examples:', items.slice(0, 3).map(f => ({
+                    name: f.name,
+                    distance: haversineDistance(lat, lng, Number(f.restaurant.latitude), Number(f.restaurant.longitude))
+                })));
+            }
+        } else {
+            // Add null distance for consistency
+            items = items.map(f => ({ ...f, distance: null }));
+        }
+
+        // Calculate pagination
+        const totalItems = items.length;
+        const totalPages = Math.ceil(totalItems / pageSize);
+        const pagedItems = items.slice((page - 1) * pageSize, page * pageSize);
+
+        console.log('Final result:', {
+            totalItems,
+            pagedItemsCount: pagedItems.length,
+            page,
+            totalPages
+        });
+        console.log('=== End searchFoods Debug ===');
+
+        return {
+            items: pagedItems,
+            totalItems,
+            page,
+            pageSize,
+            totalPages,
+        };
     }
-  } else {
-    // Add null distance for consistency
-    items = items.map(f => ({ ...f, distance: null }));
-  }
-
-  // Calculate pagination
-  const totalItems = items.length;
-  const totalPages = Math.ceil(totalItems / pageSize);
-  const pagedItems = items.slice((page - 1) * pageSize, page * pageSize);
-
-  console.log('Final result:', {
-    totalItems,
-    pagedItemsCount: pagedItems.length,
-    page,
-    totalPages
-  });
-  console.log('=== End searchFoods Debug ===');
-
-  return {
-    items: pagedItems,
-    totalItems,
-    page,
-    pageSize,
-    totalPages,
-  };
-}
     /**
      * Get a specific food by ID
      * 
      * @param id The food ID
      * @returns The food details
      */
-async findOne(id: string, lat?: number, lng?: number): Promise<any> {
-    console.log('=== findOne Debug ===');
-    console.log('Looking for food with ID:', id);
-    
-    // First get the food with basic relations
-    const food = await this.foodRepository
-        .createQueryBuilder('food')
-        .leftJoinAndSelect('food.restaurant', 'restaurant')
-        .leftJoinAndSelect('restaurant.address', 'address')
-        .leftJoinAndSelect('food.category', 'category')
-        .where('food.id = :id', { id })
-        .getOne();
+    async findOne(id: string, lat?: number, lng?: number): Promise<any> {
+        console.log('=== findOne Debug ===');
+        console.log('Looking for food with ID:', id);
 
-    if (!food) {
-        throw new NotFoundException(`Food with ID ${id} not found`);
+        // First get the food with basic relations
+        const food = await this.foodRepository
+            .createQueryBuilder('food')
+            .leftJoinAndSelect('food.restaurant', 'restaurant')
+            .leftJoinAndSelect('restaurant.address', 'address')
+            .leftJoinAndSelect('food.category', 'category')
+            .leftJoinAndSelect('food.toppings', 'toppings')
+            .where('food.id = :id', { id })
+            .getOne();
+
+        if (!food) {
+            throw new NotFoundException(`Food with ID ${id} not found`);
+        }
+
+        // Separately get the top 3 reviews for this food
+        const topReviews = await this.foodRepository
+            .createQueryBuilder('food')
+            .leftJoinAndSelect('food.reviews', 'reviews')
+            .leftJoinAndSelect('reviews.user', 'reviewUser')
+            .where('food.id = :id', { id })
+            .andWhere('reviews.type = :type', { type: 'food' })
+            .andWhere('reviews.rating IS NOT NULL')
+            .orderBy('reviews.rating', 'DESC')
+            .addOrderBy('reviews.createdAt', 'DESC')
+            .limit(3)
+            .getOne();
+
+        // Get all reviews count for statistics
+        const allReviewsData = await this.foodRepository
+            .createQueryBuilder('food')
+            .leftJoin('food.reviews', 'allReviews')
+            .select([
+                'COUNT(allReviews.id) as total_reviews',
+                'AVG(allReviews.rating) as average_rating'
+            ])
+            .where('food.id = :id', { id })
+            .andWhere('allReviews.type = :type', { type: 'food' })
+            .andWhere('allReviews.rating IS NOT NULL')
+            .getRawOne();
+
+        console.log('Food found:', food.id, food.name);
+        console.log('Top 3 reviews found:', topReviews?.reviews?.length || 0);
+        console.log('Total reviews stats:', allReviewsData);
+
+        // Calculate statistics
+        const totalReviews = parseInt(allReviewsData?.total_reviews || '0');
+        const averageRating = allReviewsData?.average_rating ?
+            Number(parseFloat(allReviewsData.average_rating).toFixed(1)) : null;
+
+        console.log('Calculated stats - Total:', totalReviews, 'Average:', averageRating);
+
+        // Prepare clean result
+        const result: any = {
+            ...food,
+            rating: averageRating,
+            totalReviews,
+            toppings: food.toppings ? food.toppings.map(topping => ({
+                id: topping.id,
+                name: topping.name,
+                image: topping.image,
+                price: topping.price,
+                isAvailable: topping.isAvailable,
+                isFree: topping.price === 0
+            })) : [],
+            restaurant: food.restaurant ? {
+                id: food.restaurant.id,
+                name: food.restaurant.name,
+                description: food.restaurant.description,
+                avatar: food.restaurant.avatar,
+                backgroundImage: food.restaurant.backgroundImage,
+                phoneNumber: food.restaurant.phoneNumber,
+                status: food.restaurant.status,
+                latitude: food.restaurant.latitude,
+                longitude: food.restaurant.longitude,
+                openTime: food.restaurant.openTime,
+                closeTime: food.restaurant.closeTime,
+                createdAt: food.restaurant.createdAt,
+                updatedAt: food.restaurant.updatedAt,
+                address: food.restaurant.address ? {
+                    id: food.restaurant.address.id,
+                    street: food.restaurant.address.street,
+                    ward: food.restaurant.address.ward,
+                    district: food.restaurant.address.district,
+                    city: food.restaurant.address.city,
+                    latitude: food.restaurant.address.latitude,
+                    longitude: food.restaurant.address.longitude
+                } : null
+            } : null,
+            // Only include top 3 reviews
+            reviews: topReviews?.reviews ? topReviews.reviews.map(review => ({
+                id: review.id,
+                rating: review.rating,
+                comment: review.comment,
+                image: review.image,
+                createdAt: review.createdAt,
+                user: review.user ? {
+                    id: review.user.id,
+                    name: review.user.name,
+                    avatar: review.user.avatar
+                } : null
+            })) : []
+        };
+
+        // Add distance if coordinates provided
+        if (lat && lng && food.restaurant?.latitude && food.restaurant?.longitude) {
+            result.distance = haversineDistance(
+                lat,
+                lng,
+                Number(food.restaurant.latitude),
+                Number(food.restaurant.longitude)
+            );
+        }
+
+        console.log('Final result - Reviews count:', result.reviews?.length || 0);
+        console.log('Final result - Total reviews:', result.totalReviews);
+        console.log('Final result - Average rating:', result.rating);
+        console.log('=== End findOne Debug ===');
+
+        return result;
     }
-
-    // Separately get the top 3 reviews for this food
-    const topReviews = await this.foodRepository
-        .createQueryBuilder('food')
-        .leftJoinAndSelect('food.reviews', 'reviews')
-        .leftJoinAndSelect('reviews.user', 'reviewUser')
-        .where('food.id = :id', { id })
-        .andWhere('reviews.type = :type', { type: 'food' })
-        .andWhere('reviews.rating IS NOT NULL')
-        .orderBy('reviews.rating', 'DESC')
-        .addOrderBy('reviews.createdAt', 'DESC')
-        .limit(3)
-        .getOne();
-
-    // Get all reviews count for statistics
-    const allReviewsData = await this.foodRepository
-        .createQueryBuilder('food')
-        .leftJoin('food.reviews', 'allReviews')
-        .select([
-            'COUNT(allReviews.id) as total_reviews',
-            'AVG(allReviews.rating) as average_rating'
-        ])
-        .where('food.id = :id', { id })
-        .andWhere('allReviews.type = :type', { type: 'food' })
-        .andWhere('allReviews.rating IS NOT NULL')
-        .getRawOne();
-
-    console.log('Food found:', food.id, food.name);
-    console.log('Top 3 reviews found:', topReviews?.reviews?.length || 0);
-    console.log('Total reviews stats:', allReviewsData);
-
-    // Calculate statistics
-    const totalReviews = parseInt(allReviewsData?.total_reviews || '0');
-    const averageRating = allReviewsData?.average_rating ? 
-        Number(parseFloat(allReviewsData.average_rating).toFixed(1)) : null;
-
-    console.log('Calculated stats - Total:', totalReviews, 'Average:', averageRating);
-
-    // Prepare clean result
-    const result: any = {
-        ...food,
-        rating: averageRating,
-        totalReviews,
-        restaurant: food.restaurant ? {
-            id: food.restaurant.id,
-            name: food.restaurant.name,
-            description: food.restaurant.description,
-            avatar: food.restaurant.avatar,
-            backgroundImage: food.restaurant.backgroundImage,
-            phoneNumber: food.restaurant.phoneNumber,
-            status: food.restaurant.status,
-            latitude: food.restaurant.latitude,
-            longitude: food.restaurant.longitude,
-            openTime: food.restaurant.openTime,
-            closeTime: food.restaurant.closeTime,
-            createdAt: food.restaurant.createdAt,
-            updatedAt: food.restaurant.updatedAt,
-            address: food.restaurant.address ? {
-                id: food.restaurant.address.id,
-                street: food.restaurant.address.street,
-                ward: food.restaurant.address.ward,
-                district: food.restaurant.address.district,
-                city: food.restaurant.address.city,
-                latitude: food.restaurant.address.latitude,
-                longitude: food.restaurant.address.longitude
-            } : null
-        } : null,
-        // Only include top 3 reviews
-        reviews: topReviews?.reviews ? topReviews.reviews.map(review => ({
-            id: review.id,
-            rating: review.rating,
-            comment: review.comment,
-            image: review.image,
-            createdAt: review.createdAt,
-            user: review.user ? {
-                id: review.user.id,
-                name: review.user.name,
-                avatar: review.user.avatar
-            } : null
-        })) : []
-    };
-
-    // Add distance if coordinates provided
-    if (lat && lng && food.restaurant?.latitude && food.restaurant?.longitude) {
-        result.distance = haversineDistance(
-            lat, 
-            lng, 
-            Number(food.restaurant.latitude), 
-            Number(food.restaurant.longitude)
-        );
-    }
-
-    console.log('Final result - Reviews count:', result.reviews?.length || 0);
-    console.log('Final result - Total reviews:', result.totalReviews);
-    console.log('Final result - Average rating:', result.rating);
-    console.log('=== End findOne Debug ===');
-
-    return result;
-}
 
     /**
      * Update a food
@@ -1081,6 +1119,27 @@ async findOne(id: string, lat?: number, lng?: number): Promise<any> {
             delete updateFoodDto.categoryId;
         }
 
+         // Handle toppings update if provided
+        if (updateFoodDto.toppings !== undefined) {
+            // Remove existing toppings
+            if (food.toppings && food.toppings.length > 0) {
+                await this.toppingRepository.remove(food.toppings);
+            }
+
+            // Add new toppings
+            if (updateFoodDto.toppings && updateFoodDto.toppings.length > 0) {
+                const newToppings = updateFoodDto.toppings.map(toppingDto => {
+                    const topping = new Topping();
+                    topping.name = toppingDto.name;
+                    topping.price = parseFloat(toppingDto.price);
+                    topping.isAvailable = toppingDto.isAvailable !== undefined ? toppingDto.isAvailable : true;
+                    topping.food = food;
+                    return topping;
+                });
+
+                await this.toppingRepository.save(newToppings);
+            }
+        }
         // Update food with remaining fields
         Object.assign(food, updateFoodDto);
 
@@ -1088,10 +1147,10 @@ async findOne(id: string, lat?: number, lng?: number): Promise<any> {
     }
 
     async updateIfOwner(id: string, updateFoodDto: UpdateFoodDto, userId: string): Promise<Food> {
-    const food = await this.foodRepository.findOne({
-        where: { id },
-        relations: ['restaurant', 'restaurant.owner'], // Make sure owner is loaded
-    });
+        const food = await this.foodRepository.findOne({
+            where: { id },
+            relations: ['restaurant', 'restaurant.owner'], // Make sure owner is loaded
+        });
         if (!food) throw new NotFoundException('Food not found');
         if (!food.restaurant || food.restaurant.owner.id !== userId) {
             throw new UnauthorizedException('You are not the owner of this restaurant');
@@ -1123,12 +1182,74 @@ async findOne(id: string, lat?: number, lng?: number): Promise<any> {
         }
         return this.remove(id);
     }
+/**
+     * Add a single topping to existing food
+     */
+    async addTopping(foodId: string, createToppingDto: CreateToppingDto): Promise<Topping> {
+        const food = await this.foodRepository.findOne({
+            where: { id: foodId }
+        });
 
+        if (!food) {
+            throw new NotFoundException(`Food with ID ${foodId} not found`);
+        }
+
+        const topping = new Topping();
+        topping.name = createToppingDto.name;
+        topping.image = createToppingDto.image ?? ""; // Allow image to be optional, fallback to empty string
+        topping.price = parseFloat(createToppingDto.price);
+        topping.isAvailable = createToppingDto.isAvailable !== undefined ? createToppingDto.isAvailable : true;
+        topping.food = food;
+
+        return await this.toppingRepository.save(topping);
+    }
+
+    /**
+     * Update a single topping
+     */
+    async updateTopping(toppingId: string, updateToppingDto: UpdateToppingDto): Promise<Topping> {
+        const topping = await this.toppingRepository.findOne({
+            where: { id: toppingId },
+            relations: ['food']
+        });
+
+        if (!topping) {
+            throw new NotFoundException(`Topping with ID ${toppingId} not found`);
+        }
+
+        if (updateToppingDto.name !== undefined) topping.name = updateToppingDto.name;
+        if (updateToppingDto.image !== undefined) topping.image = updateToppingDto.image;
+        if (updateToppingDto.price !== undefined) topping.price = parseFloat(updateToppingDto.price);
+        if (updateToppingDto.isAvailable !== undefined) topping.isAvailable = updateToppingDto.isAvailable;
+
+        return await this.toppingRepository.save(topping);
+    }
+
+    /**
+     * Remove a topping
+     */
+    async removeTopping(toppingId: string): Promise<void> {
+        const result = await this.toppingRepository.delete(toppingId);
+
+        if (result.affected === 0) {
+            throw new NotFoundException(`Topping with ID ${toppingId} not found`);
+        }
+    }
+
+    /**
+     * Get all toppings for a food
+     */
+    async getToppingsByFood(foodId: string): Promise<Topping[]> {
+        return await this.toppingRepository.find({
+            where: { food: { id: foodId } },
+            order: { name: 'ASC' }
+        });
+    }
     async updateStatusIfOwner(foodId: string, status: string, userId: string): Promise<Food> {
-   const food = await this.foodRepository.findOne({
-        where: { id: foodId },
-        relations: ['restaurant', 'restaurant.owner'], // Add the owner relation
-    });
+        const food = await this.foodRepository.findOne({
+            where: { id: foodId },
+            relations: ['restaurant', 'restaurant.owner'], // Add the owner relation
+        });
         if (!food) throw new NotFoundException('Food not found');
         if (!food.restaurant || food.restaurant.owner.id !== userId) {
             throw new UnauthorizedException('You are not the owner of this restaurant');
@@ -1138,143 +1259,143 @@ async findOne(id: string, lat?: number, lng?: number): Promise<any> {
     }
 
     async findByName(
-  name?: string, // Made optional
-  page = 1,
-  pageSize = 10,
-  lat?: number,
-  lng?: number,
-  radius = 5,
-  categoryIds?: string[],
-  minPrice?: number,
-  maxPrice?: number,
-): Promise<{
-  items: any[];
-  totalItems: number;
-  page: number;
-  pageSize: number;
-  totalPages: number;
-}> {
-  console.log('=== findByName Debug ===');
-  console.log('Input parameters:', {
-    name,
-    decodedName: name ? decodeURIComponent(name) : 'No name filter',
-    page,
-    pageSize,
-    lat,
-    lng,
-    radius,
-    categoryIds,
-    minPrice,
-    maxPrice
-  });
+        name?: string, // Made optional
+        page = 1,
+        pageSize = 10,
+        lat?: number,
+        lng?: number,
+        radius = 5,
+        categoryIds?: string[],
+        minPrice?: number,
+        maxPrice?: number,
+    ): Promise<{
+        items: any[];
+        totalItems: number;
+        page: number;
+        pageSize: number;
+        totalPages: number;
+    }> {
+        console.log('=== findByName Debug ===');
+        console.log('Input parameters:', {
+            name,
+            decodedName: name ? decodeURIComponent(name) : 'No name filter',
+            page,
+            pageSize,
+            lat,
+            lng,
+            radius,
+            categoryIds,
+            minPrice,
+            maxPrice
+        });
 
-  const queryBuilder = this.foodRepository.createQueryBuilder('food')
-    .leftJoinAndSelect('food.restaurant', 'restaurant')
-    .leftJoinAndSelect('food.category', 'category');
+        const queryBuilder = this.foodRepository.createQueryBuilder('food')
+            .leftJoinAndSelect('food.restaurant', 'restaurant')
+            .leftJoinAndSelect('food.category', 'category');
 
-  // Only add name filter if name is provided
-  if (name && name.trim()) {
-    queryBuilder.where(
-      "(unaccent(LOWER(food.name)) LIKE unaccent(:name) OR unaccent(LOWER(food.description)) LIKE unaccent(:name))",
-      { name: `%${name.toLowerCase()}%` }
-    );
-    console.log('Added name filter (accent-insensitive):', name);
-  }
+        // Only add name filter if name is provided
+        if (name && name.trim()) {
+            queryBuilder.where(
+                "(unaccent(LOWER(food.name)) LIKE unaccent(:name) OR unaccent(LOWER(food.description)) LIKE unaccent(:name))",
+                { name: `%${name.toLowerCase()}%` }
+            );
+            console.log('Added name filter (accent-insensitive):', name);
+        }
 
-  // Filter by category IDs
-  if (categoryIds && categoryIds.length > 0) {
-    if (name && name.trim()) {
-      queryBuilder.andWhere('food.category_id IN (:...categoryIds)', { categoryIds });
-    } else {
-      queryBuilder.where('food.category_id IN (:...categoryIds)', { categoryIds });
+        // Filter by category IDs
+        if (categoryIds && categoryIds.length > 0) {
+            if (name && name.trim()) {
+                queryBuilder.andWhere('food.category_id IN (:...categoryIds)', { categoryIds });
+            } else {
+                queryBuilder.where('food.category_id IN (:...categoryIds)', { categoryIds });
+            }
+            console.log('Added category filter:', categoryIds);
+        }
+
+        // Filter by min price
+        if (minPrice !== undefined) {
+            const whereMethod = (name && name.trim()) || (categoryIds && categoryIds.length > 0) ? 'andWhere' : 'where';
+            queryBuilder[whereMethod]('food.price >= :minPrice', { minPrice });
+            console.log('Added minPrice filter:', minPrice);
+        }
+
+        // Filter by max price
+        if (maxPrice !== undefined) {
+            const whereMethod = (name && name.trim()) || (categoryIds && categoryIds.length > 0) || (minPrice !== undefined) ? 'andWhere' : 'where';
+            queryBuilder[whereMethod]('food.price <= :maxPrice', { maxPrice });
+            console.log('Added maxPrice filter:', maxPrice);
+        }
+
+        console.log('Final query:', queryBuilder.getQuery());
+        console.log('Query parameters:', queryBuilder.getParameters());
+
+        // Get all items (no skip/take yet)
+        let items = await queryBuilder.getMany();
+        console.log('Raw items found after query:', items.length);
+
+        if (items.length > 0) {
+            console.log('First item example:', {
+                id: items[0].id,
+                name: items[0].name,
+                restaurant: items[0].restaurant?.name,
+                category: items[0].category?.name
+            });
+        }
+
+        let itemsWithDistance = items.map(food => {
+            let distance: number | null = null;
+            if (lat && lng && food.restaurant?.latitude && food.restaurant?.longitude) {
+                distance = haversineDistance(
+                    lat,
+                    lng,
+                    Number(food.restaurant.latitude),
+                    Number(food.restaurant.longitude)
+                );
+            }
+            return { ...food, distance };
+        });
+
+        console.log('Items with distance calculated:', itemsWithDistance.length);
+
+        // Filter and sort by distance if lat/lng provided
+        if (lat && lng) {
+            const beforeFilter = itemsWithDistance.length;
+            itemsWithDistance = itemsWithDistance
+                .filter(f => f.distance !== null && f.distance <= radius)
+                .sort((a, b) => (a.distance as number) - (b.distance as number));
+            console.log(`Distance filter: ${beforeFilter} -> ${itemsWithDistance.length} (within ${radius}km)`);
+
+            // Log some distance examples
+            if (itemsWithDistance.length > 0) {
+                console.log('Distance examples:', itemsWithDistance.slice(0, 3).map(f => ({
+                    name: f.name,
+                    distance: f.distance,
+                    restaurantLat: f.restaurant?.latitude,
+                    restaurantLng: f.restaurant?.longitude
+                })));
+            }
+        }
+
+        const totalItems = itemsWithDistance.length;
+        const pagedItems = itemsWithDistance.slice((page - 1) * pageSize, page * pageSize);
+
+        console.log('Final result:', {
+            totalItems,
+            pagedItemsCount: pagedItems.length,
+            page,
+            pageSize,
+            totalPages: Math.ceil(totalItems / pageSize)
+        });
+        console.log('=== End findByName Debug ===');
+
+        return {
+            items: pagedItems,
+            totalItems,
+            page,
+            pageSize,
+            totalPages: Math.ceil(totalItems / pageSize),
+        };
     }
-    console.log('Added category filter:', categoryIds);
-  }
-
-  // Filter by min price
-  if (minPrice !== undefined) {
-    const whereMethod = (name && name.trim()) || (categoryIds && categoryIds.length > 0) ? 'andWhere' : 'where';
-    queryBuilder[whereMethod]('food.price >= :minPrice', { minPrice });
-    console.log('Added minPrice filter:', minPrice);
-  }
-
-  // Filter by max price
-  if (maxPrice !== undefined) {
-    const whereMethod = (name && name.trim()) || (categoryIds && categoryIds.length > 0) || (minPrice !== undefined) ? 'andWhere' : 'where';
-    queryBuilder[whereMethod]('food.price <= :maxPrice', { maxPrice });
-    console.log('Added maxPrice filter:', maxPrice);
-  }
-
-  console.log('Final query:', queryBuilder.getQuery());
-  console.log('Query parameters:', queryBuilder.getParameters());
-
-  // Get all items (no skip/take yet)
-  let items = await queryBuilder.getMany();
-  console.log('Raw items found after query:', items.length);
-  
-  if (items.length > 0) {
-    console.log('First item example:', {
-      id: items[0].id,
-      name: items[0].name,
-      restaurant: items[0].restaurant?.name,
-      category: items[0].category?.name
-    });
-  }
-
-  let itemsWithDistance = items.map(food => {
-    let distance: number | null = null;
-    if (lat && lng && food.restaurant?.latitude && food.restaurant?.longitude) {
-      distance = haversineDistance(
-        lat,
-        lng,
-        Number(food.restaurant.latitude),
-        Number(food.restaurant.longitude)
-      );
-    }
-    return { ...food, distance };
-  });
-
-  console.log('Items with distance calculated:', itemsWithDistance.length);
-
-  // Filter and sort by distance if lat/lng provided
-  if (lat && lng) {
-    const beforeFilter = itemsWithDistance.length;
-    itemsWithDistance = itemsWithDistance
-      .filter(f => f.distance !== null && f.distance <= radius)
-      .sort((a, b) => (a.distance as number) - (b.distance as number));
-    console.log(`Distance filter: ${beforeFilter} -> ${itemsWithDistance.length} (within ${radius}km)`);
-    
-    // Log some distance examples
-    if (itemsWithDistance.length > 0) {
-      console.log('Distance examples:', itemsWithDistance.slice(0, 3).map(f => ({
-        name: f.name,
-        distance: f.distance,
-        restaurantLat: f.restaurant?.latitude,
-        restaurantLng: f.restaurant?.longitude
-      })));
-    }
-  }
-
-  const totalItems = itemsWithDistance.length;
-  const pagedItems = itemsWithDistance.slice((page - 1) * pageSize, page * pageSize);
-
-  console.log('Final result:', {
-    totalItems,
-    pagedItemsCount: pagedItems.length,
-    page,
-    pageSize,
-    totalPages: Math.ceil(totalItems / pageSize)
-  });
-  console.log('=== End findByName Debug ===');
-
-  return {
-    items: pagedItems,
-    totalItems,
-    page,
-    pageSize,
-    totalPages: Math.ceil(totalItems / pageSize),
-  };
-}
 
     /**
      * Get reviews for a specific food with pagination
@@ -1375,7 +1496,7 @@ async findOne(id: string, lat?: number, lng?: number): Promise<any> {
             .select('AVG(review.rating)', 'average')
             .getRawOne();
 
-        const averageRating = averageResult?.average ? 
+        const averageRating = averageResult?.average ?
             Number(parseFloat(averageResult.average).toFixed(1)) : null;
 
         // Get rating distribution
@@ -1444,22 +1565,22 @@ async findOne(id: string, lat?: number, lng?: number): Promise<any> {
     }
     async getMenuForUser(userId: string) {
         const restaurants = await this.restaurantRepository.find({
-          relations: ['foods'],  // Fetch foods for each restaurant
+            relations: ['foods'],  // Fetch foods for each restaurant
         });
-      
+
         return restaurants.map(restaurant => ({
-          id: restaurant.id,  // Thêm restaurantId vào đối tượng cửa hàng
-          name: restaurant.name,
-          address: restaurant.address,
-          foods: restaurant.foods.map(food => ({
-            id: food.id,
-            name: food.name,
-            price: food.price,
-            description: food.description,
-            image: food.image,
-            restaurantId: restaurant.id,  // Thêm restaurantId vào từng món ăn
-          })),
+            id: restaurant.id,  // Thêm restaurantId vào đối tượng cửa hàng
+            name: restaurant.name,
+            address: restaurant.address,
+            foods: restaurant.foods.map(food => ({
+                id: food.id,
+                name: food.name,
+                price: food.price,
+                description: food.description,
+                image: food.image,
+                restaurantId: restaurant.id,  // Thêm restaurantId vào từng món ăn
+            })),
         }));
-      }
+    }
 }
 

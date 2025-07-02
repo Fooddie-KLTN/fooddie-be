@@ -126,4 +126,66 @@ export class User {
     @Field(() => [Message], { nullable: true })
     @OneToMany(() => Message, message => message.sender)
     sentMessages: Message[];
+
+    @Field({ nullable: true })
+    @Column({ default: 0 })
+    completedDeliveries: number;
+
+    @Field({ nullable: true })
+    @Column({ default: 0 })
+    failedDeliveries: number;
+
+    @Field({ nullable: true })
+    @Column({ default: 0 })
+    activeDeliveries: number;
+
+    // Add these new performance tracking fields:
+    @Field({ nullable: true })
+    @Column({ type: 'float', default: 5.0 })
+    averageRating: number;
+
+    @Field({ nullable: true })
+    @Column({ default: 0 })
+    totalRatings: number;
+
+    @Field({ nullable: true })
+    @Column({ type: 'float', default: 0 })
+    averageDeliveryTime: number; // in minutes
+
+    @Field({ nullable: true })
+    @Column({ default: 0 })
+    onTimeDeliveries: number;
+
+    @Field({ nullable: true })
+    @Column({ default: 0 })
+    lateDeliveries: number;
+
+    @Field({ nullable: true })
+    @Column({ nullable: true })
+    lastActiveAt: Date;
+
+    @Field({ nullable: true })
+    @Column({ default: 0 })
+    rejectedOrders: number;
+
+    @Field({ nullable: true })
+    @Column({ type: 'float', default: 0 })
+    responseTimeMinutes: number; // Average time to accept/reject orders
+
+    // thu nhap
+    @Field({ nullable: true })
+    @Column({ type: 'float', default: 0 })
+    totalEarnings: number; // Tổng thu nhập
+
+    @Field({ nullable: true })
+    @Column({ type: 'float', default: 0 })
+    monthlyEarnings: number; // Thu nhập tháng hiện tại
+
+    @Field({ nullable: true })
+    @Column({ type: 'float', default: 0 })
+    weeklyEarnings: number; // Thu nhập tuần hiện tại
+
+    @Field({ nullable: true })
+    @Column({ type: 'float', default: 0 })
+    dailyEarnings: number; // Thu nhập hôm nay
 }

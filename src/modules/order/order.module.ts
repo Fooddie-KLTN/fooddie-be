@@ -24,12 +24,18 @@ import { QueueModule } from 'src/pg-boss/queue.module';
 import { Review } from 'src/entities/review.entity';
 import { Notification } from 'src/entities/notification.entity';
 import { ShippingDetail } from 'src/entities/shippingDetail.entity';
+import { SystemConstraint } from 'src/entities/systemConstaints.entity';
+import { SystemConstraintsService } from 'src/services/system-constraints.service';
+import { Topping } from 'src/entities/topping.entity';
+
 
 @Module({
     imports: [TypeOrmModule.forFeature([Order, User, Restaurant, OrderDetail, Role, Food, Address, Promotion, Checkout, Promotion,
         Review,
         Notification,
-        ShippingDetail
+        ShippingDetail,
+        SystemConstraint,
+        Topping
     ]),
      JwtModule,
       PaymentModule,
@@ -38,7 +44,7 @@ import { ShippingDetail } from 'src/entities/shippingDetail.entity';
     ],
     
     controllers: [OrderController],
-    providers: [OrderService, UsersService, OrderResolver, PromotionService, GoogleCloudStorageService],
+    providers: [OrderService, UsersService, OrderResolver, PromotionService, GoogleCloudStorageService, SystemConstraintsService],
     exports: [OrderService],
 })
 export class OrderModule {}
