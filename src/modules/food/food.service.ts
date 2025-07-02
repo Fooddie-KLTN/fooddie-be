@@ -990,6 +990,7 @@ export class FoodService {
             toppings: food.toppings ? food.toppings.map(topping => ({
                 id: topping.id,
                 name: topping.name,
+                image: topping.image,
                 price: topping.price,
                 isAvailable: topping.isAvailable,
                 isFree: topping.price === 0
@@ -1195,6 +1196,7 @@ export class FoodService {
 
         const topping = new Topping();
         topping.name = createToppingDto.name;
+        topping.image = createToppingDto.image ?? ""; // Allow image to be optional, fallback to empty string
         topping.price = parseFloat(createToppingDto.price);
         topping.isAvailable = createToppingDto.isAvailable !== undefined ? createToppingDto.isAvailable : true;
         topping.food = food;
@@ -1216,6 +1218,7 @@ export class FoodService {
         }
 
         if (updateToppingDto.name !== undefined) topping.name = updateToppingDto.name;
+        if (updateToppingDto.image !== undefined) topping.image = updateToppingDto.image;
         if (updateToppingDto.price !== undefined) topping.price = parseFloat(updateToppingDto.price);
         if (updateToppingDto.isAvailable !== undefined) topping.isAvailable = updateToppingDto.isAvailable;
 

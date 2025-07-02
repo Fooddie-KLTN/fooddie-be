@@ -6,6 +6,10 @@ export class CreateToppingDto {
   @IsNotEmpty()
   name: string;
 
+  @IsString()
+  @IsOptional()
+  image?: string; // URL to the topping image
+
   @IsNumberString()
   @IsNotEmpty()
   price: string; // Keep as string for consistency with existing DTOs

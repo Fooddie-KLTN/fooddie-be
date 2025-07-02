@@ -10,6 +10,7 @@ export class CreateToppingsTable1750000000021 implements MigrationInterface {
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "name" character varying NOT NULL,
                 "price" numeric(10,2) NOT NULL DEFAULT '0',
+                "image" character varying,
                 "isAvailable" boolean NOT NULL DEFAULT true,
                 "food_id" uuid,
                 "created_at" TIMESTAMP NOT NULL DEFAULT now(),
