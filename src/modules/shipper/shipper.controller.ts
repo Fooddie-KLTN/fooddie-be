@@ -100,7 +100,39 @@ export class ShipperController {
     return this.shipperService.updateLocation(shipperId, latitude, longitude);
   }
 
+@Get('dashboard')
+@UseGuards(AuthGuard)
+async getDashboard(@Req() req) {
+  const shipperId = req.user.id || req.user.uid;
+  return this.shipperService.getShipperDashboard(shipperId);
+}
 
+@Get('performance')
+@UseGuards(AuthGuard)
+async getPerformanceStats(@Req() req) {
+  const shipperId = req.user.id || req.user.uid;
+  return this.shipperService.getShipperStats(shipperId);
+}
+
+@Get('earnings-breakdown')
+@UseGuards(AuthGuard)
+async getEarningsBreakdown(@Req() req) {
+  const shipperId = req.user.id || req.user.uid;
+  const shipper = await this.shipperService.getShipperDashboard(shipperId);
+  return shipper.earnings;
+}
+
+@Get('achievements')
+@UseGuards(AuthGuard)
+async getAchievements(@Req() req) {
+  const shipperId = req.user.id || req.user.uid;
+  const dashboard = await this.shipperService.getShipperDashboard(shipperId);
+  return {
+    achievements: dashboard.achievements,
+    performanceRanking: dashboard.performanceRanking,
+    nextMilestones: dashboard.nextMilestones
+  };
+}
 
   // @Get('order-history')
   // @UseGuards(AuthGuard)  // Bảo vệ API bằng AuthGuard
