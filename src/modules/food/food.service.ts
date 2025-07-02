@@ -1119,27 +1119,7 @@ export class FoodService {
             delete updateFoodDto.categoryId;
         }
 
-         // Handle toppings update if provided
-        if (updateFoodDto.toppings !== undefined) {
-            // Remove existing toppings
-            if (food.toppings && food.toppings.length > 0) {
-                await this.toppingRepository.remove(food.toppings);
-            }
 
-            // Add new toppings
-            if (updateFoodDto.toppings && updateFoodDto.toppings.length > 0) {
-                const newToppings = updateFoodDto.toppings.map(toppingDto => {
-                    const topping = new Topping();
-                    topping.name = toppingDto.name;
-                    topping.price = parseFloat(toppingDto.price);
-                    topping.isAvailable = toppingDto.isAvailable !== undefined ? toppingDto.isAvailable : true;
-                    topping.food = food;
-                    return topping;
-                });
-
-                await this.toppingRepository.save(newToppings);
-            }
-        }
         // Update food with remaining fields
         Object.assign(food, updateFoodDto);
 
