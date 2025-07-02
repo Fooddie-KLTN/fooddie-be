@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards, Req, Param, Get, Query } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Req, Param, Get, Query, BadRequestException } from '@nestjs/common';
 import { AuthGuard } from 'src/auth/auth.guard';
 import { ShipperService } from './shipper.service';
 import { log } from 'console';
@@ -11,10 +11,15 @@ export class ShipperController {
   @UseGuards(AuthGuard)
   async acceptOrder(
     @Body('orderId') orderId: string,
+    @Body('responseTimeSeconds') responseTimeSeconds: number,
     @Req() req
   ) {
+    if (responseTimeSeconds === undefined) {
+      responseTimeSeconds = 0; // Default to 0 if not provided
+    }
     const shipperId = req.user.uid || req.user.id;
-    return this.shipperService.assignOrderToShipper(orderId, shipperId);
+    // The service method will need to be updated to accept this new parameter
+    return this.shipperService.assignOrderToShipper(orderId, shipperId, responseTimeSeconds);
   }
 
   @UseGuards(AuthGuard)
@@ -33,10 +38,17 @@ export class ShipperController {
 
   @UseGuards(AuthGuard)
   @Post('reject-order')
-  async rejectOrder(@Body('orderId') orderId: string, @Req() req
+  async rejectOrder(
+    @Body('orderId') orderId: string,
+    @Body('responseTimeSeconds') responseTimeSeconds: number,
+    @Req() req
   ) {
+    if (responseTimeSeconds === undefined) {
+      responseTimeSeconds = 0; // Default to 0 if not provided
+    }
     const shipperId = req.user.uid || req.user.id;
-    return this.shipperService.rejectOrder(orderId, shipperId);
+    // The service method will need to be updated to accept this new parameter
+    return this.shipperService.rejectOrder(orderId, shipperId, responseTimeSeconds);
   }
 
   @Get('pending-assignment')

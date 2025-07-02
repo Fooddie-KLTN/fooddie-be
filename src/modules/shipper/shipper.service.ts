@@ -9,13 +9,13 @@ import { PendingAssignmentService } from 'src/pg-boss/pending-assignment.service
 import { PendingShipperAssignment } from 'src/entities/pendingShipperAssignment.entity';
 import { format, addDays, startOfDay, startOfWeek, startOfMonth } from 'date-fns';
 import { UpdateDriverProfileDto } from './dto/update-driver-dto';
-import { ShipperCertificateInfo } from 'src/entities/shipperCertificateInfo.entity';
+import { CertificateStatus, ShipperCertificateInfo } from 'src/entities/shipperCertificateInfo.entity';
 import { OrderService } from '../order/order.service';
 
 @Injectable()
 export class ShipperService {
   private readonly logger = new Logger(ShipperService.name);
-  
+
   // In-memory storage for temporary assignments
   private pendingAssignments: Map<string, {
     orderId: string;
@@ -40,7 +40,7 @@ export class ShipperService {
     private readonly certRepo: Repository<ShipperCertificateInfo>,
     private pendingAssignmentService: PendingAssignmentService, // Inject the service
     private orderService: OrderService, // Inject the OrderService for finalizing assignments
-  ) {}
+  ) { }
 
   /**
    * Request order assignment (temporary hold)
@@ -86,8 +86,8 @@ export class ShipperService {
       relations: ['role', 'shipperCertificateInfo']
     });
 
-    if (!shipper || shipper.role?.name !== 'shipper' || 
-        shipper.shipperCertificateInfo?.status !== 'APPROVED') {
+    if (!shipper || shipper.role?.name !== 'shipper' ||
+      shipper.shipperCertificateInfo?.status !== 'APPROVED') {
       throw new BadRequestException('Invalid or unapproved shipper');
     }
 
@@ -144,9 +144,9 @@ export class ShipperService {
 
     // Notify other shippers that this order is no longer available
     await pubSub.publish('orderAssignedToShipper', {
-      orderAssignedToShipper: { 
-        orderId: assignment.orderId, 
-        shipperId 
+      orderAssignedToShipper: {
+        orderId: assignment.orderId,
+        shipperId
       }
     });
 
@@ -239,7 +239,7 @@ export class ShipperService {
   /**
    * Original method - now only called internally after acceptance
    */
-  async assignOrderToShipper(orderId: string, shipperId: string) {
+  async assignOrderToShipper(orderId: string, shipperId: string, responseTimeSeconds: number = 120) {
     // Check if order exists and is confirmed
     const order = await this.orderRepository.findOne({
       where: { id: orderId },
@@ -264,8 +264,8 @@ export class ShipperService {
       relations: ['role', 'shipperCertificateInfo']
     });
 
-    if (!shipper || shipper.role?.name !== 'shipper' || 
-        shipper.shipperCertificateInfo?.status !== 'APPROVED') {
+    if (!shipper || shipper.role?.name !== 'shipper' ||
+      shipper.shipperCertificateInfo?.status !== 'APPROVED') {
       throw new BadRequestException('Invalid or unapproved shipper');
     }
 
@@ -304,6 +304,13 @@ export class ShipperService {
     this.logger.log(`Order ${orderId} assigned to shipper ${shipperId}`);
 
 
+    shipper.activeDeliveries = (shipper.activeDeliveries || 0) + 1;
+    shipper.responseTimeMinutes = Math.max(
+      (shipper.responseTimeMinutes || 0) + Math.ceil(responseTimeSeconds / 60),
+      1
+    );
+    await this.userRepository.save(shipper);
+
 
     return shippingDetail;
   }
@@ -328,7 +335,7 @@ export class ShipperService {
    */
   async cleanupExpiredData() {
     const now = new Date();
-    
+
     // Clean up expired assignments
     for (const [assignmentId, assignment] of this.pendingAssignments.entries()) {
       if (assignment.expiresAt < now) {
@@ -359,14 +366,14 @@ export class ShipperService {
       },
       relations: ['order', 'shipper'],
     });
-  
+
     if (!shippingDetail) {
       throw new NotFoundException('Không tìm thấy thông tin vận chuyển');
     }
-  
+
     shippingDetail.status = ShippingStatus.COMPLETED;
     shippingDetail.actualDeliveryTime = new Date();
-  
+
     await this.shippingDetailRepository.save(shippingDetail);
 
     const order = await this.orderRepository.findOne({
@@ -389,11 +396,11 @@ export class ShipperService {
       throw new NotFoundException('Shipper not found');
     }
 
-        // ...after successful delivery...
+    // ...after successful delivery...
     shipper.completedDeliveries = (shipper.completedDeliveries || 0) + 1;
     shipper.activeDeliveries = Math.max((shipper.activeDeliveries || 1) - 1, 0);
     await this.userRepository.save(shipper);
-  
+
     return { message: 'Đơn hàng đã được hoàn thành' };
   }
 
@@ -413,14 +420,14 @@ export class ShipperService {
       ],
       order: { actualDeliveryTime: 'DESC' },
     });
-  
+
     return completedDetails.map(detail => {
       const order = detail.order;
       return {
         id: order.id,
         code: `ĐH${order.id.slice(0, 4).toUpperCase()}`,
         status: detail.status,
-        shipFee: 10000, 
+        shipFee: 10000,
         total: order.total,
         user: {
           name: order.user?.name || 'Không rõ',
@@ -454,10 +461,10 @@ export class ShipperService {
     monthStr?: string,
     yearStr?: string
   ) {
-  
+
     let fromDate: Date;
     let groupBy: 'day' | 'date';
-  
+
     if (range === 'today') {
       fromDate = startOfDay(new Date());
       groupBy = 'day';
@@ -470,8 +477,8 @@ export class ShipperService {
       fromDate = new Date(year, month - 1, 1);
       groupBy = 'date';
     }
-    
-  
+
+
     // Query dữ liệu tổng thu nhập từ order.total
     const raw = await this.shippingDetailRepository
       .createQueryBuilder('sd')
@@ -486,21 +493,21 @@ export class ShipperService {
       .groupBy('grouped_date')
       .orderBy('grouped_date', 'ASC')
       .getRawMany();
-  
+
     // Chuẩn hóa lại thành labels + data
     const dateMap = new Map(
       raw.map((r: any) => [format(new Date(r.grouped_date), 'yyyy-MM-dd'), Number(r.total)])
     );
-  
+
     const days = range === 'today'
       ? 1
       : range === 'week'
-      ? 7
-      : new Date(fromDate.getFullYear(), fromDate.getMonth() + 1, 0).getDate();
-  
+        ? 7
+        : new Date(fromDate.getFullYear(), fromDate.getMonth() + 1, 0).getDate();
+
     const labels: string[] = [];
     const data: number[] = [];
-  
+
     for (let i = 0; i < days; i++) {
       const d = addDays(fromDate, i);
       const key = format(d, 'yyyy-MM-dd');
@@ -508,34 +515,34 @@ export class ShipperService {
         range === 'today'
           ? 'Hôm nay'
           : range === 'week'
-          ? ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'][d.getDay() === 0 ? 6 : d.getDay() - 1]
-          : `Ngày ${i + 1}`
+            ? ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'][d.getDay() === 0 ? 6 : d.getDay() - 1]
+            : `Ngày ${i + 1}`
       );
       data.push(dateMap.get(key) || 0);
     }
-  
+
     const total = data.reduce((sum, val) => sum + val, 0);
-  
+
     return { labels, data, total };
   }
 
   async updateDriverProfile(userId: string, dto: UpdateDriverProfileDto) {
     const user = await this.userRepository.findOne({ where: { id: userId }, relations: ['shipperCertificateInfo'] });
     if (!user) throw new NotFoundException('Người dùng không tồn tại');
-  
+
     if (dto.name) user.name = dto.name;
     if (dto.phone) user.phone = dto.phone;
     if (dto.birthday) user.birthday = new Date(dto.birthday);
-  
+
     await this.userRepository.save(user);
-  
+
     const cert = user.shipperCertificateInfo;
     if (cert) {
       if (dto.cccd) cert.cccd = dto.cccd;
       if (dto.driverLicense) cert.driverLicense = dto.driverLicense;
       await this.certRepo.save(cert);
     }
-  
+
     return { message: 'Cập nhật hồ sơ thành công' };
   }
 
@@ -544,9 +551,9 @@ export class ShipperService {
       where: { id: userId },
       relations: ['shipperCertificateInfo'],
     });
-  
+
     if (!user) throw new NotFoundException('Không tìm thấy tài xế');
-  
+
     return {
       name: user.name,
       phone: user.phone,
@@ -555,7 +562,7 @@ export class ShipperService {
       driverLicense: user.shipperCertificateInfo?.driverLicense || '',
     };
   }
-  
+
   async updateLocation(shipperId: string, latitude: number, longitude: number) {
     const shipper = await this.userRepository.findOne({
       where: { id: shipperId },
@@ -611,10 +618,10 @@ export class ShipperService {
     shipper.activeDeliveries = Math.max((shipper.activeDeliveries || 1) - 1, 0);
     shipper.failedDeliveries = (shipper.failedDeliveries || 0) + 1; // Increment failed deliveries
     await this.userRepository.save(shipper);
-    
+
   }
 
-  async rejectOrder(orderId: string, shipperId: string) {
+  async rejectOrder(orderId: string, shipperId: string, responseTimeSeconds: number) {
     const order = await this.orderRepository.findOne({
       where: { id: orderId },
       relations: ['shippingDetail', 'shippingDetail.shipper'],
@@ -633,30 +640,158 @@ export class ShipperService {
       throw new NotFoundException('Shipper not found');
     }
 
+    // Update shipper statistics
     shipper.activeDeliveries = Math.max((shipper.activeDeliveries || 1) - 1, 0);
-    shipper.failedDeliveries = (shipper.failedDeliveries || 0) + 1; // Increment failed deliveries
+    shipper.failedDeliveries = (shipper.failedDeliveries || 0) + 1;
+    shipper.rejectedOrders = (shipper.rejectedOrders || 0) + 1; // Track rejected orders separately
+    shipper.responseTimeMinutes = Math.max((shipper.responseTimeMinutes || 0) + Math.ceil(responseTimeSeconds / 60), 0);
+
+    // Check rejection ratio and take appropriate action
+    const rejectionCheckResult = this.checkRejectionRatio(shipper);
+    
+    if (rejectionCheckResult.shouldBan) {
+      shipper.shipperCertificateInfo.status = CertificateStatus.REJECTED;
+      await this.certRepo.save(shipper.shipperCertificateInfo);
+      await this.userRepository.save(shipper);
+      
+      throw new ConflictException(`Shipper has been banned due to ${rejectionCheckResult.reason}`);
+    }
+
+    // Check response time threshold
+    if (shipper.responseTimeMinutes > 60) {
+      shipper.shipperCertificateInfo.status = CertificateStatus.REJECTED;
+      await this.certRepo.save(shipper.shipperCertificateInfo);
+      await this.userRepository.save(shipper);
+      
+      throw new ConflictException('Shipper has been rejected due to high response time');
+    }
+
     await this.userRepository.save(shipper);
 
-    return { message: 'Order rejected successfully' };
-  }
-  // async getOrderHistoryForShipper(shipperId: string, page: number, pageSize: number) {
-  //   // Tạo query để lấy các đơn hàng mà shipper xử lý
-  //   const query = this.shippingDetailRepository.createQueryBuilder('shippingDetail')
-  //     .innerJoinAndSelect('shippingDetail.order', 'order')
-  //     .where('shippingDetail.shipperId = :shipperId', { shipperId })
-  //     .skip((page - 1) * pageSize)
-  //     .take(pageSize)
-  //     .leftJoinAndSelect('order.shippingDetails', 'orderDetails'); // Liên kết với bảng orders
-
-  //   const shippingDetails = await query.getMany();
+    // Return response with warning if applicable
+    const response: any = { message: 'Order rejected successfully' };
     
-  //   return shippingDetails.map(detail => ({
-  //     orderId: detail.order.id,
-  //     orderStatus: detail.order.status,
-  //     shippingStatus: detail.status,  // Trạng thái giao hàng
-  //     estimatedDeliveryTime: detail.estimatedDeliveryTime,
-  //     actualDeliveryTime: detail.actualDeliveryTime,
-  //     trackingNumber: detail.trackingNumber,
-  //   }));
-  // }
+    if (rejectionCheckResult.warning) {
+      response.warning = rejectionCheckResult.warning;
+      response.rejectionRatio = rejectionCheckResult.rejectionRatio;
+      response.stats = {
+        rejectedOrders: shipper.rejectedOrders,
+        completedDeliveries: shipper.completedDeliveries,
+        totalOrders: shipper.rejectedOrders + shipper.completedDeliveries
+      };
+    }
+
+    return response;
+  }
+
+  /**
+   * Check rejection ratio and determine if shipper should be warned or banned
+   */
+  private checkRejectionRatio(shipper: User): {
+    shouldBan: boolean;
+    warning?: string;
+    reason?: string;
+    rejectionRatio?: number;
+  } {
+    const completedDeliveries = shipper.completedDeliveries || 0;
+    const rejectedOrders = shipper.rejectedOrders || 0;
+    const totalOrders = completedDeliveries + rejectedOrders;
+
+    // Need at least 10 total orders to start checking ratios
+    if (totalOrders < 10) {
+      return { shouldBan: false };
+    }
+
+    const rejectionRatio = rejectedOrders / totalOrders;
+
+    // Ban conditions
+    if (totalOrders >= 50 && rejectionRatio > 0.7) {
+      return {
+        shouldBan: true,
+        reason: 'tỷ lệ từ chối đơn hàng quá cao (>70% trong 50+ đơn hàng bị từ chối)',
+        rejectionRatio
+      };
+    }
+
+    if (totalOrders >= 30 && rejectionRatio > 0.8) {
+      return {
+        shouldBan: true,
+        reason: 'tỷ lệ từ chối đơn hàng quá cao (>80% trong 30+ đơn hàng bị từ chối)',
+        rejectionRatio
+      };
+    }
+
+    if (rejectedOrders >= 20 && completedDeliveries === 0) {
+      return {
+        shouldBan: true,
+        reason: 'không có đơn hàng nào được hoàn thành sau 20 lần từ chối',
+        rejectionRatio
+      };
+    }
+
+    // Warning conditions
+    if (totalOrders >= 20 && rejectionRatio > 0.6) {
+      return {
+        shouldBan: false,
+        warning: 'Cảnh báo: Tỷ lệ từ chối đơn hàng cao. Tiếp tục từ chối đơn hàng có thể dẫn đến việc tài khoản bị đình chỉ.',
+        rejectionRatio
+      };
+    }
+
+    if (totalOrders >= 15 && rejectionRatio > 0.75) {
+      return {
+        shouldBan: false,
+        warning: 'Cảnh báo nghiêm trọng: Tỷ lệ từ chối đơn hàng rất cao. Tài khoản của bạn có nguy cơ bị đình chỉ.',
+        rejectionRatio
+      };
+    }
+
+    if (rejectedOrders >= 10 && completedDeliveries <= 2) {
+      return {
+        shouldBan: false,
+        warning: 'Cảnh báo: Bạn có rất ít đơn hàng hoàn thành so với số đơn từ chối. Vui lòng bắt đầu nhận đơn hàng.',
+        rejectionRatio
+      };
+    }
+
+    return { shouldBan: false };
+  }
+
+  /**
+   * Get shipper performance statistics
+   */
+  async getShipperStats(shipperId: string) {
+    const shipper = await this.userRepository.findOne({
+      where: { id: shipperId },
+      relations: ['shipperCertificateInfo'],
+    });
+
+    if (!shipper) {
+      throw new NotFoundException('Shipper not found');
+    }
+
+    const completedDeliveries = shipper.completedDeliveries || 0;
+    const rejectedOrders = shipper.rejectedOrders || 0;
+    const failedDeliveries = shipper.failedDeliveries || 0;
+    const totalOrders = completedDeliveries + rejectedOrders + failedDeliveries;
+
+    const rejectionRatio = totalOrders > 0 ? rejectedOrders / totalOrders : 0;
+    const completionRatio = totalOrders > 0 ? completedDeliveries / totalOrders : 0;
+    const failureRatio = totalOrders > 0 ? failedDeliveries / totalOrders : 0;
+
+    return {
+      completedDeliveries,
+      rejectedOrders,
+      failedDeliveries,
+      totalOrders,
+      activeDeliveries: shipper.activeDeliveries || 0,
+      rejectionRatio: Math.round(rejectionRatio * 100) / 100,
+      completionRatio: Math.round(completionRatio * 100) / 100,
+      failureRatio: Math.round(failureRatio * 100) / 100,
+      averageResponseTime: shipper.responseTimeMinutes || 0,
+      status: shipper.shipperCertificateInfo?.status || 'PENDING',
+      averageRating: shipper.averageRating || 0,
+      totalEarnings: shipper.totalEarnings || 0
+    };
+  }
 }

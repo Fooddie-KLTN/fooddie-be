@@ -485,7 +485,13 @@ export class PendingAssignmentService implements OnModuleInit {
         let nearestShipper: ActiveShipper | null = null;
         let shortestDistance = Infinity;
 
-        // Get active shippers from the resolver's tracker - THIS IS THE FIX!
+        // Check if activeShipperTracker is available - ADD THIS NULL CHECK!
+        if (!activeShipperTracker) {
+            // this.logger.warn(`❌ ActiveShipperTracker not available`);
+            return null;
+        }
+
+        // Get active shippers from the resolver's tracker
         const activeShippers = activeShipperTracker.getAllShippers();
         // this.logger.log(`📋 Found ${activeShippers.length} active shippers from resolver tracker`);
 
@@ -512,12 +518,18 @@ export class PendingAssignmentService implements OnModuleInit {
 
             if (distance <= shipper.maxDistance && distance < shortestDistance) {
                 shortestDistance = distance;
-                nearestShipper = shipper;
+                nearestShipper = {
+                    shipperId: shipper.shipperId,
+                    latitude: shipper.latitude,
+                    longitude: shipper.longitude,
+                    maxDistance: shipper.maxDistance,
+                    lastSeen: shipper.lastSeen
+                };
             }
         }
 
         if (nearestShipper) {
-            // this.logger.log(`🎯 Selected shipper ${nearestShipper.shipperId} at ${shortestDistance}km distance`);
+            // this.logger.log(`🎯 Selected shipper ${nearestShipper.shipperId} at ${shortestDistance.toFixed(2)}km distance`);
         } else {
             // this.logger.log(`😞 No suitable shippers found for order ${order.id}`);
         }

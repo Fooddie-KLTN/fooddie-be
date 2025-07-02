@@ -28,13 +28,17 @@ import { ShippingDetail } from 'src/entities/shippingDetail.entity';
 import { AddressService } from '../address/address.service';
 import { RestaurantService } from '../restaurant/restaurant.service';
 import { GeocodingService } from 'src/services/geocoding.service';
+import { SystemConstraintsService } from 'src/services/system-constraints.service';
+import { SystemConstraint } from 'src/entities/systemConstaints.entity';
 
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Food, Order, Restaurant, Category, Review, OrderDetail, User, Address, Promotion, Checkout, PendingShipperAssignment, Notification, ShippingDetail]),
+  imports: [TypeOrmModule.forFeature([Food,
+    SystemConstraint, Order, Restaurant, Category, Review, OrderDetail, User, Address, Promotion, Checkout, PendingShipperAssignment, Notification, ShippingDetail]),
   OrderModule
 ], 
   controllers: [ChatController],
-  providers: [ChatService, JwtModule, FoodService, OrderService, GoogleCloudStorageService, PromotionService, PendingAssignmentService, QueueService, JwtService, AddressService, RestaurantService, GeocodingService],
+  providers: [ChatService, SystemConstraintsService,
+    JwtModule, FoodService, OrderService, GoogleCloudStorageService, PromotionService, PendingAssignmentService, QueueService, JwtService, AddressService, RestaurantService, GeocodingService],
 })
 export class ChatModule {}

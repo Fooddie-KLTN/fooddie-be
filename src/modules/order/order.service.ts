@@ -21,6 +21,8 @@ import { PendingAssignmentService } from 'src/pg-boss/pending-assignment.service
 import { Review } from 'src/entities/review.entity';
 import { Notification } from 'src/entities/notification.entity';
 import { ShippingDetail } from 'src/entities/shippingDetail.entity';
+import { SystemConstraintsService } from 'src/services/system-constraints.service';
+import { activeShipperTracker } from './order.resolver';
 
 @Injectable()
 export class OrderService {
@@ -52,6 +54,7 @@ export class OrderService {
         private notificationRepository: Repository<Notification>,
         @InjectRepository(ShippingDetail)
         private shippingDetailRepository: Repository<ShippingDetail>,
+        private readonly systemConstraintsService: SystemConstraintsService, // Inject SystemConstraintsService
     ) { }
 
     private async validateAndCalculateOrderDetails(
@@ -87,70 +90,62 @@ export class OrderService {
     }
 
     async createOrder(data: CreateOrderDto) {
-        this.logger.log(`Starting order creation for user ${data.userId} at restaurant ${data.restaurantId}`);
+        this.logger.log(`🚀 Starting enhanced order creation for user ${data.userId}`);
 
-        // Validate order details
         if (!data.orderDetails || data.orderDetails.length === 0) {
-            this.logger.warn('Order creation failed: No order details provided');
             throw new BadRequestException('Order must contain at least one item');
         }
 
-        // Use a transaction to ensure data consistency
+        const constraints = await this.systemConstraintsService.getConstraints();
         const queryRunner = this.dataSource.createQueryRunner();
         await queryRunner.connect();
         await queryRunner.startTransaction();
 
         try {
-            // Find related entities
             const user = await queryRunner.manager.findOne(User, { where: { id: data.userId } });
-            if (!user) {
-                this.logger.warn(`User not found: ${data.userId}`);
-                throw new NotFoundException('User not found');
-            }
+            if (!user) throw new NotFoundException('User not found');
 
-            const restaurant = await queryRunner.manager.findOne(Restaurant, { where: { id: data.restaurantId } });
-            if (!restaurant) {
-                this.logger.warn(`Restaurant not found: ${data.restaurantId}`);
-                throw new NotFoundException('Restaurant not found');
-            }
+            const restaurant = await queryRunner.manager.findOne(Restaurant, { where: { id: data.restaurantId }, relations: ['address'] });
+            if (!restaurant || !restaurant.address) throw new NotFoundException('Restaurant or its address not found');
 
             const address = await queryRunner.manager.findOne(Address, { where: { id: data.addressId } });
-            if (!address) {
-                this.logger.warn(`Address not found: ${data.addressId}`);
-                throw new NotFoundException('Address not found');
+            if (!address) throw new NotFoundException('Delivery address not found');
+
+            const deliveryDistance = haversineDistance(
+                Number(address.latitude), Number(address.longitude),
+                Number(restaurant.address.latitude), Number(restaurant.address.longitude)
+            );
+
+            if (!(await this.systemConstraintsService.isDistanceWithinLimits(deliveryDistance))) {
+                throw new BadRequestException(`Delivery distance of ${deliveryDistance.toFixed(2)}km exceeds the maximum of ${constraints.max_delivery_distance}km.`);
             }
 
-            // Calculate total and validate food
-            const { calculatedTotal, foodDetails } = await this.validateAndCalculateOrderDetails(data.orderDetails);
-            this.logger.log(`Validated order details. Calculated total: ${calculatedTotal}`);
+            const { foodDetails } = await this.validateAndCalculateOrderDetails(data.orderDetails);
 
-            // Calculate order totals with promotion
-            const orderCalculation = await this.calculateOrder({
+            const orderCalculation = await this.calculateOrderWithConstraints({
                 addressId: data.addressId,
                 restaurantId: data.restaurantId,
-                items: data.orderDetails.map(item => ({
-                    foodId: item.foodId,
-                    quantity: Number(item.quantity),
-                })),
-                promotionCode: data.promotionCode
+                items: data.orderDetails.map(item => ({ foodId: item.foodId, quantity: Number(item.quantity) })),
+                promotionCode: data.promotionCode,
+                deliveryDistance
             });
 
-            // Check if promotion validation failed
             if (data.promotionCode && orderCalculation.promotionError) {
                 throw new BadRequestException(orderCalculation.promotionError);
             }
 
-            this.logger.log(`Order total calculated: ${orderCalculation.total}`);
+            let validatedDeliveryTime: Date | null = null;
+            let estimatedDeliveryTime = orderCalculation.estimatedDeliveryTime;
 
-            // Find promotion if code was provided and valid
-            let promotion: Promotion | null = null;
-            if (data.promotionCode && orderCalculation.appliedPromotion) {
-                promotion = await queryRunner.manager.findOne(Promotion, { 
-                    where: { code: data.promotionCode } 
-                });
+            if (data.deliveryType === 'scheduled' && data.requestedDeliveryTime) {
+                if (data.requestedDeliveryTime > constraints.max_delivery_time_min) {
+                    throw new BadRequestException(`Scheduled time cannot exceed ${constraints.max_delivery_time_min} minutes.`);
+                }
+                const now = new Date();
+                validatedDeliveryTime = new Date(now.getTime() + data.requestedDeliveryTime * 60000);
+                estimatedDeliveryTime = data.requestedDeliveryTime;
             }
 
-            // Create order
             const order = new Order();
             order.user = user;
             order.restaurant = restaurant;
@@ -158,39 +153,36 @@ export class OrderService {
             order.note = data.note || '';
             order.address = address;
             order.date = new Date().toISOString();
-            if (promotion) {
-                order.promotionCode = promotion; // Set promotion if applicable
-            }
-            
-            if (data.paymentMethod && data.paymentMethod !== 'cod') {
-                order.status = 'pending';
-            } else {
-                order.status = 'processing_payment';
-            }
+            order.deliveryDistance = deliveryDistance;
+            order.shippingFee = orderCalculation.shippingFee;
+            order.estimatedDeliveryTime = estimatedDeliveryTime;
+            order.deliveryType = data.deliveryType || 'asap'; // Ensure default is handled
+            order.requestedDeliveryTime = validatedDeliveryTime?.toISOString();
             order.paymentMethod = data.paymentMethod || 'cod';
+            order.status = (data.paymentMethod && data.paymentMethod !== 'cod') ? 'processing_payment' : 'pending';
+
+            if (data.promotionCode && orderCalculation.appliedPromotion) {
+                const promotion = await queryRunner.manager.findOne(Promotion, { where: { code: data.promotionCode } });
+                if (!promotion) {
+                    throw new NotFoundException(`Promotion with code ${data.promotionCode} not found`);
+                }
+                order.promotionCode = promotion;
+            }
 
             const savedOrder = await queryRunner.manager.save(Order, order);
-            this.logger.log(`Order entity saved with ID: ${savedOrder.id}`);
-
-            // Create order details
             await this.createOrderDetails(savedOrder, foodDetails, queryRunner);
-            this.logger.log(`Order details saved for order ID: ${savedOrder.id}`);
 
-            // Use promotion if applied
-            if (promotion) {
-                await this.promotionService.usePromotion(promotion.code, orderCalculation.subtotal);
-                this.logger.log(`Promotion ${promotion.code} applied to order ${savedOrder.id}`);
+            if (order.promotionCode) {
+                await this.promotionService.usePromotion(order.promotionCode.code, orderCalculation.subtotal);
             }
 
             await queryRunner.commitTransaction();
-            this.logger.log(`Order transaction committed for order ID: ${savedOrder.id}`);
-
+            this.logger.log(`✅ Enhanced order transaction committed for order ID: ${savedOrder.id}`);
             return await this.getOrderById(savedOrder.id);
+
         } catch (error) {
-            this.logger.error(`Order creation failed: ${error.message}`, error.stack);
-            if (queryRunner.isTransactionActive) {
-                await queryRunner.rollbackTransaction();
-            }
+            this.logger.error(`❌ Enhanced order creation failed: ${error.message}`, error.stack);
+            if (queryRunner.isTransactionActive) await queryRunner.rollbackTransaction();
             throw error;
         } finally {
             await queryRunner.release();
@@ -221,17 +213,16 @@ export class OrderService {
             ]
         });
 
-       
-
         if (!order) throw new NotFoundException('Order not found');
 
-        const shippingDetail = await this.shippingDetailRepository.findOne({
-            where: { order: { id: order.id } },
-            relations: ['shipper']
-        })
-
-        if (shippingDetail) {
-            order.shippingDetail = shippingDetail;
+        // The 'shippingDetail' relation from Order entity should already load this if it exists.
+        // This explicit find is redundant if the relation is set up correctly but safe to keep.
+        if (!order.shippingDetail) {
+            const shippingDetail = await this.shippingDetailRepository.findOne({
+                where: { order: { id: order.id } },
+                relations: ['shipper']
+            });
+            if (shippingDetail) order.shippingDetail = shippingDetail;
         }
 
         // Add review information BEFORE cleaning sensitive data
@@ -453,94 +444,62 @@ export class OrderService {
         }
     }
 
+    private async calculateOrderWithConstraints(data: {
+        addressId: string,
+        restaurantId: string,
+        items: { foodId: string, quantity: number }[],
+        promotionCode?: string,
+        deliveryDistance: number
+    }) {
+        const { deliveryDistance } = data;
+        const shippingFee = await this.systemConstraintsService.calculateShippingFee(deliveryDistance);
+        const maxDeliveryTime = await this.systemConstraintsService.getMaxDeliveryTime();
+        const estimatedDeliveryTime = Math.min(maxDeliveryTime, Math.ceil(deliveryDistance * 2) + 20);
+
+        let foodTotal = 0;
+        for (const item of data.items) {
+            const food = await this.foodRepository.findOne({ where: { id: item.foodId } });
+            if (food) foodTotal += Number(food.price) * item.quantity;
+        }
+
+        let appliedPromotion: Promotion | null = null;
+        let promotionDiscount = 0;
+        let promotionError: string | null = null;
+        const subtotal = foodTotal + shippingFee;
+
+        if (data.promotionCode) {
+            const validation = await this.promotionService.validatePromotion(data.promotionCode, subtotal);
+            if (validation.valid && validation.promotion) {
+                appliedPromotion = validation.promotion;
+                // Use the discount calculated by the promotion service
+                promotionDiscount = validation.calculatedDiscount || 0;
+            } else {
+                promotionError = validation.reason || 'Invalid promotion code.';
+            }
+        }
+
+        const total = Math.max(0, subtotal - promotionDiscount);
+
+        return { foodTotal, shippingFee, distance: Number(deliveryDistance.toFixed(2)), subtotal, promotionDiscount, total, estimatedDeliveryTime, appliedPromotion, promotionError };
+    }
+
+    // This method is now a wrapper for the new constrained calculation
     async calculateOrder(data: {
         addressId: string,
         restaurantId: string,
         items: { foodId: string, quantity: number }[],
-        promotionCode?: string // Add optional promotion code
+        promotionCode?: string
     }) {
-        // 1. Fetch address and restaurant (with coordinates)
         const address = await this.addressRepository.findOne({ where: { id: data.addressId } });
         const restaurant = await this.restaurantRepository.findOne({ where: { id: data.restaurantId }, relations: ['address'] });
+        if (!address || !restaurant || !restaurant.address) throw new Error('Invalid address or restaurant');
 
-        if (!address || !restaurant || !restaurant.address) {
-            throw new Error('Invalid address or restaurant');
-        }
-
-        // 2. Calculate distance
-        const distance = haversineDistance(
-            Number(address.latitude),
-            Number(address.longitude),
-            Number(restaurant.address.latitude),
-            Number(restaurant.address.longitude)
+        const deliveryDistance = haversineDistance(
+            Number(address.latitude), Number(address.longitude),
+            Number(restaurant.address.latitude), Number(restaurant.address.longitude)
         );
 
-        // 3. Calculate shipping fee
-        const shippingFee = distance <= 2 ? 15000 : 15000 + Math.ceil(distance - 2) * 5000;
-
-        // 4. Calculate food total
-        let foodTotal = 0;
-        for (const item of data.items) {
-            const food = await this.foodRepository.findOne({ where: { id: item.foodId } });
-            if (!food) continue;
-            foodTotal += Number(food.price) * item.quantity;
-        }
-
-        let promotionDiscount = 0;
-        let appliedPromotion: Promotion | null = null;
-        let promotionError: string | null = null;
-
-        // 5. Apply promotion if provided
-        if (data.promotionCode) {
-            try {
-                const promotionValidation = await this.promotionService.validatePromotion(
-                    data.promotionCode, 
-                    foodTotal + shippingFee
-                );
-
-                if (promotionValidation.valid && promotionValidation.promotion) {
-                    appliedPromotion = promotionValidation.promotion;
-                    
-                    // Calculate discount based on promotion type
-                    if (appliedPromotion.type === PromotionType.FOOD_DISCOUNT) {
-                        // Apply discount to food total only
-                        promotionDiscount = this.promotionService.calculateDiscount(appliedPromotion, foodTotal);
-                    } else if (appliedPromotion.type === PromotionType.SHIPPING_DISCOUNT) {
-                        // Apply discount to shipping fee only
-                        promotionDiscount = Math.min(
-                            this.promotionService.calculateDiscount(appliedPromotion, shippingFee),
-                            shippingFee // Don't exceed shipping fee
-                        );
-                    }
-                } else {
-                    promotionError = promotionValidation.reason || 'Invalid promotion code';
-                }
-            } catch (error) {
-                promotionError = 'Failed to validate promotion code';
-                this.logger.error(`Promotion validation error: ${error.message}`);
-            }
-        }
-
-        // 6. Calculate final total
-        const subtotal = foodTotal + shippingFee;
-        const total = Math.max(0, subtotal - promotionDiscount); // Ensure total is not negative
-
-        return {
-            foodTotal,
-            shippingFee,
-            distance: Number(distance.toFixed(2)),
-            subtotal,
-            promotionDiscount,
-            total,
-            appliedPromotion: appliedPromotion ? {
-                id: appliedPromotion.id,
-                code: appliedPromotion.code,
-                description: appliedPromotion.description,
-                type: appliedPromotion.type,
-                discountAmount: promotionDiscount
-            } : null,
-            promotionError
-        };
+        return this.calculateOrderWithConstraints({ ...data, deliveryDistance });
     }
 
     async deleteOrder(id: string) {

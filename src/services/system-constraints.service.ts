@@ -121,31 +121,53 @@ export class SystemConstraintsService {
   }
 
   /**
-   * Calculate a score for shipper ranking (higher is better)
+   * Calculate a score for shipper ranking (higher is better) - ENHANCED
    */
   private calculateShipperScore(shipper: User, constraints: SystemConstraint): number {
     let score = 0;
-
-    // Base score from completion rate (0-30 points)
     const totalOrders = shipper.completedDeliveries + shipper.failedDeliveries;
+
+    // 1. Completion Rate Score (0-30 points) - Unchanged
     const completionRate = totalOrders > 0 ? shipper.completedDeliveries / totalOrders : 0;
     score += Math.min(30, completionRate * 30);
 
-    // Rating score (0-25 points)
+    // 2. Rating Score (0-25 points) - Unchanged
     score += Math.min(25, (shipper.averageRating / 5) * 25);
 
-    // Experience score based on total orders (0-20 points)
-    score += Math.min(20, (totalOrders / 100) * 20);
+    // 3. Experience Score (0-15 points) - Weight reduced to make room for new metrics
+    score += Math.min(15, (totalOrders / 100) * 15);
 
-    // Response time score (0-15 points) - lower response time is better
+    // 4. Response Time Score (0-10 points) - Weight reduced
     const maxResponseTime = 10; // minutes
-    const responseTimeScore = Math.max(0, 15 - (shipper.responseTimeMinutes / maxResponseTime) * 15);
+    const responseTimeScore = Math.max(0, 10 - (shipper.responseTimeMinutes / maxResponseTime) * 10);
     score += responseTimeScore;
 
-    // On-time delivery score (0-10 points)
+    // 5. On-time Delivery Score (0-10 points) - Unchanged
     const totalDeliveries = shipper.onTimeDeliveries + shipper.lateDeliveries;
     const onTimeRate = totalDeliveries > 0 ? shipper.onTimeDeliveries / totalDeliveries : 1;
     score += onTimeRate * 10;
+
+    // --- NEW ENHANCEMENTS ---
+
+    // 6. Acceptance Rate Score (0-5 points) - NEW
+    // This penalizes shippers who frequently reject or ignore orders.
+    const totalOfferedOrders = totalOrders + shipper.rejectedOrders;
+    const acceptanceRate = totalOfferedOrders > 0 ? totalOrders / totalOfferedOrders : 0;
+    score += acceptanceRate * 5;
+
+    // 7. Recent Performance Bonus (0-5 points) - NEW
+    // This rewards shippers who have been active and performing well recently.
+    const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    if (shipper.lastActiveAt && shipper.lastActiveAt > oneWeekAgo) {
+        // Give a bonus if their rating is above the system minimum
+        if (shipper.averageRating > constraints.min_shipper_rating) {
+            score += 2.5;
+        }
+        // Give another bonus if their completion rate is high
+        if (completionRate > 0.9) {
+            score += 2.5;
+        }
+    }
 
     return Math.round(score * 100) / 100; // Round to 2 decimal places
   }
