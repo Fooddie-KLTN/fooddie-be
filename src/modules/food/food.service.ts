@@ -993,7 +993,7 @@ export class FoodService {
                 image: topping.image,
                 price: topping.price,
                 isAvailable: topping.isAvailable,
-                isFree: topping.price === 0
+                isFree: topping.price < 1
             })) : [],
             restaurant: food.restaurant ? {
                 id: food.restaurant.id,
