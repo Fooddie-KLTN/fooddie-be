@@ -303,6 +303,8 @@ export class ShipperService {
 
     this.logger.log(`Order ${orderId} assigned to shipper ${shipperId}`);
 
+
+
     return shippingDetail;
   }
 
@@ -379,6 +381,18 @@ export class ShipperService {
     await this.orderRepository.save(order);
 
     await this.orderService.updateOrderStatus(orderId, 'completed');
+    const shipper = await this.userRepository.findOne({
+      where: { id: shipperId },
+      relations: ['shipperCertificateInfo'],
+    });
+    if (!shipper) {
+      throw new NotFoundException('Shipper not found');
+    }
+
+        // ...after successful delivery...
+    shipper.completedDeliveries = (shipper.completedDeliveries || 0) + 1;
+    shipper.activeDeliveries = Math.max((shipper.activeDeliveries || 1) - 1, 0);
+    await this.userRepository.save(shipper);
   
     return { message: 'Đơn hàng đã được hoàn thành' };
   }
@@ -568,6 +582,63 @@ export class ShipperService {
     return { message: 'Location updated successfully', success: true };
   }
 
+  async cancelOrder(orderId: string, userId: string) {
+    const order = await this.orderRepository.findOne({
+      where: { id: orderId },
+      relations: ['shippingDetail', 'shippingDetail.shipper'],
+    });
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+    if (order.status !== 'delivering') {
+      throw new BadRequestException('Order is not currently being delivered');
+    }
+    if (order.shippingDetail.shipper.id !== userId) {
+      throw new BadRequestException('You are not the shipper for this order');
+    }
+
+    const shipper = await this.userRepository.findOne({
+      where: { id: userId },
+      relations: ['shipperCertificateInfo'],
+    });
+    if (!shipper) {
+      throw new NotFoundException('Shipper not found');
+    }
+    // Update order status to canceled
+    order.status = 'canceled';
+    await this.orderRepository.save(order);
+
+    shipper.activeDeliveries = Math.max((shipper.activeDeliveries || 1) - 1, 0);
+    shipper.failedDeliveries = (shipper.failedDeliveries || 0) + 1; // Increment failed deliveries
+    await this.userRepository.save(shipper);
+    
+  }
+
+  async rejectOrder(orderId: string, shipperId: string) {
+    const order = await this.orderRepository.findOne({
+      where: { id: orderId },
+      relations: ['shippingDetail', 'shippingDetail.shipper'],
+    });
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+
+    await this.orderRepository.save(order);
+
+    const shipper = await this.userRepository.findOne({
+      where: { id: shipperId },
+      relations: ['shipperCertificateInfo'],
+    });
+    if (!shipper) {
+      throw new NotFoundException('Shipper not found');
+    }
+
+    shipper.activeDeliveries = Math.max((shipper.activeDeliveries || 1) - 1, 0);
+    shipper.failedDeliveries = (shipper.failedDeliveries || 0) + 1; // Increment failed deliveries
+    await this.userRepository.save(shipper);
+
+    return { message: 'Order rejected successfully' };
+  }
   // async getOrderHistoryForShipper(shipperId: string, page: number, pageSize: number) {
   //   // Tạo query để lấy các đơn hàng mà shipper xử lý
   //   const query = this.shippingDetailRepository.createQueryBuilder('shippingDetail')

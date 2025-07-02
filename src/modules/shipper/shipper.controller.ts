@@ -24,6 +24,21 @@ export class ShipperController {
     return this.shipperService.markOrderCompleted(orderId, userId);
   }
 
+  @UseGuards(AuthGuard)
+  @Post('cancel-order')
+  async cancelOrder(@Body('orderId') orderId: string, @Req() req) {
+    const userId = req.user?.userId || req.user?.uid || req.user?.id;
+    return this.shipperService.cancelOrder(orderId, userId);
+  }
+
+  @UseGuards(AuthGuard)
+  @Post('reject-order')
+  async rejectOrder(@Body('orderId') orderId: string, @Req() req
+  ) {
+    const shipperId = req.user.uid || req.user.id;
+    return this.shipperService.rejectOrder(orderId, shipperId);
+  }
+
   @Get('pending-assignment')
   @UseGuards(AuthGuard)
   async getPendingAssignment(@Req() req) {
