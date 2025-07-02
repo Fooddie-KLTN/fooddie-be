@@ -110,4 +110,13 @@ export class Order {
     @Field({ nullable: true })
     @Column({ type: 'int', nullable: true })
     shippingFee?: number;
+
+    // Add new fields for shipper earnings
+    @Field({ nullable: true })
+    @Column({ type: 'int', nullable: true })
+    shipperEarnings?: number; // How much shipper gets from this order
+
+    @Field({ nullable: true })
+    @Column({ type: 'float', default: 0.8, nullable: true })
+    shipperCommissionRate?: number; // Default 80% of shipping fee goes to shipper
 }

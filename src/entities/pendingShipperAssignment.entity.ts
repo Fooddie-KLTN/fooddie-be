@@ -41,7 +41,7 @@ export class PendingShipperAssignment {
     @Column({ type: 'text', nullable: true })
     notes: string; // Store any additional info like rejection reasons
 
-        @Field()
+    @Field()
     @Column({ type: 'boolean', default: false })
     isSentToShipper: boolean; // Track if order has been sent to a shipper
 

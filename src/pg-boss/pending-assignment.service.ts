@@ -390,12 +390,31 @@ export class PendingAssignmentService implements OnModuleInit {
                 return;
             }
 
-            // Notify ONLY this one shipper
+            // Notify ONLY this one shipper with enhanced earnings info
             // this.logger.log(`📡 Notifying shipper ${nearestShipper.shipperId} about order ${orderId}...`);
-            
+
+            // Calculate earnings info before sending
+            const shippingFee = order.shippingFee || 0;
+            const shipperEarnings = order.shipperEarnings || Math.round(shippingFee * 0.8);
+            const distance = order.deliveryDistance || 0;
+
             await pubSub.publish('orderConfirmedForShippers', {
-                orderConfirmedForShippers: order,
-                targetShipperId: nearestShipper.shipperId
+                orderConfirmedForShippers: {
+                    ...order,
+                    // Ensure earnings are included
+                    shipperEarnings: shipperEarnings,
+                    shippingFee: shippingFee
+                },
+                targetShipperId: nearestShipper.shipperId,
+                distanceKm: distance,
+                priorityScore: assignment.priority,
+                earningsInfo: {
+                    shippingFee,
+                    shipperEarnings,
+                    platformFee: shippingFee - shipperEarnings,
+                    netProfit: Math.max(0, shipperEarnings - (distance * 3000)),
+                    earningsPerKm: distance > 0 ? Math.round(shipperEarnings / distance) : 0
+                }
             });
 
             assignment.isSentToShipper = true;

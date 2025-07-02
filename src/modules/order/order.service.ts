@@ -456,6 +456,11 @@ export class OrderService {
         const maxDeliveryTime = await this.systemConstraintsService.getMaxDeliveryTime();
         const estimatedDeliveryTime = Math.min(maxDeliveryTime, Math.ceil(deliveryDistance * 2) + 20);
 
+        // Calculate shipper earnings (80% commission by default)
+        const shipperCommissionRate = 0.8;
+        const shipperEarnings = Math.round(shippingFee * shipperCommissionRate);
+        const platformFee = shippingFee - shipperEarnings;
+
         let foodTotal = 0;
         for (const item of data.items) {
             const food = await this.foodRepository.findOne({ where: { id: item.foodId } });
@@ -471,7 +476,6 @@ export class OrderService {
             const validation = await this.promotionService.validatePromotion(data.promotionCode, subtotal);
             if (validation.valid && validation.promotion) {
                 appliedPromotion = validation.promotion;
-                // Use the discount calculated by the promotion service
                 promotionDiscount = validation.calculatedDiscount || 0;
             } else {
                 promotionError = validation.reason || 'Invalid promotion code.';
@@ -480,7 +484,20 @@ export class OrderService {
 
         const total = Math.max(0, subtotal - promotionDiscount);
 
-        return { foodTotal, shippingFee, distance: Number(deliveryDistance.toFixed(2)), subtotal, promotionDiscount, total, estimatedDeliveryTime, appliedPromotion, promotionError };
+        return { 
+            foodTotal, 
+            shippingFee, 
+            shipperEarnings,
+            shipperCommissionRate,
+            platformFee,
+            distance: Number(deliveryDistance.toFixed(2)), 
+            subtotal, 
+            promotionDiscount, 
+            total, 
+            estimatedDeliveryTime, 
+            appliedPromotion, 
+            promotionError 
+        };
     }
 
     // This method is now a wrapper for the new constrained calculation

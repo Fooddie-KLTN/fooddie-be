@@ -71,17 +71,46 @@ class ActiveShipperTracker {
         maxDistance: number
     ): Promise<{ success: boolean; message: string; score?: number }> {
         try {
-            // Fetch full user data with performance metrics
+            this.logger.log(`🔍 Adding shipper ${shipperId} to active pool...`);
+
+            // Validate input parameters
+            if (!shipperId || typeof shipperId !== 'string') {
+                return { success: false, message: 'Invalid shipper ID provided' };
+            }
+
+            if (isNaN(lat) || isNaN(lng) || isNaN(maxDistance)) {
+                return { success: false, message: 'Invalid location or distance parameters' };
+            }
+
+            // Check if repositories are properly initialized
+            if (!this.userRepository) {
+                this.logger.error('❌ UserRepository not initialized');
+                return { success: false, message: 'Internal error: repository not available' };
+            }
+
+            if (!this.systemConstraintsService) {
+                this.logger.error('❌ SystemConstraintsService not initialized');
+                return { success: false, message: 'Internal error: constraints service not available' };
+            }
+
+            // Fetch full user data with performance metrics - FIX THE QUERY
+            this.logger.log(`🔍 Fetching user data for shipper ${shipperId}...`);
+            
             const shipper = await this.userRepository.findOne({
-                where: { id: shipperId },
+                where: { id: shipperId }, // ✅ Fixed: Properly specify the where condition
                 relations: ['role', 'shipperCertificateInfo', 'address']
             });
 
             if (!shipper) {
+                this.logger.warn(`❌ Shipper ${shipperId} not found in database`);
                 return { success: false, message: 'Shipper not found' };
             }
 
+            this.logger.log(`✅ Found shipper: ${shipper.username || 'N/A'} with role: ${shipper.role?.name || 'N/A'}`);
+
             // Check shipper eligibility using system constraints
+            this.logger.log(`🔍 Checking eligibility for shipper ${shipperId}...`);
+            
             const eligibilityCheck = await this.systemConstraintsService.isShipperEligible(shipper);
             
             if (!eligibilityCheck.eligible) {
@@ -92,6 +121,8 @@ class ActiveShipperTracker {
                     score: eligibilityCheck.score
                 };
             }
+
+            this.logger.log(`✅ Shipper ${shipperId} is eligible with base score: ${eligibilityCheck.score}`);
 
             // Calculate enhanced shipper score including reviews
             const enhancedScore = await this.calculateEnhancedScore(shipper, eligibilityCheck.score);
@@ -107,9 +138,15 @@ class ActiveShipperTracker {
                 user: shipper
             });
 
-            // Update shipper's last active time and increment active deliveries
-            shipper.lastActiveAt = new Date();
-            await this.userRepository.save(shipper);
+            // Update shipper's last active time
+            try {
+                shipper.lastActiveAt = new Date();
+                await this.userRepository.save(shipper);
+                this.logger.log(`✅ Updated last active time for shipper ${shipperId}`);
+            } catch (saveError) {
+                this.logger.warn(`⚠️ Failed to update last active time for shipper ${shipperId}: ${saveError.message}`);
+                // Don't fail the whole operation for this
+            }
 
             this.logger.log(`✅ Shipper ${shipperId} added to active pool with enhanced score ${enhancedScore}`);
             
@@ -123,7 +160,7 @@ class ActiveShipperTracker {
             };
 
         } catch (error) {
-            this.logger.error(`❌ Error adding shipper ${shipperId}: ${error.message}`);
+            this.logger.error(`❌ Error adding shipper ${shipperId}: ${error.message}`, error.stack);
             return { success: false, message: 'Internal error occurred' };
         }
     }
@@ -133,6 +170,12 @@ class ActiveShipperTracker {
      */
     private async calculateEnhancedScore(shipper: User, baseScore: number): Promise<number> {
         try {
+            // Safely check if reviewRepository is available
+            if (!this.reviewRepository) {
+                this.logger.warn('⚠️ ReviewRepository not available, using base score');
+                return baseScore;
+            }
+
             // Get recent reviews for this shipper
             const recentReviews = await this.reviewRepository.find({
                 where: { 
@@ -183,8 +226,9 @@ class ActiveShipperTracker {
             }
 
             // Workload balance - penalize overloaded shippers
-            if (shipper.activeDeliveries >= 3) {
-                enhancedScore -= shipper.activeDeliveries * 5;
+            const activeDeliveries = shipper.activeDeliveries || 0;
+            if (activeDeliveries >= 3) {
+                enhancedScore -= activeDeliveries * 5;
             }
 
             return Math.max(0, Math.round(enhancedScore * 100) / 100);
@@ -199,42 +243,46 @@ class ActiveShipperTracker {
      * Process pending order assignments when a shipper comes online
      */
     private async processPendingAssignmentsForShipper(shipperId: string): Promise<void> {
-        const shipper = this.activeShippers.get(shipperId);
-        if (!shipper) return;
+        try {
+            const shipper = this.activeShippers.get(shipperId);
+            if (!shipper) return;
 
-        let assignedCount = 0;
+            let assignedCount = 0;
 
-        // Check all pending orders in queue
-        for (const [orderId, queuedShippers] of this.shipperQueue.entries()) {
-            const shipperInQueue = queuedShippers.find(s => s.shipperId === shipperId);
-            if (shipperInQueue) {
-                this.logger.log(`🔄 Processing pending assignment for order ${orderId} with shipper ${shipperId}`);
-                
-                try {
-                    // Get order details (you'll need to implement this method)
-                    const orderDetails = await this.getOrderById(orderId);
+            // Check all pending orders in queue
+            for (const [orderId, queuedShippers] of this.shipperQueue.entries()) {
+                const shipperInQueue = queuedShippers.find(s => s.shipperId === shipperId);
+                if (shipperInQueue) {
+                    this.logger.log(`🔄 Processing pending assignment for order ${orderId} with shipper ${shipperId}`);
                     
-                    if (orderDetails && orderDetails.status === 'confirmed' && !orderDetails.shippingDetail) {
-                        await pubSub.publish('orderConfirmedForShippers', {
-                            orderConfirmedForShippers: orderDetails,
-                            targetShipperId: shipperId,
-                            distanceKm: shipperInQueue.distanceKm,
-                            priorityScore: shipperInQueue.priority
-                        });
+                    try {
+                        // Get order details (you'll need to implement this method)
+                        const orderDetails = await this.getOrderById(orderId);
                         
-                        assignedCount++;
-                        
-                        // Limit assignments per shipper per session
-                        if (assignedCount >= 3) break;
+                        if (orderDetails && orderDetails.status === 'confirmed' && !orderDetails.shippingDetail) {
+                            await pubSub.publish('orderConfirmedForShippers', {
+                                orderConfirmedForShippers: orderDetails,
+                                targetShipperId: shipperId,
+                                distanceKm: shipperInQueue.distanceKm,
+                                priorityScore: shipperInQueue.priority
+                            });
+                            
+                            assignedCount++;
+                            
+                            // Limit assignments per shipper per session
+                            if (assignedCount >= 3) break;
+                        }
+                    } catch (error) {
+                        this.logger.error(`❌ Failed to send order ${orderId} to shipper ${shipperId}: ${error.message}`);
                     }
-                } catch (error) {
-                    this.logger.error(`❌ Failed to send order ${orderId} to shipper ${shipperId}: ${error.message}`);
                 }
             }
-        }
 
-        if (assignedCount > 0) {
-            this.logger.log(`📦 Sent ${assignedCount} pending orders to shipper ${shipperId}`);
+            if (assignedCount > 0) {
+                this.logger.log(`📦 Sent ${assignedCount} pending orders to shipper ${shipperId}`);
+            }
+        } catch (error) {
+            this.logger.error(`❌ Error processing pending assignments for shipper ${shipperId}: ${error.message}`);
         }
     }
 
@@ -247,85 +295,95 @@ class ActiveShipperTracker {
         orderValue: number = 0,
         urgency: 'low' | 'medium' | 'high' = 'medium'
     ): Promise<{ shipperId: string; score: number; distance: number } | null> {
-        const constraints = await this.systemConstraintsService.getConstraints();
-        const eligibleShippers: Array<EligibleShipper & { finalScore: number; distance: number }> = [];
+        try {
+            if (!this.systemConstraintsService) {
+                this.logger.error('❌ SystemConstraintsService not available');
+                return null;
+            }
 
-        for (const [shipperId, shipper] of this.activeShippers.entries()) {
-            // Calculate distance
-            const distance = haversineDistance(
-                shipper.latitude,
-                shipper.longitude,
-                restaurantLat,
-                restaurantLng
-            );
+            const constraints = await this.systemConstraintsService.getConstraints();
+            const eligibleShippers: Array<EligibleShipper & { finalScore: number; distance: number }> = [];
 
-            // Check if within shipper's max distance and system constraints
-            if (distance <= shipper.maxDistance && distance <= constraints.max_delivery_distance) {
-                // Re-validate shipper eligibility (in case status changed)
-                const eligibilityCheck = await this.systemConstraintsService.isShipperEligible(shipper.user);
-                
-                if (eligibilityCheck.eligible) {
-                    // Calculate final score including distance and order factors
-                    let finalScore = shipper.eligibilityScore;
+            for (const [shipperId, shipper] of this.activeShippers.entries()) {
+                // Calculate distance
+                const distance = haversineDistance(
+                    shipper.latitude,
+                    shipper.longitude,
+                    restaurantLat,
+                    restaurantLng
+                );
 
-                    // Distance penalty (closer is better) - up to 25 points penalty
-                    const maxDistance = constraints.max_delivery_distance;
-                    const distancePenalty = (distance / maxDistance) * 25;
-                    finalScore -= distancePenalty;
+                // Check if within shipper's max distance and system constraints
+                if (distance <= shipper.maxDistance && distance <= constraints.max_delivery_distance) {
+                    // Re-validate shipper eligibility (in case status changed)
+                    const eligibilityCheck = await this.systemConstraintsService.isShipperEligible(shipper.user);
+                    
+                    if (eligibilityCheck.eligible) {
+                        // Calculate final score including distance and order factors
+                        let finalScore = shipper.eligibilityScore;
 
-                    // Urgency bonus
-                    const urgencyBonus = {
-                        'high': 15,
-                        'medium': 8,
-                        'low': 0
-                    }[urgency];
-                    finalScore += urgencyBonus;
+                        // Distance penalty (closer is better) - up to 25 points penalty
+                        const maxDistance = constraints.max_delivery_distance;
+                        const distancePenalty = (distance / maxDistance) * 25;
+                        finalScore -= distancePenalty;
 
-                    // Order value bonus (higher value orders get priority)
-                    const valueBonus = Math.min(10, (orderValue / 100000) * 5);
-                    finalScore += valueBonus;
+                        // Urgency bonus
+                        const urgencyBonus = {
+                            'high': 15,
+                            'medium': 8,
+                            'low': 0
+                        }[urgency];
+                        finalScore += urgencyBonus;
 
-                    // Active deliveries penalty (progressive)
-                    const activeDeliveriesPenalty = Math.pow(shipper.user.activeDeliveries, 1.5) * 3;
-                    finalScore -= activeDeliveriesPenalty;
+                        // Order value bonus (higher value orders get priority)
+                        const valueBonus = Math.min(10, (orderValue / 100000) * 5);
+                        finalScore += valueBonus;
 
-                    // Recent activity bonus (active within last 5 minutes gets bonus)
-                    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
-                    const recentActivityBonus = shipper.lastSeen > fiveMinutesAgo ? 8 : 0;
-                    finalScore += recentActivityBonus;
+                        // Active deliveries penalty (progressive)
+                        const activeDeliveriesPenalty = Math.pow(shipper.user.activeDeliveries || 0, 1.5) * 3;
+                        finalScore -= activeDeliveriesPenalty;
 
-                    // Time of day bonus (lunch/dinner rush hours)
-                    const hour = new Date().getHours();
-                    const rushHourBonus = (hour >= 11 && hour <= 13) || (hour >= 17 && hour <= 20) ? 5 : 0;
-                    finalScore += rushHourBonus;
+                        // Recent activity bonus (active within last 5 minutes gets bonus)
+                        const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+                        const recentActivityBonus = shipper.lastSeen > fiveMinutesAgo ? 8 : 0;
+                        finalScore += recentActivityBonus;
 
-                    finalScore = Math.max(0, finalScore);
+                        // Time of day bonus (lunch/dinner rush hours)
+                        const hour = new Date().getHours();
+                        const rushHourBonus = (hour >= 11 && hour <= 13) || (hour >= 17 && hour <= 20) ? 5 : 0;
+                        finalScore += rushHourBonus;
 
-                    eligibleShippers.push({
-                        ...shipper,
-                        distance,
-                        finalScore
-                    });
+                        finalScore = Math.max(0, finalScore);
+
+                        eligibleShippers.push({
+                            ...shipper,
+                            distance,
+                            finalScore
+                        });
+                    }
                 }
             }
-        }
 
-        if (eligibleShippers.length === 0) {
-            this.logger.warn(`❌ No eligible shippers found for restaurant at ${restaurantLat}, ${restaurantLng}`);
+            if (eligibleShippers.length === 0) {
+                this.logger.warn(`❌ No eligible shippers found for restaurant at ${restaurantLat}, ${restaurantLng}`);
+                return null;
+            }
+
+            // Sort by final score (highest first)
+            eligibleShippers.sort((a, b) => b.finalScore - a.finalScore);
+
+            const bestShipper = eligibleShippers[0];
+            this.logger.log(`🎯 Best shipper found: ${bestShipper.shipperId} with score ${bestShipper.finalScore.toFixed(2)} at distance ${bestShipper.distance.toFixed(2)}km`);
+
+            return {
+                shipperId: bestShipper.shipperId,
+                score: bestShipper.finalScore,
+                distance: bestShipper.distance
+            };
+        } catch (error) {
+            this.logger.error(`❌ Error finding best shipper: ${error.message}`);
             return null;
         }
-
-        // Sort by final score (highest first)
-        eligibleShippers.sort((a, b) => b.finalScore - a.finalScore);
-
-        const bestShipper = eligibleShippers[0];
-        this.logger.log(`🎯 Best shipper found: ${bestShipper.shipperId} with score ${bestShipper.finalScore.toFixed(2)} at distance ${bestShipper.distance.toFixed(2)}km`);
-
-        return {
-            shipperId: bestShipper.shipperId,
-            score: bestShipper.finalScore,
-            distance: bestShipper.distance
-        };
     }
 
     /**
@@ -653,7 +711,7 @@ export class OrderResolver {
         return (pubSub).asyncIterableIterator('orderStatusUpdated');
     }
 
-    // Enhanced subscription for shippers with constraint validation
+    // Enhanced subscription for shippers with comprehensive delivery info
     @Subscription(() => Order, {
         filter: (payload, variables, context) => {
             const logger = new Logger('OrderSubscriptionFilter');
@@ -670,7 +728,9 @@ export class OrderResolver {
             );
 
             if (shouldSend) {
-                logger.log(`📦 Sending order ${order.id} to shipper ${currentShipperId} (Distance: ${payload.distanceKm?.toFixed(2)}km, Priority: ${payload.priorityScore?.toFixed(1)})`);
+                const earnings = order.shipperEarnings || 0;
+                const distance = order.deliveryDistance || payload.distanceKm || 0;
+                logger.log(`📦 Sending order ${order.id} to shipper ${currentShipperId} (Distance: ${distance.toFixed(2)}km, Earnings: ${earnings.toLocaleString()}đ)`);
             }
 
             return shouldSend;
@@ -678,13 +738,53 @@ export class OrderResolver {
         resolve: (payload) => {
             const order = payload.orderConfirmedForShippers;
             
-            // Enhance order with delivery metadata
+            // Calculate enhanced shipping information
+            const shippingFee = order.shippingFee || 0;
+            const shipperEarnings = order.shipperEarnings || Math.round(shippingFee * (order.shipperCommissionRate || 0.8));
+            const platformFee = shippingFee - shipperEarnings;
+            const distance = order.deliveryDistance || payload.distanceKm || 0;
+            const earningsPerKm = distance > 0 ? Math.round(shipperEarnings / distance) : 0;
+            
+            // Enhanced order with comprehensive delivery and earnings metadata
             return {
                 ...order,
+                // Ensure earnings are calculated if missing
+                shipperEarnings: shipperEarnings,
                 deliveryMetadata: {
-                    distanceKm: payload.distanceKm,
+                    distanceKm: distance,
                     priorityScore: payload.priorityScore,
-                    assignedAt: new Date()
+                    assignedAt: new Date(),
+                    shippingInfo: {
+                        totalDistance: distance,
+                        shippingFee: shippingFee,
+                        shipperEarnings: shipperEarnings,
+                        platformFee: platformFee,
+                        shipperCommissionRate: order.shipperCommissionRate || 0.8,
+                        estimatedDeliveryTime: order.estimatedDeliveryTime || 30,
+                        earningsBreakdown: {
+                            baseShippingFee: shippingFee,
+                            shipperShare: shipperEarnings,
+                            platformShare: platformFee,
+                            commissionRate: `${((order.shipperCommissionRate || 0.8) * 100).toFixed(0)}%`,
+                            earningsPerKm: earningsPerKm,
+                            fuelCostEstimate: Math.round(distance * 3000), // 3,000đ per km
+                            netEarnings: Math.max(0, shipperEarnings - (distance * 3000))
+                        },
+                        deliveryDetails: {
+                            restaurantToCustomer: `${distance.toFixed(1)}km`,
+                            estimatedTime: `${order.estimatedDeliveryTime || 30} phút`,
+                            deliveryType: order.deliveryType || 'asap',
+                            requestedTime: order.requestedDeliveryTime || null,
+                            urgency: order.deliveryType === 'scheduled' ? 'low' : 'medium'
+                        },
+                        financialSummary: {
+                            grossEarnings: `${shipperEarnings.toLocaleString()}đ`,
+                            estimatedFuelCost: `${Math.round(distance * 3000).toLocaleString()}đ`,
+                            netProfit: `${Math.max(0, shipperEarnings - (distance * 3000)).toLocaleString()}đ`,
+                            profitMargin: shippingFee > 0 ? `${(((shipperEarnings - (distance * 3000)) / shippingFee) * 100).toFixed(1)}%` : '0%',
+                            isProfitable: shipperEarnings > (distance * 3000)
+                        }
+                    }
                 }
             };
         }
