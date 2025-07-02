@@ -7,6 +7,7 @@ import { OrderDetail } from './orderDetail.entity';
 import { Checkout } from './checkout.entity';
 import { Review } from './review.entity'; // Add this import
 import { ObjectType, Field, ID } from '@nestjs/graphql';
+import { Topping } from './topping.entity';
 
 @ObjectType()
 @Entity({ name: 'foods' })
@@ -92,4 +93,8 @@ export class Food {
     @Field(() => [Review], { nullable: true })
     @OneToMany(() => Review, (review) => review.food)
     reviews?: Review[];
+
+    @Field(() => [Topping], { nullable: true })
+    @OneToMany(() => Topping, (topping) => topping.food, { cascade: true })
+    toppings?: Topping[];
 }

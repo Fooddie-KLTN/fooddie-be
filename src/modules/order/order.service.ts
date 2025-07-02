@@ -23,6 +23,7 @@ import { Notification } from 'src/entities/notification.entity';
 import { ShippingDetail } from 'src/entities/shippingDetail.entity';
 import { SystemConstraintsService } from 'src/services/system-constraints.service';
 import { activeShipperTracker } from './order.resolver';
+import { Topping } from 'src/entities/topping.entity';
 
 @Injectable()
 export class OrderService {
@@ -54,21 +55,85 @@ export class OrderService {
         private notificationRepository: Repository<Notification>,
         @InjectRepository(ShippingDetail)
         private shippingDetailRepository: Repository<ShippingDetail>,
+        @InjectRepository(Topping)
+        private toppingRepository: Repository<Topping>,
         private readonly systemConstraintsService: SystemConstraintsService, // Inject SystemConstraintsService
     ) { }
 
     private async validateAndCalculateOrderDetails(
-        orderDetails: { foodId: string; quantity: string }[],
-    ): Promise<{ calculatedTotal: number; foodDetails: { food: Food; quantity: number }[] }> {
+        orderDetails: { 
+            foodId: string; 
+            quantity: string; 
+            selectedToppings?: Array<{id: string; name: string; price: number}> 
+        }[],
+    ): Promise<{ calculatedTotal: number; foodDetails: { 
+        food: Food; 
+        quantity: number; 
+        selectedToppings?: Array<{id: string; name: string; price: number}>;
+        toppingTotal: number;
+    }[] }> {
         let calculatedTotal = 0;
-        const foodDetails: { food: Food; quantity: number }[] = [];
+        const foodDetails: { 
+            food: Food; 
+            quantity: number; 
+            selectedToppings?: Array<{id: string; name: string; price: number}>;
+            toppingTotal: number;
+        }[] = [];
 
         for (const detail of orderDetails) {
-            const food = await this.foodRepository.findOne({ where: { id: detail.foodId } });
+            const food = await this.foodRepository.findOne({ 
+                where: { id: detail.foodId },
+                relations: ['toppings']
+            });
+            
             if (!food) throw new NotFoundException(`Food with ID ${detail.foodId} not found`);
-            const price = Number(food.price) * Number(detail.quantity);
-            calculatedTotal += price;
-            foodDetails.push({ food, quantity: Number(detail.quantity) });
+            
+            // Calculate food price
+            const quantity = Number(detail.quantity);
+            let itemTotal = Number(food.price) * quantity;
+            
+            // Calculate topping prices
+            let toppingTotal = 0;
+            let validatedToppings: Array<{id: string; name: string; price: number}> = [];
+            
+            if (detail.selectedToppings && detail.selectedToppings.length > 0) {
+                for (const selectedTopping of detail.selectedToppings) {
+                    // Validate topping exists and belongs to this food
+                    const topping = await this.toppingRepository.findOne({
+                        where: { 
+                            id: selectedTopping.id,
+                            food: { id: detail.foodId },
+                            isAvailable: true
+                        }
+                    });
+                    
+                    if (!topping) {
+                        throw new BadRequestException(`Topping ${selectedTopping.name} is not available for this food`);
+                    }
+                    
+                    // Verify price matches (prevent price manipulation)
+                    if (Math.abs(topping.price - selectedTopping.price) > 0.01) {
+                        throw new BadRequestException(`Invalid topping price for ${topping.name}`);
+                    }
+                    
+                    toppingTotal += topping.price * quantity;
+                    validatedToppings.push({
+                        id: topping.id,
+                        name: topping.name,
+                        price: topping.price
+                    });
+                }
+            }
+            
+            itemTotal += toppingTotal;
+            calculatedTotal += itemTotal;
+            
+            foodDetails.push({ 
+                food, 
+                quantity,
+                selectedToppings: validatedToppings,
+                toppingTotal
+            });
         }
 
         return { calculatedTotal, foodDetails };
@@ -76,7 +141,12 @@ export class OrderService {
 
     private async createOrderDetails(
         order: Order,
-        foodDetails: { food: Food; quantity: number }[],
+        foodDetails: { 
+            food: Food; 
+            quantity: number; 
+            selectedToppings?: Array<{id: string; name: string; price: number}>;
+            toppingTotal: number;
+        }[],
         queryRunner: any,
     ): Promise<void> {
         for (const detail of foodDetails) {
@@ -85,6 +155,9 @@ export class OrderService {
             orderDetail.food = detail.food;
             orderDetail.quantity = detail.quantity;
             orderDetail.price = String(detail.food.price);
+            orderDetail.selectedToppings = detail.selectedToppings || [];
+            orderDetail.toppingTotal = detail.toppingTotal;
+            
             await queryRunner.manager.save(OrderDetail, orderDetail);
         }
     }

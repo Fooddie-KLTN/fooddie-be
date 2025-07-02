@@ -1,6 +1,26 @@
 import { Type } from "class-transformer";
 import { IsNotEmpty, IsString, IsOptional, IsUUID, IsNumber, IsArray, ValidateNested, Min, Max } from "class-validator";
 
+export class SelectedToppingDto {
+  @IsNotEmpty()
+  @IsString()
+  id: string;
+
+  @IsNotEmpty()
+  @IsString()
+  name: string;
+
+  @IsNotEmpty()
+  @IsNumber()
+  price: number;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => SelectedToppingDto)
+  selectedToppings?: SelectedToppingDto[];
+}
+
 export class CreateOrderDetailDto {
   @IsNotEmpty()
   @IsString()
@@ -45,7 +65,7 @@ export class CreateOrderDto {
   @IsString()
   promotionCode?: string; // Add promotion code field
 
-    @IsOptional()
+  @IsOptional()
   @IsNumber()
   @Min(30)
   @Max(1440) // Delivery time in minutes (30to 1440 minutes, which is 24 hours)

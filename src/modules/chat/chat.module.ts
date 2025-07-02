@@ -30,10 +30,11 @@ import { RestaurantService } from '../restaurant/restaurant.service';
 import { GeocodingService } from 'src/services/geocoding.service';
 import { SystemConstraintsService } from 'src/services/system-constraints.service';
 import { SystemConstraint } from 'src/entities/systemConstaints.entity';
+import { Topping } from 'src/entities/topping.entity';
 
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Food,
+  imports: [TypeOrmModule.forFeature([Food, Topping,
     SystemConstraint, Order, Restaurant, Category, Review, OrderDetail, User, Address, Promotion, Checkout, PendingShipperAssignment, Notification, ShippingDetail]),
   OrderModule
 ], 

@@ -26,6 +26,7 @@ import { Notification } from 'src/entities/notification.entity';
 import { ShippingDetail } from 'src/entities/shippingDetail.entity';
 import { SystemConstraint } from 'src/entities/systemConstaints.entity';
 import { SystemConstraintsService } from 'src/services/system-constraints.service';
+import { Topping } from 'src/entities/topping.entity';
 
 
 @Module({
@@ -33,7 +34,8 @@ import { SystemConstraintsService } from 'src/services/system-constraints.servic
         Review,
         Notification,
         ShippingDetail,
-        SystemConstraint
+        SystemConstraint,
+        Topping
     ]),
      JwtModule,
       PaymentModule,
