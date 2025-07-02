@@ -543,6 +543,106 @@ export class OrderService {
         };
     }
 
+    async calculateOrderWithCustomAddress(
+        address: {
+          street: string;
+          ward: string;
+          district: string;
+          city: string;
+          latitude: number;
+          longitude: number;
+          label?: string;
+        },
+        restaurantId: string,
+        items: { foodId: string; quantity: number }[],
+        promotionCode?: string
+      ) {
+        // 1. Fetch restaurant with address
+        const restaurant = await this.restaurantRepository.findOne({
+          where: { id: restaurantId },
+          relations: ['address'],
+        });
+      
+        if (!restaurant || !restaurant.address) {
+          throw new Error('Invalid restaurant');
+        }
+      
+        // 2. Calculate distance
+        const distance = haversineDistance(
+          Number(address.latitude),
+          Number(address.longitude),
+          Number(restaurant.address.latitude),
+          Number(restaurant.address.longitude)
+        );
+      
+        // 3. Calculate shipping fee
+        const shippingFee = distance <= 2 ? 15000 : 15000 + Math.ceil(distance - 2) * 5000;
+      
+        // 4. Calculate food total
+        let foodTotal = 0;
+        for (const item of items) {
+          const food = await this.foodRepository.findOne({ where: { id: item.foodId } });
+          if (!food) continue;
+          foodTotal += Number(food.price) * item.quantity;
+        }
+      
+        let promotionDiscount = 0;
+        let appliedPromotion: Promotion | null = null;
+        let promotionError: string | null = null;
+      
+        // 5. Apply promotion if provided
+        if (promotionCode) {
+          try {
+            const validation = await this.promotionService.validatePromotion(
+              promotionCode,
+              foodTotal + shippingFee
+            );
+      
+            if (validation.valid && validation.promotion) {
+              appliedPromotion = validation.promotion;
+      
+              if (appliedPromotion.type === PromotionType.FOOD_DISCOUNT) {
+                promotionDiscount = this.promotionService.calculateDiscount(appliedPromotion, foodTotal);
+              } else if (appliedPromotion.type === PromotionType.SHIPPING_DISCOUNT) {
+                promotionDiscount = Math.min(
+                  this.promotionService.calculateDiscount(appliedPromotion, shippingFee),
+                  shippingFee
+                );
+              }
+            } else {
+              promotionError = validation.reason || 'Invalid promotion code';
+            }
+          } catch (error) {
+            promotionError = 'Failed to validate promotion code';
+            this.logger.error(`Promotion validation error: ${error.message}`);
+          }
+        }
+      
+        // 6. Calculate total
+        const subtotal = foodTotal + shippingFee;
+        const total = Math.max(0, subtotal - promotionDiscount);
+      
+        return {
+          foodTotal,
+          shippingFee,
+          distance: Number(distance.toFixed(2)),
+          subtotal,
+          promotionDiscount,
+          total,
+          appliedPromotion: appliedPromotion
+            ? {
+                id: appliedPromotion.id,
+                code: appliedPromotion.code,
+                description: appliedPromotion.description,
+                type: appliedPromotion.type,
+                discountAmount: promotionDiscount,
+              }
+            : null,
+          promotionError,
+        };
+      }
+      
+
     async deleteOrder(id: string) {
         // First make sure the order exists
         const order = await this.getOrderById(id);

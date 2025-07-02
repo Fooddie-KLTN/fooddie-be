@@ -134,6 +134,44 @@ async calculateOrder(@Body() body: {
   });
 }
 
+@Post('calculate-custom')
+async calculateOrderWithCustomAddress(
+  @Body()
+  body: {
+    address: {
+      street: string;
+      ward: string;
+      district: string;
+      city: string;
+      latitude: number;
+      longitude: number;
+      label?: string;
+    };
+    restaurantId: string;
+    items: { foodId: string; quantity: number }[];
+    promotionCode?: string;
+  }
+) {
+  this.logger.log(`Calculating order with custom address: ${JSON.stringify(body)}`);
+
+  if (
+    !body.address ||
+    !body.restaurantId ||
+    !Array.isArray(body.items) ||
+    body.items.length === 0
+  ) {
+    return { error: 'Missing address, restaurantId, or items' };
+  }
+
+  // Gọi đến service xử lý tương ứng
+  return this.orderService.calculateOrderWithCustomAddress(
+    body.address,
+    body.restaurantId,
+    body.items,
+    body.promotionCode
+  );
+}
+
   @Get('restaurant/my')
 @UseGuards(AuthGuard)
 async getOrdersByMyRestaurant(
