@@ -261,6 +261,7 @@ async findAllForStore(
 
     return result;
   }
+  
   @Get('top')
   async getTopFoodsByRestaurant(
     @Query('restaurantId') restaurantId: string,

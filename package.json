@@ -27,6 +27,7 @@
   "dependencies": {
     "@apollo/server": "^4.12.1",
     "@google-cloud/storage": "^7.15.2",
+    "@mapbox/mapbox-sdk": "^0.16.1",
     "@nestjs/apollo": "^13.1.0",
     "@nestjs/common": "^11.1.2",
     "@nestjs/config": "^4.0.0",

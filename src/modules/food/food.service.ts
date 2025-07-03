@@ -10,6 +10,7 @@ import { Review } from 'src/entities/review.entity'; // Add this import
 import { GoogleCloudStorageService } from 'src/gcs/gcs.service';
 import { haversineDistance } from 'src/common/utils/helper';
 import { log } from 'console';
+import { getDistanceAndDurationFromMapbox } from '../../services/mapbox.service';
 import { Topping } from 'src/entities/topping.entity';
 import { fdatasync } from 'fs';
 import { CreateToppingDto } from './dto/create-topping.dto';
@@ -1239,7 +1240,7 @@ export class FoodService {
     }
 
     async findByName(
-        name?: string, // Made optional
+        name?: string,
         page = 1,
         pageSize = 10,
         lat?: number,
@@ -1248,134 +1249,110 @@ export class FoodService {
         categoryIds?: string[],
         minPrice?: number,
         maxPrice?: number,
-    ): Promise<{
+      ): Promise<{
         items: any[];
         totalItems: number;
         page: number;
         pageSize: number;
         totalPages: number;
-    }> {
-        console.log('=== findByName Debug ===');
-        console.log('Input parameters:', {
-            name,
-            decodedName: name ? decodeURIComponent(name) : 'No name filter',
-            page,
-            pageSize,
-            lat,
-            lng,
-            radius,
-            categoryIds,
-            minPrice,
-            maxPrice
-        });
-
+      }> {
         const queryBuilder = this.foodRepository.createQueryBuilder('food')
-            .leftJoinAndSelect('food.restaurant', 'restaurant')
-            .leftJoinAndSelect('food.category', 'category');
-
-        // Only add name filter if name is provided
+          .leftJoinAndSelect('food.restaurant', 'restaurant')
+          .leftJoinAndSelect('food.category', 'category')
+          .leftJoinAndSelect('restaurant.address', 'address');
+      
         if (name && name.trim()) {
-            queryBuilder.where(
-                "(unaccent(LOWER(food.name)) LIKE unaccent(:name) OR unaccent(LOWER(food.description)) LIKE unaccent(:name))",
-                { name: `%${name.toLowerCase()}%` }
-            );
-            console.log('Added name filter (accent-insensitive):', name);
+          queryBuilder.where(
+            "(unaccent(LOWER(food.name)) LIKE unaccent(:name) OR unaccent(LOWER(food.description)) LIKE unaccent(:name))",
+            { name: `%${name.toLowerCase()}%` }
+          );
         }
-
-        // Filter by category IDs
+      
         if (categoryIds && categoryIds.length > 0) {
             if (name && name.trim()) {
-                queryBuilder.andWhere('food.category_id IN (:...categoryIds)', { categoryIds });
+              queryBuilder.andWhere('food.category_id IN (:...categoryIds)', { categoryIds });
             } else {
-                queryBuilder.where('food.category_id IN (:...categoryIds)', { categoryIds });
+              queryBuilder.where('food.category_id IN (:...categoryIds)', { categoryIds });
             }
             console.log('Added category filter:', categoryIds);
-        }
-
-        // Filter by min price
-        if (minPrice !== undefined) {
+          }
+      
+          if (minPrice !== undefined) {
             const whereMethod = (name && name.trim()) || (categoryIds && categoryIds.length > 0) ? 'andWhere' : 'where';
             queryBuilder[whereMethod]('food.price >= :minPrice', { minPrice });
             console.log('Added minPrice filter:', minPrice);
-        }
-
-        // Filter by max price
-        if (maxPrice !== undefined) {
+          }
+      
+          if (maxPrice !== undefined) {
             const whereMethod = (name && name.trim()) || (categoryIds && categoryIds.length > 0) || (minPrice !== undefined) ? 'andWhere' : 'where';
             queryBuilder[whereMethod]('food.price <= :maxPrice', { maxPrice });
             console.log('Added maxPrice filter:', maxPrice);
-        }
-
-        console.log('Final query:', queryBuilder.getQuery());
-        console.log('Query parameters:', queryBuilder.getParameters());
-
-        // Get all items (no skip/take yet)
-        let items = await queryBuilder.getMany();
-        console.log('Raw items found after query:', items.length);
-
-        if (items.length > 0) {
-            console.log('First item example:', {
-                id: items[0].id,
-                name: items[0].name,
-                restaurant: items[0].restaurant?.name,
-                category: items[0].category?.name
-            });
-        }
-
-        let itemsWithDistance = items.map(food => {
-            let distance: number | null = null;
-            if (lat && lng && food.restaurant?.latitude && food.restaurant?.longitude) {
-                distance = haversineDistance(
-                    lat,
-                    lng,
-                    Number(food.restaurant.latitude),
-                    Number(food.restaurant.longitude)
+          }
+      
+        const items = await queryBuilder.getMany();
+      
+        // --- Tính distance & deliveryTime bằng Mapbox (batch 5/lần) ---
+        const itemsWithData: any[] = [];
+      
+        for (let i = 0; i < items.length; i += 5) {
+          const batch = items.slice(i, i + 5);
+      
+          const processedBatch = await Promise.all(
+            batch.map(async (food) => {
+              const restaurant = food.restaurant;
+              let distance: number | null = null;
+              let duration: number | null = null;
+      
+              if (
+                lat && lng &&
+                restaurant.latitude && restaurant.longitude
+              ) {
+                const result = await getDistanceAndDurationFromMapbox(
+                  [Number(lng), Number(lat)],
+                  [Number(restaurant.longitude), Number(restaurant.latitude)],
                 );
-            }
-            return { ...food, distance };
-        });
-
-        console.log('Items with distance calculated:', itemsWithDistance.length);
-
-        // Filter and sort by distance if lat/lng provided
-        if (lat && lng) {
-            const beforeFilter = itemsWithDistance.length;
-            itemsWithDistance = itemsWithDistance
-                .filter(f => f.distance !== null && f.distance <= radius)
-                .sort((a, b) => (a.distance as number) - (b.distance as number));
-            console.log(`Distance filter: ${beforeFilter} -> ${itemsWithDistance.length} (within ${radius}km)`);
-
-            // Log some distance examples
-            if (itemsWithDistance.length > 0) {
-                console.log('Distance examples:', itemsWithDistance.slice(0, 3).map(f => ({
-                    name: f.name,
-                    distance: f.distance,
-                    restaurantLat: f.restaurant?.latitude,
-                    restaurantLng: f.restaurant?.longitude
-                })));
-            }
+      
+                if (result) {
+                    distance = Math.round(result.distanceKm * 10) / 10;         // ✅ 1 chữ số thập phân
+                    duration = Math.round(result.durationMin);      
+                }
+              }
+      
+              return {
+                ...food,
+                restaurant: {
+                  ...restaurant,
+                  distance,
+                  deliveryTime: duration,
+                },
+              };
+            })
+          );
+      
+          itemsWithData.push(...processedBatch);
         }
-
-        const totalItems = itemsWithDistance.length;
-        const pagedItems = itemsWithDistance.slice((page - 1) * pageSize, page * pageSize);
-
-        console.log('Final result:', {
-            totalItems,
-            pagedItemsCount: pagedItems.length,
-            page,
-            pageSize,
-            totalPages: Math.ceil(totalItems / pageSize)
-        });
-        console.log('=== End findByName Debug ===');
-
+      
+        // Lọc theo radius nếu có lat/lng
+        const filtered = lat && lng
+          ? itemsWithData.filter(f => f.restaurant?.distance !== null && f.restaurant.distance <= radius)
+          : itemsWithData;
+      
+        // Sort theo distance nếu có
+        if (lat && lng) {
+          filtered.sort((a, b) => (a.restaurant.distance ?? Infinity) - (b.restaurant.distance ?? Infinity));
+        }
+      
+        const totalItems = filtered.length;
+        const pagedItems = filtered.slice((page - 1) * pageSize, page * pageSize);
+      
         return {
-            items: pagedItems,
-            totalItems,
-            page,
-            pageSize,
-            totalPages: Math.ceil(totalItems / pageSize),
+          items: pagedItems,
+          totalItems,
+          page,
+          pageSize,
+          totalPages: Math.ceil(totalItems / pageSize),
         };
-    }
+      }
 
     /**
      * Get reviews for a specific food with pagination
@@ -1543,6 +1520,8 @@ export class FoodService {
             throw new NotFoundException(`Food with ID ${id} not found`);
         }
     }
+
+    
     async getMenuForUser(userId: string) {
         const restaurants = await this.restaurantRepository.find({
             relations: ['foods'],  // Fetch foods for each restaurant
@@ -1561,6 +1540,9 @@ export class FoodService {
                 restaurantId: restaurant.id,  // Thêm restaurantId vào từng món ăn
             })),
         }));
-    }
+      }
+      
+
+      
 }
 
