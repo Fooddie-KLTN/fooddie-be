@@ -1,4 +1,6 @@
-import { IsNotEmpty, IsOptional, IsString, IsNumberString, IsArray } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString, IsNumberString, IsArray, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
+import { CreateToppingDto } from './create-topping.dto';
 
 export class CreateFoodDto {
   @IsString()
@@ -49,4 +51,11 @@ export class CreateFoodDto {
   @IsString()
   @IsOptional()
   tag?: string;
+
+  // Add toppings support
+  @IsArray()
+  @IsOptional()
+  @ValidateNested({ each: true })
+  @Type(() => CreateToppingDto)
+  toppings?: CreateToppingDto[];
 }

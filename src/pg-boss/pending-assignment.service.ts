@@ -390,12 +390,31 @@ export class PendingAssignmentService implements OnModuleInit {
                 return;
             }
 
-            // Notify ONLY this one shipper
+            // Notify ONLY this one shipper with enhanced earnings info
             // this.logger.log(`📡 Notifying shipper ${nearestShipper.shipperId} about order ${orderId}...`);
-            
+
+            // Calculate earnings info before sending
+            const shippingFee = order.shippingFee || 0;
+            const shipperEarnings = order.shipperEarnings || Math.round(shippingFee * 0.8);
+            const distance = order.deliveryDistance || 0;
+
             await pubSub.publish('orderConfirmedForShippers', {
-                orderConfirmedForShippers: order,
-                targetShipperId: nearestShipper.shipperId
+                orderConfirmedForShippers: {
+                    ...order,
+                    // Ensure earnings are included
+                    shipperEarnings: shipperEarnings,
+                    shippingFee: shippingFee
+                },
+                targetShipperId: nearestShipper.shipperId,
+                distanceKm: distance,
+                priorityScore: assignment.priority,
+                earningsInfo: {
+                    shippingFee,
+                    shipperEarnings,
+                    platformFee: shippingFee - shipperEarnings,
+                    netProfit: Math.max(0, shipperEarnings - (distance * 3000)),
+                    earningsPerKm: distance > 0 ? Math.round(shipperEarnings / distance) : 0
+                }
             });
 
             assignment.isSentToShipper = true;
@@ -485,7 +504,13 @@ export class PendingAssignmentService implements OnModuleInit {
         let nearestShipper: ActiveShipper | null = null;
         let shortestDistance = Infinity;
 
-        // Get active shippers from the resolver's tracker - THIS IS THE FIX!
+        // Check if activeShipperTracker is available - ADD THIS NULL CHECK!
+        if (!activeShipperTracker) {
+            // this.logger.warn(`❌ ActiveShipperTracker not available`);
+            return null;
+        }
+
+        // Get active shippers from the resolver's tracker
         const activeShippers = activeShipperTracker.getAllShippers();
         // this.logger.log(`📋 Found ${activeShippers.length} active shippers from resolver tracker`);
 
@@ -512,12 +537,18 @@ export class PendingAssignmentService implements OnModuleInit {
 
             if (distance <= shipper.maxDistance && distance < shortestDistance) {
                 shortestDistance = distance;
-                nearestShipper = shipper;
+                nearestShipper = {
+                    shipperId: shipper.shipperId,
+                    latitude: shipper.latitude,
+                    longitude: shipper.longitude,
+                    maxDistance: shipper.maxDistance,
+                    lastSeen: shipper.lastSeen
+                };
             }
         }
 
         if (nearestShipper) {
-            // this.logger.log(`🎯 Selected shipper ${nearestShipper.shipperId} at ${shortestDistance}km distance`);
+            // this.logger.log(`🎯 Selected shipper ${nearestShipper.shipperId} at ${shortestDistance.toFixed(2)}km distance`);
         } else {
             // this.logger.log(`😞 No suitable shippers found for order ${order.id}`);
         }

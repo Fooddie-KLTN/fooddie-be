@@ -13,9 +13,10 @@ import { JwtService } from '@nestjs/jwt';
 import { GoogleCloudStorageService } from 'src/gcs/gcs.service';
 import { Address } from 'src/entities/address.entity';
 import { Review } from 'src/entities/review.entity';
+import { Topping } from 'src/entities/topping.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Food, Restaurant, Category, Order, User, Role, Address, Review])],
+  imports: [TypeOrmModule.forFeature([Food, Restaurant, Category, Order, User, Role, Address, Review, Topping])],
   controllers: [FoodController],
   providers: [FoodService, UsersService, JwtService, GoogleCloudStorageService],
   exports: [FoodService],

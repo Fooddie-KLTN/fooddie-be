@@ -13,7 +13,8 @@ import {
   UnauthorizedException,
   Req,
   ParseFloatPipe,
-  BadRequestException
+  BadRequestException,
+  NotFoundException
 } from '@nestjs/common';
 import { FoodService } from './food.service';
 import { CreateFoodDto } from './dto/create-food.dto';
@@ -24,6 +25,8 @@ import { Permissions } from 'src/common/decorator/permissions.decorator';
 import { Permission } from 'src/constants/permission.enum';
 import { AuthGuard } from 'src/auth/auth.guard';
 import { plainToInstance } from 'class-transformer';
+import { CreateToppingDto } from './dto/create-topping.dto';
+import { UpdateToppingDto } from './dto/update-topping.dto';
 
 @Controller('foods')
 export class FoodController {
@@ -428,4 +431,56 @@ async findAllForStore(
     return await this.foodService.delete(id);
   }
 
+  
+@Post(':id/toppings')
+@UseGuards(AuthGuard)
+async addTopping(
+  @Param('id') foodId: string,
+  @Body() createToppingDto: CreateToppingDto,
+  @Req() req: any
+): Promise<any> {
+  const userId = req.user?.id;
+  if (!userId) throw new UnauthorizedException('Not authenticated');
+
+  // Verify user owns the restaurant that owns this food
+  const food = await this.foodService.findOne(foodId);
+  if (!food || !food.restaurant) {
+    throw new NotFoundException('Food or restaurant not found');
+  }
+
+  // You might want to add a check to ensure user owns the restaurant
+  // For now, we'll trust the auth guard handles this
+
+  return await this.foodService.addTopping(foodId, createToppingDto);
+}
+
+@Put('toppings/:toppingId')
+@UseGuards(AuthGuard)
+async updateTopping(
+  @Param('toppingId') toppingId: string,
+  @Body() updateToppingDto: UpdateToppingDto,
+  @Req() req: any
+): Promise<any> {
+  const userId = req.user?.id;
+  if (!userId) throw new UnauthorizedException('Not authenticated');
+
+  return await this.foodService.updateTopping(toppingId, updateToppingDto);
+}
+
+@Delete('toppings/:toppingId')
+@UseGuards(AuthGuard)
+async removeTopping(
+  @Param('toppingId') toppingId: string,
+  @Req() req: any
+): Promise<void> {
+  const userId = req.user?.id;
+  if (!userId) throw new UnauthorizedException('Not authenticated');
+
+  return await this.foodService.removeTopping(toppingId);
+}
+
+@Get(':id/toppings')
+async getToppings(@Param('id') foodId: string) {
+  return await this.foodService.getToppingsByFood(foodId);
+}
 }

@@ -227,6 +227,7 @@ async registerDriver(dto: CreateShipperDto) {
     birthday: new Date(dto.birthday),
     role,
     isActive: true,
+    
   });
 
   await this.userRepo.save(user);

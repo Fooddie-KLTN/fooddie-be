@@ -25,10 +25,14 @@ import { QueueModule } from 'src/pg-boss/queue.module';
 import { Review } from 'src/entities/review.entity';
 import { Notification } from 'src/entities/notification.entity';
 import { ShippingDetail } from 'src/entities/shippingDetail.entity';
+import { SystemConstraint } from 'src/entities/systemConstaints.entity';
+import { SystemConstraintsService } from 'src/services/system-constraints.service';
+import { Topping } from 'src/entities/topping.entity';
 
 @Module({
 	imports: [
-		TypeOrmModule.forFeature([Order, OrderDetail, Checkout, User,Food, Role, Promotion, Restaurant, Address, Promotion, Review, Notification, ShippingDetail]),
+		TypeOrmModule.forFeature([Order,SystemConstraint, Topping,
+			 OrderDetail, Checkout, User,Food, Role, Promotion, Restaurant, Address, Promotion, Review, Notification, ShippingDetail]),
 		ConfigModule,
 		QueueModule,
 		JwtModule.registerAsync({
@@ -41,7 +45,9 @@ import { ShippingDetail } from 'src/entities/shippingDetail.entity';
 		}),
 	],
 	controllers: [PaymentController, DemoPaymentController],
-	providers: [PaymentService, MomoPaymentGateway,PromotionService, OrderService, UsersService, PromotionService, VnpayPaymentGateway, GoogleCloudStorageService ],
+	providers: [PaymentService, MomoPaymentGateway,PromotionService, OrderService, UsersService, PromotionService, VnpayPaymentGateway, GoogleCloudStorageService,
+		SystemConstraintsService
+	 ],
 	exports: [PaymentService],
 })
 export class PaymentModule { } 

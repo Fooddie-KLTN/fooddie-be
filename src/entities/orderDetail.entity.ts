@@ -38,4 +38,18 @@ export class OrderDetail {
     @Field({ nullable: true })
     @Column({ nullable: true })
     note: string;
+
+    // Add selected toppings as JSON column
+    @Field(() => [String], { nullable: true })
+    @Column({ type: 'simple-json', nullable: true, name: 'selected_toppings' })
+    selectedToppings?: Array<{
+        id: string;
+        name: string;
+        price: number;
+    }>;
+
+    // Add total topping price
+    @Field({ nullable: true })
+    @Column({ type: 'decimal', precision: 10, scale: 2, default: 0, name: 'topping_total' })
+    toppingTotal?: number;
 }
