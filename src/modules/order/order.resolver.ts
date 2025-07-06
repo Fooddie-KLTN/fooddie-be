@@ -696,7 +696,7 @@ export class OrderResolver {
         filter: (payload, variables, context) => {
             return (
                 payload.orderStatusUpdated.user.id === variables.userId &&
-                ['confirmed', 'delivering', 'completed', 'canceled'].includes(payload.orderStatusUpdated.status)
+                ['confirmed', 'delivering', 'shipper_received', 'completed', 'canceled'].includes(payload.orderStatusUpdated.status)
             );
         },
         resolve: (payload) => payload.orderStatusUpdated
@@ -767,7 +767,7 @@ export class OrderResolver {
                             platformShare: platformFee,
                             commissionRate: `${((order.shipperCommissionRate || 0.8) * 100).toFixed(0)}%`,
                             earningsPerKm: earningsPerKm,
-                            fuelCostEstimate: Math.round(distance * 1000), // 3,000đ per km
+                            fuelCostEstimate: Math.round(distance * 500), // 3,000đ per km
                             netEarnings: Math.max(0, shipperEarnings - (distance * 3000))
                         },
                         deliveryDetails: {
