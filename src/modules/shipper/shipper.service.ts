@@ -330,8 +330,12 @@ export class ShipperService {
 
 
     order.status = 'delivering'; // Set status to delivering for the shipper
-
     await this.orderRepository.save(order);
+
+    // 🚨 MISSING: Add this publish statement
+    await pubSub.publish('orderStatusUpdated', {
+      orderStatusUpdated: order
+    });
 
 
     const shippingDetail = order.shippingDetail;
@@ -423,6 +427,11 @@ async markOrderCompleted(orderId: string, shipperId: string) {
     await this.orderRepository.save(order);
 
     await this.orderService.updateOrderStatus(orderId, 'completed');
+    
+    // 🚨 ADD: Publish the status update
+    await pubSub.publish('orderStatusUpdated', {
+      orderStatusUpdated: order
+    });
     
     const shipper = await this.userRepository.findOne({
       where: { id: shipperId },
@@ -818,6 +827,11 @@ private calculateTrend(earningsData: number[]): string {
     // Update order status to canceled
     order.status = 'canceled';
     await this.orderRepository.save(order);
+
+    // 🚨 ADD: Publish the status update
+    await pubSub.publish('orderStatusUpdated', {
+      orderStatusUpdated: order
+    });
 
     shipper.activeDeliveries = Math.max((shipper.activeDeliveries || 1) - 1, 0);
     shipper.failedDeliveries = (shipper.failedDeliveries || 0) + 1; // Increment failed deliveries
