@@ -278,8 +278,8 @@ export class ShipperService {
 
     await this.shippingDetailRepository.save(shippingDetail);
 
-    // Update order status to delivering
-    order.status = 'delivering';
+    // Update order status to 'shipper_received'
+    order.status = 'shipper_received';
     await this.orderRepository.save(order);
 
     // Remove from pending assignments
@@ -313,6 +313,40 @@ export class ShipperService {
 
 
     return shippingDetail;
+  }
+
+  async getOrder(orderId: string, userId: string) {
+    const order = await this.orderRepository.findOne({
+      where: { id: orderId },
+      relations: ['restaurant', 'user', 'shippingDetail']
+    });
+
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+
+    if (!userId)
+      throw new BadRequestException('User ID is required');
+
+
+    order.status = 'delivering'; // Set status to delivering for the shipper
+
+    await this.orderRepository.save(order);
+
+
+    const shippingDetail = order.shippingDetail;
+
+    if (!shippingDetail)
+    {
+      throw new NotFoundException('Shipping detail not found for this order');
+    }
+
+    shippingDetail.status = ShippingStatus.SHIPPING;
+
+    await this.shippingDetailRepository.save(shippingDetail);
+
+
+    return order;
   }
 
   /**

@@ -22,6 +22,17 @@ export class ShipperController {
     return this.shipperService.assignOrderToShipper(orderId, shipperId, responseTimeSeconds);
   }
 
+  @Post('get-order')
+  @UseGuards(AuthGuard)
+  async getOrder(@Body('orderId') orderId: string, @Req() req
+  ) {
+    const userId = req.user?.userId || req.user?.uid || req.user?.id;
+    if (!orderId) {
+      throw new BadRequestException('Order ID is required');
+    }
+    return this.shipperService.getOrder(orderId, userId);
+  }
+
   @UseGuards(AuthGuard)
   @Post('complete-order')
   async completeOrder(@Body('orderId') orderId: string, @Req() req) {
