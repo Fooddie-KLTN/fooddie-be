@@ -55,9 +55,9 @@ import { NotificationModule } from './modules/notification/notification.module';
         migrationsRun: false,
         migrationsTableName: 'migrations',
         autoLoadEntities: true,
-        ssl: {
-          rejectUnauthorized: false,
-        },
+        // ssl: {
+        //   rejectUnauthorized: false,
+        // },
         // Memory optimizations
         keepConnectionAlive: false,
         retryAttempts: 1,
