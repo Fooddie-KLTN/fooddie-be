@@ -37,7 +37,7 @@ export class Order {
     @Field({ nullable: true })
     @Column({
         type: 'enum',
-        enum: ['pending', 'confirmed', 'delivering', 'completed', 'canceled', 'processing_payment'],
+        enum: ['pending', 'confirmed', 'delivering', 'shipper_received' , 'completed', 'canceled', 'processing_payment'],
         default: 'pending',
         nullable: true,
     })
