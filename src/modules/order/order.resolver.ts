@@ -793,7 +793,7 @@ export class OrderResolver {
         @Args('shipperId') shipperId: string,
         @Args('latitude') latitude: string,
         @Args('longitude') longitude: string,
-        @Args('maxDistance', { nullable: true, defaultValue: 5 }) maxDistance: number,
+        @Args('maxDistance', { nullable: true, defaultValue: 20 }) maxDistance: number,
         @Context() context
     ) {
         this.logger.log(`🔗 Shipper ${shipperId} attempting to subscribe with location ${latitude}, ${longitude}`);
