@@ -30,13 +30,16 @@ export class OrderController {
 
     // Map orderDetails if present
     const orderDetails = Array.isArray(body.orderDetails)
-      ? body.orderDetails.map((detail: any) => ({
-          foodId: detail.foodId,
-          quantity: detail.quantity,
-          price: detail.price,
-          note: detail.note || '',
-        }))
-      : [];
+    ? body.orderDetails.map((detail: any) => ({
+        foodId: detail.foodId,
+        quantity: detail.quantity,
+        price: detail.price,
+        note: detail.note || '',
+        selectedToppings: detail.selectedToppings || [],
+        discountPercent: detail.discountPercent ?? 0,
+      }))
+    : [];
+  
 
     // Map to DTO
     const createOrderDto: CreateOrderDto = {

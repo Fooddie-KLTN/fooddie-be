@@ -13,12 +13,6 @@ export class SelectedToppingDto {
   @IsNotEmpty()
   @IsNumber()
   price: number;
-
-  @IsOptional()
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => SelectedToppingDto)
-  selectedToppings?: SelectedToppingDto[];
 }
 
 export class CreateOrderDetailDto {
@@ -37,6 +31,16 @@ export class CreateOrderDetailDto {
   @IsOptional()
   @IsString()
   note?: string;
+
+  @IsOptional()
+  @IsNumber()
+  discountPercent?: number;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => SelectedToppingDto)
+  selectedToppings?: SelectedToppingDto[];
 }
 
 export class CreateOrderDto {

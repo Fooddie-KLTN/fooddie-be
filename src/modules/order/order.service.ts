@@ -60,101 +60,128 @@ export class OrderService {
         private readonly systemConstraintsService: SystemConstraintsService, // Inject SystemConstraintsService
     ) { }
 
+    
     private async validateAndCalculateOrderDetails(
-        orderDetails: { 
-            foodId: string; 
-            quantity: string; 
-            selectedToppings?: Array<{id: string; name: string; price: number}> 
+        orderDetails: {
+          foodId: string;
+          quantity: string;
+          price?: string; // optional từ client, không dùng để tính
+          selectedToppings?: Array<{ id: string; name: string; price: number }>;
+          discountPercent?: number; // thêm nếu client gửi
         }[],
-    ): Promise<{ calculatedTotal: number; foodDetails: { 
-        food: Food; 
-        quantity: number; 
-        selectedToppings?: Array<{id: string; name: string; price: number}>;
-        toppingTotal: number;
-    }[] }> {
+      ): Promise<{
+        calculatedTotal: number;
+        foodDetails: {
+            food: Food;
+            quantity: number;
+            selectedToppings?: { id: string; name: string; price: number }[];
+            toppingTotal: number;
+            discountPercent: number;
+            discountedPrice: number;
+            itemTotal: number;
+        }[];
+      }> {
         let calculatedTotal = 0;
-        const foodDetails: { 
-            food: Food; 
-            quantity: number; 
-            selectedToppings?: Array<{id: string; name: string; price: number}>;
+        const foodDetails: Array<{
+            food: Food;
+            quantity: number;
+            selectedToppings?: { id: string; name: string; price: number }[];
             toppingTotal: number;
-        }[] = [];
-
+            discountPercent: number;
+            discountedPrice: number;
+            itemTotal: number;
+          }> = [];
+      
         for (const detail of orderDetails) {
-            const food = await this.foodRepository.findOne({ 
-                where: { id: detail.foodId },
-                relations: ['toppings']
-            });
-            
-            if (!food) throw new NotFoundException(`Food with ID ${detail.foodId} not found`);
-            
-            // Calculate food price
-            const quantity = Number(detail.quantity);
-            let itemTotal = Number(food.price) * quantity;
-            
-            // Calculate topping prices
-            let toppingTotal = 0;
-            let validatedToppings: Array<{id: string; name: string; price: number}> = [];
-            
-            if (detail.selectedToppings && detail.selectedToppings.length > 0) {
-                for (const selectedTopping of detail.selectedToppings) {
-                    // Validate topping exists and belongs to this food
-                    const topping = await this.toppingRepository.findOne({
-                        where: { 
-                            id: selectedTopping.id,
-                            food: { id: detail.foodId },
-                            isAvailable: true
-                        }
-                    });
-                    
-                    if (!topping) {
-                        throw new BadRequestException(`Topping ${selectedTopping.name} is not available for this food`);
-                    }
-                    
-                    // Verify price matches (prevent price manipulation)
-                    if (Math.abs(topping.price - selectedTopping.price) > 0.01) {
-                        throw new BadRequestException(`Invalid topping price for ${topping.name}`);
-                    }
-                    
-                    toppingTotal += topping.price * quantity;
-                    validatedToppings.push({
-                        id: topping.id,
-                        name: topping.name,
-                        price: topping.price
-                    });
-                }
+            console.log(">>>>> Received selectedToppings:", detail.selectedToppings);
+          const food = await this.foodRepository.findOne({
+            where: { id: detail.foodId },
+            relations: ['toppings'],
+          });
+      
+          if (!food) {
+            throw new NotFoundException(`Food with ID ${detail.foodId} not found`);
+          }
+      
+          const quantity = Number(detail.quantity);
+          if (isNaN(quantity) || quantity <= 0) {
+            throw new BadRequestException(`Invalid quantity for food ID ${detail.foodId}`);
+          }
+      
+          // Discount xử lý
+          const basePrice = Number(food.price);
+          const discountPercent = detail.discountPercent ?? food.discountPercent ?? 0;
+          const discountedPrice = basePrice - (basePrice * discountPercent) / 100;
+      
+          // Xử lý topping
+          let toppingTotal = 0;
+          let validatedToppings: Array<{ id: string; name: string; price: number }> = [];
+      
+          if (detail.selectedToppings && detail.selectedToppings.length > 0) {
+            for (const selectedTopping of detail.selectedToppings) {
+              const topping = await this.toppingRepository.findOne({
+                where: {
+                  id: selectedTopping.id,
+                  food: { id: detail.foodId },
+                  isAvailable: true,
+                },
+              });
+      
+              if (!topping) {
+                throw new BadRequestException(`Topping ${selectedTopping.name} is not available for this food`);
+              }
+      
+              if (Math.abs(topping.price - selectedTopping.price) > 0.01) {
+                throw new BadRequestException(`Invalid topping price for ${topping.name}`);
+              }
+      
+              toppingTotal += topping.price * quantity;
+              validatedToppings.push({
+                id: topping.id,
+                name: topping.name,
+                price: topping.price,
+              });
             }
-            
-            itemTotal += toppingTotal;
-            calculatedTotal += itemTotal;
-            
-            foodDetails.push({ 
-                food, 
-                quantity,
-                selectedToppings: validatedToppings,
-                toppingTotal
-            });
+          }
+          console.log(`Topping total for food ${food.name}: ${toppingTotal}`);
+          const itemTotal = (discountedPrice * quantity) + toppingTotal;
+          calculatedTotal += itemTotal;
+      
+          foodDetails.push({
+            food,
+            quantity,
+            selectedToppings: validatedToppings,
+            toppingTotal,
+            discountPercent,
+            discountedPrice,
+            itemTotal,
+          });
         }
-
+        console.log(`topping total: ${foodDetails.map(f => f.toppingTotal).reduce((a, b) => a + b, 0)}`);
+        console.log(`Calculated total for order: ${calculatedTotal}`);
         return { calculatedTotal, foodDetails };
-    }
-
-    private async createOrderDetails(
+      }
+      
+      private async createOrderDetails(
         order: Order,
-        foodDetails: { 
-            food: Food; 
-            quantity: number; 
-            selectedToppings?: Array<{id: string; name: string; price: number}>;
-            toppingTotal: number;
+        foodDetails: {
+          food: Food;
+          quantity: number;
+          selectedToppings?: Array<{ id: string; name: string; price: number }>;
+          toppingTotal: number;
+          discountPercent: number;
+          discountedPrice: number;
+          itemTotal: number;
         }[],
         queryRunner: any,
-    ): Promise<void> {
+      ): Promise<void> {
+      
         for (const detail of foodDetails) {
             const orderDetail = new OrderDetail();
             orderDetail.order = order;
             orderDetail.food = detail.food;
             orderDetail.quantity = detail.quantity;
-            orderDetail.price = String(detail.food.price);
+            orderDetail.price = String(detail.discountedPrice); // ✅ giá sau giảm
             orderDetail.selectedToppings = detail.selectedToppings || [];
             orderDetail.toppingTotal = detail.toppingTotal;
             
@@ -198,7 +225,7 @@ export class OrderService {
             const orderCalculation = await this.calculateOrderWithConstraints({
                 addressId: data.addressId,
                 restaurantId: data.restaurantId,
-                items: data.orderDetails.map(item => ({ foodId: item.foodId, quantity: Number(item.quantity) })),
+                items: data.orderDetails.map(item => ({ foodId: item.foodId, quantity: Number(item.quantity), toppings: item.selectedToppings, discountPercent: item.discountPercent })),
                 promotionCode: data.promotionCode,
                 deliveryDistance
             });
@@ -251,6 +278,7 @@ export class OrderService {
 
             await queryRunner.commitTransaction();
             this.logger.log(`✅ Enhanced order transaction committed for order ID: ${savedOrder.id}`);
+            console.log(`Order created successfully with ID: ${savedOrder.id}`);
             return await this.getOrderById(savedOrder.id);
 
         } catch (error) {
@@ -520,64 +548,81 @@ export class OrderService {
     private async calculateOrderWithConstraints(data: {
         addressId: string,
         restaurantId: string,
-        items: { foodId: string, quantity: number }[],
+        items: {
+          foodId: string;
+          quantity: number;
+          discountPercent?: number;
+          toppings?: { id: string; price: number }[];
+        }[],
         promotionCode?: string,
         deliveryDistance: number
-    }) {
+      }) {
         const { deliveryDistance } = data;
         const shippingFee = await this.systemConstraintsService.calculateShippingFee(deliveryDistance);
         const maxDeliveryTime = await this.systemConstraintsService.getMaxDeliveryTime();
         const estimatedDeliveryTime = Math.min(maxDeliveryTime, Math.ceil(deliveryDistance * 2) + 20);
-
-        // Calculate shipper earnings (80% commission by default)
+      
         const shipperCommissionRate = 0.8;
         const shipperEarnings = Math.round(shippingFee * shipperCommissionRate);
         const platformFee = shippingFee - shipperEarnings;
-
+      
         let foodTotal = 0;
         for (const item of data.items) {
             const food = await this.foodRepository.findOne({ where: { id: item.foodId } });
-            if (food) foodTotal += Number(food.price) * item.quantity;
-        }
-
+            if (!food) continue;
+          
+            const discountPercent = item.discountPercent || food.discountPercent || 0;
+            const discountedPrice = Number(food.price) - (Number(food.price) * discountPercent) / 100;
+          
+            const toppingTotal = (item.toppings || []).reduce((sum, t) => sum + Number(t.price), 0);
+          
+            foodTotal += (discountedPrice + toppingTotal) * item.quantity;
+          }
+      
         let appliedPromotion: Promotion | null = null;
         let promotionDiscount = 0;
         let promotionError: string | null = null;
         const subtotal = foodTotal + shippingFee;
-
+      
         if (data.promotionCode) {
-            const validation = await this.promotionService.validatePromotion(data.promotionCode, subtotal);
-            if (validation.valid && validation.promotion) {
-                appliedPromotion = validation.promotion;
-                promotionDiscount = validation.calculatedDiscount || 0;
-            } else {
-                promotionError = validation.reason || 'Invalid promotion code.';
-            }
+          const validation = await this.promotionService.validatePromotion(data.promotionCode, subtotal);
+          if (validation.valid && validation.promotion) {
+            appliedPromotion = validation.promotion;
+            promotionDiscount = validation.calculatedDiscount || 0;
+          } else {
+            promotionError = validation.reason || 'Invalid promotion code.';
+          }
         }
-
+      
         const total = Math.max(0, subtotal - promotionDiscount);
-
-        return { 
-            foodTotal, 
-            shippingFee, 
-            shipperEarnings,
-            shipperCommissionRate,
-            platformFee,
-            distance: Number(deliveryDistance.toFixed(2)), 
-            subtotal, 
-            promotionDiscount, 
-            total, 
-            estimatedDeliveryTime, 
-            appliedPromotion, 
-            promotionError 
+        console.log(`>>>>>>>>>>Final Total: ${total}`);
+        return {
+          foodTotal,
+          shippingFee,
+          shipperEarnings,
+          shipperCommissionRate,
+          platformFee,
+          distance: Number(deliveryDistance.toFixed(2)),
+          subtotal,
+          promotionDiscount,
+          total,
+          estimatedDeliveryTime,
+          appliedPromotion,
+          promotionError
         };
-    }
+      }
+      
 
     // This method is now a wrapper for the new constrained calculation
     async calculateOrder(data: {
         addressId: string,
         restaurantId: string,
-        items: { foodId: string, quantity: number }[],
+        items: {
+            foodId: string;
+            quantity: number;
+            discountPercent?: number;
+            toppings?: { id: string; price: number }[];
+          }[],
         promotionCode?: string
     }) {
         const address = await this.addressRepository.findOne({ where: { id: data.addressId } });
@@ -603,7 +648,12 @@ export class OrderService {
           label?: string;
         },
         restaurantId: string,
-        items: { foodId: string; quantity: number }[],
+        items: {
+            foodId: string;
+            quantity: number;
+            discountPercent?: number;
+            toppings?: { id: string; price: number }[];
+          }[],
         promotionCode?: string
       ) {
         // 1. Fetch restaurant with address
@@ -632,8 +682,15 @@ export class OrderService {
         for (const item of items) {
           const food = await this.foodRepository.findOne({ where: { id: item.foodId } });
           if (!food) continue;
-          foodTotal += Number(food.price) * item.quantity;
+        
+          const basePrice = Number(food.price);
+          const discountPercent = item.discountPercent ?? 0;
+          const discountedPrice = basePrice - (basePrice * discountPercent) / 100;
+          const toppingTotal = item.toppings?.reduce((sum, t) => sum + Number(t.price), 0) || 0;
+        
+          foodTotal += (discountedPrice + toppingTotal) * item.quantity;
         }
+        
       
         let promotionDiscount = 0;
         let appliedPromotion: Promotion | null = null;

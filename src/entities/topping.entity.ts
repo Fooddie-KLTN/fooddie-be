@@ -14,10 +14,6 @@ export class Topping {
     name: string;
 
     @Field()
-    @Column()
-    image: string; // URL to the topping image
-
-    @Field()
     @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
     price: number; // 0 means free topping
 
