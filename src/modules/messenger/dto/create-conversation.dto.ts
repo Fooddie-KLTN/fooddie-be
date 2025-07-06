@@ -7,19 +7,19 @@ export class CreateConversationDto {
     @Field({ nullable: true })
     @IsOptional()
     @IsString()
-    participantId?: string; // O
+    participantId?: string;
 
     @Field({ nullable: true })
     @IsOptional()
     @IsString()
-    orderId?: string; // Required for shipper conversations
+    orderId?: string;
 
     @Field({ nullable: true })
     @IsOptional()
     @IsString()
-    restaurantId?: string; // Required for shop conversations
+    restaurantId?: string;
 
-    @Field({ nullable: true })
+    @Field(() => ConversationType, { nullable: true }) // Added explicit type reference
     @IsOptional()
     @IsEnum(ConversationType)
     conversationType?: ConversationType;
