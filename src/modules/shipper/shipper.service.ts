@@ -512,6 +512,7 @@ async markOrderCompleted(orderId: string, shipperId: string) {
         id: order.id,
         code: `ĐH${order.id.slice(0, 4).toUpperCase()}`,
         status: detail.status,
+        
         shipFee: 10000,
         total: order.total,
         user: {
