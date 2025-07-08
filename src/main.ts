@@ -5,14 +5,39 @@ import { AppModule } from './app.module';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 
 async function bootstrap(): Promise<void> {
+  // Define allowed origins
+  const allowedOrigins = [
+    'http://localhost:3000',
+    'http://localhost:3001',
+    'https://fooddie-fe.onrender.com'
+  ];
+
+  // Add additional origins from environment variable if provided
+  if (process.env.ALLOWED_ORIGINS) {
+    const envOrigins = process.env.ALLOWED_ORIGINS.split(',');
+    allowedOrigins.push(...envOrigins);
+  }
+
   const app: INestApplication = await NestFactory.create(
     AppModule, 
     new ExpressAdapter(),
     {
       cors: {
-        origin: 'https://fooddie-fe.onrender.com', 
-        methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+        origin: allowedOrigins,
+        methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+        allowedHeaders: [
+          'Content-Type', 
+          'Authorization', 
+          'Accept', 
+          'Origin', 
+          'X-Requested-With',
+          'Access-Control-Allow-Headers',
+          'Access-Control-Request-Method',
+          'Access-Control-Request-Headers'
+        ],
         credentials: true,
+        preflightContinue: false,
+        optionsSuccessStatus: 204,
       },
       logger: process.env.NODE_ENV === 'production' ? ['error', 'warn'] : ['log', 'debug', 'error', 'verbose', 'warn'],
     }
@@ -45,11 +70,11 @@ async function bootstrap(): Promise<void> {
   if (process.env.NODE_ENV !== 'production') {
     console.log(`Application is running on: http://localhost:${port}`);
     console.log(`Swagger documentation: http://localhost:${port}/api`);
+    console.log('Allowed CORS origins:', allowedOrigins);
   }
 }
 
 bootstrap()
-
   .catch(error => {
     console.error('Error starting server:', error);
     process.exit(1);
