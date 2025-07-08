@@ -695,7 +695,7 @@ export class OrderResolver {
     @Subscription(() => Order, {
         filter: (payload, variables, context) => {
             return (
-                payload.orderStatusUpdated.user.id === variables.userId &&
+                payload.orderStatusUpdated.user.id === variables.userId  &&
                 ['confirmed', 'delivering', 'shipper_received', 'completed', 'canceled'].includes(payload.orderStatusUpdated.status)
             );
         },

@@ -386,11 +386,12 @@ export class PendingAssignmentService implements OnModuleInit {
             
             if (!nearestShipper) {
                 // this.logger.log(`😞 No available shippers found for order ${orderId}, scheduling retry...`);
+                // Don't change isSentToShipper when no shippers available
                 await this.scheduleRetryForAssignment(assignment);
                 return;
             }
 
-            // Notify ONLY this one shipper with enhanced earnings info
+            // Only proceed with notification and database update if we have a shipper
             // this.logger.log(`📡 Notifying shipper ${nearestShipper.shipperId} about order ${orderId}...`);
 
             // Calculate earnings info before sending
@@ -417,8 +418,8 @@ export class PendingAssignmentService implements OnModuleInit {
                 }
             });
 
+            // Only update isSentToShipper AFTER successfully publishing
             assignment.isSentToShipper = true;
-
             await this.pendingAssignmentRepository.save(assignment);
 
             // Track that this shipper was notified
@@ -442,7 +443,7 @@ export class PendingAssignmentService implements OnModuleInit {
                         return;
                     }
                     
-                    // Update the assignment to mark it as not sent to shipper
+                    // Reset the flag to allow finding another shipper
                     latestAssignment.isSentToShipper = false;
                     await this.pendingAssignmentRepository.save(latestAssignment);
                     
@@ -472,7 +473,7 @@ export class PendingAssignmentService implements OnModuleInit {
         } catch (error) {
             this.logger.error(`💥 Error processing shipper assignment job ${job.id}:`, error);
             
-            // Update assignment attempt count on error
+            // Update assignment attempt count on error (but don't change isSentToShipper)
             try {
                 const assignment = await this.pendingAssignmentRepository.findOne({
                     where: { id: pendingAssignmentId }
@@ -604,7 +605,8 @@ export class PendingAssignmentService implements OnModuleInit {
             latestAssignment.attemptCount += 1;
             latestAssignment.lastAttemptAt = new Date();
             latestAssignment.nextAttemptAt = nextAttempt;
-            latestAssignment.isSentToShipper = false; // Reset the flag for retry
+            // Don't reset isSentToShipper here - let it remain as is
+            // Only reset when we actually find a new shipper to notify
 
             await this.pendingAssignmentRepository.save(latestAssignment);
             

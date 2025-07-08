@@ -330,6 +330,9 @@ export class ShipperService {
 
 
     order.status = 'delivering'; // Set status to delivering for the shipper
+
+        await this.orderService.updateOrderStatus(orderId, 'delivering');
+
     await this.orderRepository.save(order);
 
     // 🚨 MISSING: Add this publish statement
