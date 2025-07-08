@@ -315,43 +315,48 @@ export class ShipperService {
     return shippingDetail;
   }
 
-  async getOrder(orderId: string, userId: string) {
-    const order = await this.orderRepository.findOne({
-      where: { id: orderId },
-      relations: ['restaurant', 'user', 'shippingDetail']
+  async getOrder(orderId: string, shipperId: string) {
+    // Find the shipping detail using both order ID and shipper ID, similar to markOrderCompleted
+    const shippingDetail = await this.shippingDetailRepository.findOne({
+      where: {
+        order: { id: orderId },
+        shipper: { id: shipperId },
+      },
+      relations: ['order', 'order.restaurant', 'order.user', 'order.address', 'order.orderDetails', 'order.orderDetails.food', 'shipper'],
     });
+
+    if (!shippingDetail) {
+      throw new NotFoundException('Shipping detail not found for this order and shipper');
+    }
+
+    const order = shippingDetail.order;
 
     if (!order) {
       throw new NotFoundException('Order not found');
     }
 
-    if (!userId)
-      throw new BadRequestException('User ID is required');
+    // Verify the shipper is assigned to this order
+    if (shippingDetail.shipper.id !== shipperId) {
+      throw new BadRequestException('You are not assigned to this order');
+    }
 
-
-    order.status = 'delivering'; // Set status to delivering for the shipper
-
-        await this.orderService.updateOrderStatus(orderId, 'delivering');
-
+    // Update order status to 'delivering' when shipper picks up the order
+    order.status = 'delivering';
     await this.orderRepository.save(order);
 
-    // 🚨 MISSING: Add this publish statement
+    // Update order service status
+    await this.orderService.updateOrderStatus(orderId, 'delivering');
+
+    // Publish the status update
     await pubSub.publish('orderStatusUpdated', {
       orderStatusUpdated: order
     });
 
-
-    const shippingDetail = order.shippingDetail;
-
-    if (!shippingDetail)
-    {
-      throw new NotFoundException('Shipping detail not found for this order');
-    }
-
+    // Update shipping detail status to SHIPPING
     shippingDetail.status = ShippingStatus.SHIPPING;
-
     await this.shippingDetailRepository.save(shippingDetail);
 
+    this.logger.log(`📦 Shipper ${shipperId} picked up order ${orderId}, status updated to delivering`);
 
     return order;
   }
@@ -451,7 +456,55 @@ async markOrderCompleted(orderId: string, shipperId: string) {
       : 0;
 
     const isOnTime = deliveryTime <= (order.estimatedDeliveryTime || 30);
-    const shipperEarnings = order.shipperEarnings || 0;
+    
+    // 🔥 IMPROVED EARNINGS CALCULATION - More profitable for shippers
+    let shipperEarnings = 0;
+    
+    // Base earnings calculation
+    const shippingFee = order.shippingFee || 25000; // Default 25k VND if not set
+    const baseCommissionRate = 0.85; // 85% of shipping fee (increased from 80%)
+    
+    // Distance-based bonus
+    const distance = order.deliveryDistance || 2; // Default 2km if not set
+    const distanceBonus = Math.max(0, (distance - 1) * 5000); // 5k VND per km after 1km
+    
+    // Order value bonus (encourage high-value deliveries)
+    const orderValueBonus = Math.min(10000, (order.total || 0) * 0.01); // 1% of order value, max 10k
+    
+    // Time-based bonus (peak hours, late night)
+    const hour = new Date().getHours();
+    let timeBonus = 0;
+    if ((hour >= 11 && hour <= 13) || (hour >= 17 && hour <= 20)) {
+      timeBonus = 5000; // Peak lunch/dinner hours
+    } else if (hour >= 22 || hour <= 6) {
+      timeBonus = 8000; // Late night/early morning
+    }
+    
+    // On-time delivery bonus
+    const onTimeBonus = isOnTime ? 3000 : 0;
+    
+    // Performance bonus based on shipper stats
+    const completedDeliveries = shipper.completedDeliveries || 0;
+    const performanceBonus = completedDeliveries > 100 ? 2000 : 
+                           completedDeliveries > 50 ? 1000 : 
+                           completedDeliveries > 20 ? 500 : 0;
+    
+    // Calculate final earnings
+    const baseEarnings = Math.round(shippingFee * baseCommissionRate);
+    shipperEarnings = baseEarnings + distanceBonus + orderValueBonus + timeBonus + onTimeBonus + performanceBonus;
+    
+    // Minimum earnings guarantee
+    const minimumEarnings = 20000; // Minimum 20k VND per delivery
+    shipperEarnings = Math.max(shipperEarnings, minimumEarnings);
+    
+    // Update the order with calculated earnings if not already set
+    if (!order.shipperEarnings || order.shipperEarnings === 0) {
+      order.shipperEarnings = shipperEarnings;
+      await this.orderRepository.save(order);
+    } else {
+      // Use existing earnings if already calculated
+      shipperEarnings = order.shipperEarnings;
+    }
 
     // Update shipper statistics with comprehensive tracking
     shipper.completedDeliveries = (shipper.completedDeliveries || 0) + 1;
@@ -482,15 +535,27 @@ async markOrderCompleted(orderId: string, shipperId: string) {
 
     this.logger.log(`✅ Order ${orderId} completed by shipper ${shipperId}. Earnings: ${shipperEarnings}đ, On-time: ${isOnTime}`);
 
+    // Return detailed earnings breakdown
     return { 
       message: 'Đơn hàng đã được hoàn thành',
       earnings: shipperEarnings,
+      earningsBreakdown: {
+        baseEarnings: baseEarnings,
+        distanceBonus: distanceBonus,
+        orderValueBonus: orderValueBonus,
+        timeBonus: timeBonus,
+        onTimeBonus: onTimeBonus,
+        performanceBonus: performanceBonus,
+        totalEarnings: shipperEarnings,
+        breakdown: `Base: ${baseEarnings}đ + Distance: ${distanceBonus}đ + Value: ${orderValueBonus}đ + Time: ${timeBonus}đ + OnTime: ${onTimeBonus}đ + Performance: ${performanceBonus}đ = ${shipperEarnings}đ`
+      },
       isOnTime,
       deliveryTime: Math.round(deliveryTime),
-      totalCompletedDeliveries: shipper.completedDeliveries
+      totalCompletedDeliveries: shipper.completedDeliveries,
+      distance: distance,
+      orderValue: order.total
     };
-}
-
+  }
 
   async getCompletedOrdersByShipper(shipperId: string) {
     const completedDetails = await this.shippingDetailRepository.find({

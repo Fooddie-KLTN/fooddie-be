@@ -779,7 +779,7 @@ export class OrderResolver {
                         },
                         financialSummary: {
                             grossEarnings: `${shipperEarnings.toLocaleString()}đ`,
-                            estimatedFuelCost: `${Math.round(distance * 3000).toLocaleString()}đ`,
+                            estimatedFuelCost: `${Math.round(distance * 500).toLocaleString()}đ`,
                             netProfit: `${Math.max(0, shipperEarnings - (distance * 3000)).toLocaleString()}đ`,
                             profitMargin: shippingFee > 0 ? `${(((shipperEarnings - (distance * 3000)) / shippingFee) * 100).toFixed(1)}%` : '0%',
                             isProfitable: shipperEarnings > (distance * 3000)
