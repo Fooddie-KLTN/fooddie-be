@@ -44,22 +44,21 @@ export class FoodController {
     };
     const dto = plainToInstance(CreateFoodDto, cleanedDto);
     return await this.foodService.createIfOwner(dto, userId);
-  }
-
-@Get('all')
-@UseGuards(RolesGuard)
-@Permissions(Permission.FOOD.READ)
-async findAllForStore(
-  @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
-  @Query('pageSize', new DefaultValuePipe(10), ParseIntPipe) pageSize: number,
-  @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number, // Add limit param
-  @Query('search') search?: string, // Add search param
-  @Query('restaurantId') restaurantId?: string,
-  @Query('categoryId') categoryId?: string,
-  @Query('status') status?: string, // Add status param
-  @Query('lat') lat?: number,
-  @Query('lng') lng?: number,
-) {
+  }  @Get('all')
+  @UseGuards(RolesGuard)
+  @Permissions(Permission.FOOD.READ)
+  async findAllForStore(
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('pageSize', new DefaultValuePipe(10), ParseIntPipe) pageSize: number,
+    @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number, // Add limit param
+    @Query('search') search?: string, // Add search param
+    @Query('restaurantId') restaurantId?: string,
+    @Query('categoryId') categoryId?: string,
+    @Query('status') status?: string, // Add status param
+    @Query('sortBy') sortBy?: 'newest' | 'nearby' | 'hot' | 'most_review' | 'most_buy' | 'rating' | 'price' | 'name',
+    @Query('lat') lat?: number,
+    @Query('lng') lng?: number,
+  ) {
 
   // Use limit if provided, otherwise use pageSize
   const actualPageSize = limit || pageSize;
@@ -93,7 +92,8 @@ async findAllForStore(
       latitude,
       longitude,
       normalizedRestaurantId,
-      normalizedCategoryId
+      normalizedCategoryId,
+      sortBy
     );
   }
 
@@ -107,7 +107,8 @@ async findAllForStore(
       actualPageSize,
       latitude,
       longitude,
-      normalizedStatus // Pass status filter
+      normalizedStatus, // Pass status filter
+      sortBy
     );
   } else if (normalizedRestaurantId) {
     // Restaurant filter only
@@ -117,7 +118,8 @@ async findAllForStore(
       actualPageSize,
       latitude,
       longitude,
-      normalizedStatus // Pass status filter
+      normalizedStatus, // Pass status filter
+      sortBy
     );
   } else if (normalizedCategoryId) {
     // Category filter only

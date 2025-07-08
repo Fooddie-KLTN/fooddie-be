@@ -9,7 +9,11 @@ async function bootstrap(): Promise<void> {
     AppModule, 
     new ExpressAdapter(),
     {
-      cors: true,
+      cors: {
+        origin: 'https://fooddie-fe.onrender.com', 
+        methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+        credentials: true,
+      },
       logger: process.env.NODE_ENV === 'production' ? ['error', 'warn'] : ['log', 'debug', 'error', 'verbose', 'warn'],
     }
   );

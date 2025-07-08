@@ -16,6 +16,8 @@ import { fdatasync } from 'fs';
 import { CreateToppingDto } from './dto/create-topping.dto';
 import { UpdateToppingDto } from './dto/update-topping.dto';
 
+type FoodSortType = 'newest' | 'nearby' | 'hot' | 'most_review' | 'most_buy' | 'rating' | 'price' | 'name';
+
 @Injectable()
 export class FoodService {
     constructor(
@@ -155,15 +157,8 @@ export class FoodService {
 
     /**
      * Get all foods with pagination
-     * 
-     * @param page The page number
-     * @param pageSize The number of items per page
-     * @param lat Latitude for distance calculation
-     * @param lng Longitude for distance calculation
-     * @param status Status filter (available, hidden, etc.)
-     * @returns List of all foods with pagination metadata
      */
-    async findAll(page = 1, pageSize = 10, lat?: number, lng?: number, status?: string): Promise<{
+    async findAll(page = 1, pageSize = 10, lat?: number, lng?: number, status?: string, sortBy?: FoodSortType): Promise<{
         items: any[];
         totalItems: number;
         page: number;
@@ -179,13 +174,16 @@ export class FoodService {
             queryBuilder.where('food.status = :status', { status });
         }
 
+        // Apply sorting using helper
+        this.applySortingToQueryBuilder(queryBuilder, sortBy);
+
         queryBuilder
             .skip((page - 1) * pageSize)
             .take(pageSize);
 
         const [items, totalItems] = await queryBuilder.getManyAndCount();
 
-        const itemsWithDistance = items.map(food => {
+        let itemsWithDistance = items.map(food => {
             let distance: number | null = null;
             if (lat && lng && food.restaurant?.latitude && food.restaurant?.longitude) {
                 distance = haversineDistance(
@@ -197,6 +195,11 @@ export class FoodService {
             }
             return { ...food, distance };
         });
+
+        // Apply post-query sorting if needed (for distance-based sorts)
+        if (sortBy === 'nearby' && lat && lng) {
+            itemsWithDistance = this.applySorting(itemsWithDistance, sortBy, lat, lng);
+        }
 
         return {
             items: itemsWithDistance,
@@ -217,6 +220,7 @@ export class FoodService {
         lng?: number,
         restaurantId?: string,
         categoryId?: string,
+        sortBy?: FoodSortType,
         radius = 99999 // Large radius for admin search
     ): Promise<{
         items: any[];
@@ -234,90 +238,94 @@ export class FoodService {
             lng,
             restaurantId,
             categoryId,
+            sortBy,
             radius
         });
 
         const queryBuilder = this.foodRepository.createQueryBuilder('food')
             .leftJoinAndSelect('food.restaurant', 'restaurant')
             .leftJoinAndSelect('food.category', 'category')
-        // Add search condition
-        if (query && query.trim()) {
-            queryBuilder.where('food.name ILIKE :query OR food.description ILIKE :query', {
-                query: `%${query.trim()}%`
-            });
-            console.log('Added search filter for:', query.trim());
-        }
-
-        // Add restaurant filter if provided
-        if (restaurantId) {
-            const whereMethod = query && query.trim() ? 'andWhere' : 'where';
-            queryBuilder[whereMethod]('food.restaurant_id = :restaurantId', { restaurantId });
-            console.log('Added restaurant filter:', restaurantId);
-        }
-
-        // Add category filter if provided
-        if (categoryId) {
-            const whereMethod = (query && query.trim()) || restaurantId ? 'andWhere' : 'where';
-            queryBuilder[whereMethod]('food.category_id = :categoryId', { categoryId });
-            console.log('Added category filter:', categoryId);
-        }
-
-        console.log('Query SQL:', queryBuilder.getQuery());
-        console.log('Query parameters:', queryBuilder.getParameters());
-
-        // Get all matching items first
-        let items = await queryBuilder.getMany();
-        console.log('Raw items found:', items.length);
-
-        if (items.length > 0) {
-            console.log('First item example:', {
-                id: items[0].id,
-                name: items[0].name,
-                restaurant: items[0].restaurant?.name,
-                category: items[0].category?.name
-            });
-        }
-
-        // Add distance and apply location filtering if coordinates provided
-        if (lat && lng) {
-            console.log('Applying distance filtering...');
-            const beforeFilter = items.length;
-
-            items = items
-                .filter(f => f.restaurant?.latitude && f.restaurant?.longitude)
-                .map(f => ({
-                    ...f,
-                    distance: haversineDistance(lat, lng, Number(f.restaurant.latitude), Number(f.restaurant.longitude))
-                }))
-                .filter(f => f.distance <= radius)
-                .sort((a, b) => a.distance - b.distance);
-
-            console.log(`Distance filter: ${beforeFilter} -> ${items.length} (within ${radius}km)`);
-        } else {
-            // Add null distance for consistency
-            items = items.map(f => ({ ...f, distance: null }));
-        }
-
-        // Calculate pagination
-        const totalItems = items.length;
-        const totalPages = Math.ceil(totalItems / pageSize);
-        const pagedItems = items.slice((page - 1) * pageSize, page * pageSize);
-
-        console.log('Final result:', {
-            totalItems,
-            pagedItemsCount: pagedItems.length,
-            page,
-            totalPages
+    
+    // Add search condition
+    if (query && query.trim()) {
+        queryBuilder.where('food.name ILIKE :query OR food.description ILIKE :query', {
+            query: `%${query.trim()}%`
         });
-        console.log('=== End searchFoodsForStore Debug ===');
+        console.log('Added search filter for:', query.trim());
+    }
 
-        return {
-            items: pagedItems,
-            totalItems,
-            page,
-            pageSize,
-            totalPages,
-        };
+    // Add restaurant filter if provided
+    if (restaurantId) {
+        const whereMethod = query && query.trim() ? 'andWhere' : 'where';
+        queryBuilder[whereMethod]('food.restaurant_id = :restaurantId', { restaurantId });
+        console.log('Added restaurant filter:', restaurantId);
+    }
+
+    // Add category filter if provided
+    if (categoryId) {
+        const whereMethod = (query && query.trim()) || restaurantId ? 'andWhere' : 'where';
+        queryBuilder[whereMethod]('food.category_id = :categoryId', { categoryId });
+        console.log('Added category filter:', categoryId);
+    }
+
+    console.log('Query SQL:', queryBuilder.getQuery());
+    console.log('Query parameters:', queryBuilder.getParameters());
+
+    // Get all matching items first (don't apply DB sorting for distance-based sorts)
+    let items = await queryBuilder.getMany();
+    console.log('Raw items found:', items.length);
+
+    if (items.length > 0) {
+        console.log('First item example:', {
+            id: items[0].id,
+            name: items[0].name,
+            restaurant: items[0].restaurant?.name,
+            category: items[0].category?.name
+        });
+    }
+
+    // Add distance and apply location filtering if coordinates provided
+    if (lat && lng) {
+        console.log('Applying distance filtering...');
+        const beforeFilter = items.length;
+
+        items = items
+            .filter(f => f.restaurant?.latitude && f.restaurant?.longitude)
+            .map(f => ({
+                ...f,
+                distance: haversineDistance(lat, lng, Number(f.restaurant.latitude), Number(f.restaurant.longitude))
+            }))
+            .filter(f => f.distance <= radius);
+
+        console.log(`Distance filter: ${beforeFilter} -> ${items.length} (within ${radius}km)`);
+    } else {
+        // Add null distance for consistency
+        items = items.map(f => ({ ...f, distance: null }));
+    }
+
+    // Apply sorting using helper
+    items = this.applySorting(items, sortBy, lat, lng);
+
+    // Calculate pagination
+    const totalItems = items.length;
+    const totalPages = Math.ceil(totalItems / pageSize);
+    const pagedItems = items.slice((page - 1) * pageSize, page * pageSize);
+
+    console.log('Final result:', {
+        totalItems,
+        pagedItemsCount: pagedItems.length,
+        page,
+        totalPages
+    });
+    console.log('=== End searchFoodsForStore Debug ===');
+
+    return {
+        items: pagedItems,
+        totalItems,
+        page,
+        pageSize,
+        totalPages,
+    };
     }
     /**
      * Get foods by restaurant ID and category ID with pagination
@@ -329,15 +337,13 @@ export class FoodService {
      * @param lng Longitude for distance calculation
      * @param status Status filter (available, hidden, etc.)
      */
-    async findByRestaurantAndCategory(restaurantId: string, categoryId: string, page = 1, pageSize = 10, lat?: number, lng?: number, status?: string): Promise<{
+    async findByRestaurantAndCategory(restaurantId: string, categoryId: string, page = 1, pageSize = 10, lat?: number, lng?: number, status?: string, sortBy?: FoodSortType): Promise<{
         items: any[];
         totalItems: number;
         page: number;
         pageSize: number;
         totalPages: number;
     }> {
-
-
         const restaurant = await this.restaurantRepository.findOne({
             where: { id: restaurantId }
         });
@@ -365,13 +371,16 @@ export class FoodService {
             queryBuilder.andWhere('food.status = :status', { status });
         }
 
+        // Apply sorting using helper
+        this.applySortingToQueryBuilder(queryBuilder, sortBy);
+
         queryBuilder
             .skip((page - 1) * pageSize)
             .take(pageSize);
 
         const [items, totalItems] = await queryBuilder.getManyAndCount();
 
-        const itemsWithDistance = items.map(food => {
+        let itemsWithDistance = items.map(food => {
             let distance: number | null = null;
             if (lat && lng && food.restaurant?.latitude && food.restaurant?.longitude) {
                 distance = haversineDistance(
@@ -383,6 +392,11 @@ export class FoodService {
             }
             return { ...food, distance };
         });
+
+        // Apply post-query sorting if needed (for distance-based sorts)
+        if (sortBy === 'nearby' && lat && lng) {
+            itemsWithDistance = this.applySorting(itemsWithDistance, sortBy, lat, lng);
+        }
 
         return {
             items: itemsWithDistance,
@@ -402,7 +416,7 @@ export class FoodService {
      * @param pageSize The number of items per page
      * @returns List of foods for a specific restaurant with pagination metadata
      */
-    async findByRestaurant(restaurantId: string, page = 1, pageSize = 10, lat?: number, lng?: number, status?: string): Promise<{
+    async findByRestaurant(restaurantId: string, page = 1, pageSize = 10, lat?: number, lng?: number, status?: string, sortBy?: FoodSortType): Promise<{
         items: any[];
         totalItems: number;
         page: number;
@@ -426,13 +440,16 @@ export class FoodService {
             queryBuilder.andWhere('food.status = :status', { status });
         }
 
+        // Apply sorting using helper
+        this.applySortingToQueryBuilder(queryBuilder, sortBy);
+
         queryBuilder
             .skip((page - 1) * pageSize)
             .take(pageSize);
 
         const [items, totalItems] = await queryBuilder.getManyAndCount();
 
-        const itemsWithDistance = items.map(food => {
+        let itemsWithDistance = items.map(food => {
             let distance: number | null = null;
             if (lat && lng && restaurant.latitude && restaurant.longitude) {
                 distance = haversineDistance(
@@ -444,6 +461,11 @@ export class FoodService {
             }
             return { ...food, distance };
         });
+
+        // Apply post-query sorting if needed (for distance-based sorts)
+        if (sortBy === 'nearby' && lat && lng) {
+            itemsWithDistance = this.applySorting(itemsWithDistance, sortBy, lat, lng);
+        }
 
         return {
             items: itemsWithDistance,
@@ -462,7 +484,7 @@ export class FoodService {
      * @param pageSize The number of items per page
      * @returns List of foods for a specific category with pagination metadata
      */
-    async findByCategory(categoryId: string, page = 1, pageSize = 10, lat?: number, lng?: number): Promise<{
+    async findByCategory(categoryId: string, page = 1, pageSize = 10, lat?: number, lng?: number, sortBy?: FoodSortType): Promise<{
         items: any[];
         totalItems: number;
         page: number;
@@ -477,14 +499,21 @@ export class FoodService {
             throw new NotFoundException(`Category with ID ${categoryId} not found`);
         }
 
-        const [items, totalItems] = await this.foodRepository.findAndCount({
-            where: { category: { id: categoryId } },
-            relations: ['restaurant'],
-            skip: (page - 1) * pageSize,
-            take: pageSize,
-        });
+        const queryBuilder = this.foodRepository.createQueryBuilder('food')
+            .leftJoinAndSelect('food.restaurant', 'restaurant')
+            .leftJoinAndSelect('food.category', 'category')
+            .where('food.category_id = :categoryId', { categoryId });
 
-        const itemsWithDistance = items.map(food => {
+        // Apply sorting using helper
+        this.applySortingToQueryBuilder(queryBuilder, sortBy);
+
+        queryBuilder
+            .skip((page - 1) * pageSize)
+            .take(pageSize);
+
+        const [items, totalItems] = await queryBuilder.getManyAndCount();
+
+        let itemsWithDistance = items.map(food => {
             let distance: number | null = null;
             if (lat && lng && food.restaurant?.latitude && food.restaurant?.longitude) {
                 distance = haversineDistance(
@@ -496,6 +525,11 @@ export class FoodService {
             }
             return { ...food, distance };
         });
+
+        // Apply post-query sorting if needed (for distance-based sorts)
+        if (sortBy === 'nearby' && lat && lng) {
+            itemsWithDistance = this.applySorting(itemsWithDistance, sortBy, lat, lng);
+        }
 
         return {
             items: itemsWithDistance,
@@ -1539,7 +1573,90 @@ export class FoodService {
         }));
       }
       
+    /**
+     * Helper function to apply sorting to food items
+     */
+    private applySorting(items: any[], sortBy?: FoodSortType, lat?: number, lng?: number): any[] {
+        if (!sortBy) return items;
 
-      
+        switch (sortBy) {
+            case 'newest':
+                return items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+            
+            case 'nearby':
+                if (lat && lng) {
+                    return items.sort((a, b) => {
+                        const distanceA = a.restaurant?.distance ?? Infinity;
+                        const distanceB = b.restaurant?.distance ?? Infinity;
+                        return distanceA - distanceB;
+                    });
+                }
+                return items;
+            
+            case 'hot':
+                // Sort by combination of rating and recent sales
+                return items.sort((a, b) => {
+                    const scoreA = (a.rating || 0) * 0.7 + (a.soldCount || 0) * 0.3;
+                    const scoreB = (b.rating || 0) * 0.7 + (b.soldCount || 0) * 0.3;
+                    return scoreB - scoreA;
+                });
+            
+            case 'most_review':
+                // Sort by number of reviews (using purchasedNumber as proxy)
+                return items.sort((a, b) => (b.purchasedNumber || 0) - (a.purchasedNumber || 0));
+            
+            case 'most_buy':
+                return items.sort((a, b) => (b.soldCount || 0) - (a.soldCount || 0));
+            
+            case 'rating':
+                return items.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+            
+            case 'price':
+                return items.sort((a, b) => (a.price || 0) - (b.price || 0));
+            
+            case 'name':
+                return items.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+            
+            default:
+                return items;
+        }
+    }
+
+    /**
+     * Helper function to apply sorting to query builder
+     */
+    private applySortingToQueryBuilder(queryBuilder: any, sortBy?: FoodSortType): void {
+        if (!sortBy) {
+            queryBuilder.orderBy('food.createdAt', 'DESC');
+            return;
+        }
+
+        switch (sortBy) {
+            case 'newest':
+                queryBuilder.orderBy('food.createdAt', 'DESC');
+                break;
+            case 'hot':
+                queryBuilder.orderBy('food.rating', 'DESC').addOrderBy('food.soldCount', 'DESC');
+                break;
+            case 'most_review':
+                queryBuilder.orderBy('food.purchasedNumber', 'DESC');
+                break;
+            case 'most_buy':
+                queryBuilder.orderBy('food.soldCount', 'DESC');
+                break;
+            case 'rating':
+                queryBuilder.orderBy('food.rating', 'DESC');
+                break;
+            case 'price':
+                queryBuilder.orderBy('food.price', 'ASC');
+                break;
+            case 'name':
+                queryBuilder.orderBy('food.name', 'ASC');
+                break;
+            default:
+                queryBuilder.orderBy('food.createdAt', 'DESC');
+                break;
+        }
+    }
 }
 
