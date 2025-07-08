@@ -24,6 +24,7 @@ import { ShippingDetail } from 'src/entities/shippingDetail.entity';
 import { SystemConstraintsService } from 'src/services/system-constraints.service';
 import { activeShipperTracker } from './order.resolver';
 import { Topping } from 'src/entities/topping.entity';
+import { MapboxService } from 'src/services/mapbox.service';
 
 @Injectable()
 export class OrderService {
@@ -58,6 +59,7 @@ export class OrderService {
         @InjectRepository(Topping)
         private toppingRepository: Repository<Topping>,
         private readonly systemConstraintsService: SystemConstraintsService, // Inject SystemConstraintsService
+        private readonly mapboxService: MapboxService, // Add this
     ) { }
 
     
@@ -189,8 +191,71 @@ export class OrderService {
         }
     }
 
+    /**
+     * Create a temporary address for custom delivery locations
+     */
+    async createTemporaryAddress(addressData: {
+        street: string;
+        ward: string;
+        district: string;
+        city: string;
+        latitude: number;
+        longitude: number;
+        label?: string;
+    }, userId: string): Promise<string> {
+        this.logger.log(`🏠 Creating temporary address for user ${userId}`);
+        this.logger.log(`📍 Address data: ${JSON.stringify(addressData)}`);
+
+        // Validate coordinates
+        const lat = Number(addressData.latitude);
+        const lng = Number(addressData.longitude);
+        
+        if (isNaN(lat) || isNaN(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) {
+            throw new BadRequestException(`Invalid coordinates: lat=${lat}, lng=${lng}`);
+        }
+
+        // Create the address record
+        const address = new Address();
+        address.user = { id: userId } as User;
+        address.street = addressData.street;
+        address.ward = addressData.ward;
+        address.district = addressData.district;
+        address.city = addressData.city;
+        address.latitude = lat;
+        address.longitude = lng;
+        address.label = addressData.label || 'Địa chỉ tùy chỉnh';
+        address.isDefault = false;
+        address.isTemporary = true; // Mark as temporary
+
+        const savedAddress = await this.addressRepository.save(address);
+        
+        this.logger.log(`✅ Temporary address created: ${savedAddress.id}`);
+        this.logger.log(`📍 Coordinates: ${savedAddress.latitude}, ${savedAddress.longitude}`);
+        
+        return savedAddress.id;
+    }
+
+    /**
+     * Delete a temporary address
+     */
+    async deleteTemporaryAddress(addressId: string): Promise<void> {
+        try {
+            const address = await this.addressRepository.findOne({ 
+                where: { id: addressId, isTemporary: true }
+            });
+            
+            if (address) {
+                await this.addressRepository.remove(address);
+                this.logger.log(`🗑️ Temporary address ${addressId} deleted`);
+            }
+        } catch (error) {
+            this.logger.error(`❌ Failed to delete temporary address ${addressId}: ${error.message}`);
+        }
+    }
+
     async createOrder(data: CreateOrderDto) {
         this.logger.log(`🚀 Starting enhanced order creation for user ${data.userId}`);
+        this.logger.log(`📍 Using address ID: ${data.addressId}`);
 
         if (!data.orderDetails || data.orderDetails.length === 0) {
             throw new BadRequestException('Order must contain at least one item');
@@ -205,29 +270,101 @@ export class OrderService {
             const user = await queryRunner.manager.findOne(User, { where: { id: data.userId } });
             if (!user) throw new NotFoundException('User not found');
 
-            const restaurant = await queryRunner.manager.findOne(Restaurant, { where: { id: data.restaurantId }, relations: ['address'] });
-            if (!restaurant || !restaurant.address) throw new NotFoundException('Restaurant or its address not found');
-
-            const address = await queryRunner.manager.findOne(Address, { where: { id: data.addressId } });
-            if (!address) throw new NotFoundException('Delivery address not found');
-
-            const deliveryDistance = haversineDistance(
-                Number(address.latitude), Number(address.longitude),
-                Number(restaurant.address.latitude), Number(restaurant.address.longitude)
-            );
-
-            if (!(await this.systemConstraintsService.isDistanceWithinLimits(deliveryDistance))) {
-                throw new BadRequestException(`Delivery distance of ${deliveryDistance.toFixed(2)}km exceeds the maximum of ${constraints.max_delivery_distance}km.`);
+            const restaurant = await queryRunner.manager.findOne(Restaurant, { 
+                where: { id: data.restaurantId }, 
+                relations: ['address'] 
+            });
+            if (!restaurant || !restaurant.address) {
+                throw new NotFoundException('Restaurant or its address not found');
             }
 
+            const address = await queryRunner.manager.findOne(Address, { 
+                where: { id: data.addressId } 
+            });
+            if (!address) {
+                throw new NotFoundException('Delivery address not found');
+            }
+
+            // 🔍 DEBUG: Log the coordinates with null checking
+            this.logger.log(`🔍 === MAPBOX ROUTE CALCULATION ===`);
+            this.logger.log(`📍 User Address: ${address.street}, ${address.ward}, ${address.district}`);
+            this.logger.log(`   - Coordinates: ${address.latitude}, ${address.longitude}`);
+            this.logger.log(`   - Is Temporary: ${address.isTemporary || false}`);
+            this.logger.log(`🏪 Restaurant: ${restaurant.name}`);
+            this.logger.log(`   - Address: ${restaurant.address.street}, ${restaurant.address.ward}, ${restaurant.address.district}`);
+            this.logger.log(`   - Coordinates: ${restaurant.address.latitude}, ${restaurant.address.longitude}`);
+
+            // 🚨 CRITICAL FIX: Check for null coordinates BEFORE calling Mapbox
+            if (address.latitude === null || address.longitude === null) {
+                this.logger.error(`❌ Address coordinates are null!`);
+                this.logger.error(`   - Address ID: ${address.id}`);
+                this.logger.error(`   - User ID: ${data.userId}`);
+                this.logger.error(`   - Street: ${address.street}`);
+                throw new BadRequestException('Delivery address coordinates are missing. Please select a valid address or provide coordinates.');
+            }
+
+            if (restaurant.address.latitude === null || restaurant.address.longitude === null) {
+                this.logger.error(`❌ Restaurant coordinates are null!`);
+                this.logger.error(`   - Restaurant ID: ${restaurant.id}`);
+                this.logger.error(`   - Restaurant: ${restaurant.name}`);
+                throw new BadRequestException('Restaurant coordinates are missing. Please contact support.');
+            }
+
+            // Convert coordinates to numbers
+            const userLat = Number(address.latitude);
+            const userLng = Number(address.longitude);
+            const restaurantLat = Number(restaurant.address.latitude);
+            const restaurantLng = Number(restaurant.address.longitude);
+
+            // Validate coordinates are within reasonable ranges
+            if (Math.abs(userLat) > 90 || Math.abs(userLng) > 180) {
+                this.logger.error(`❌ Invalid user coordinates: lat=${userLat}, lng=${userLng}`);
+                throw new BadRequestException(`Invalid user coordinates: lat=${userLat}, lng=${userLng}`);
+            }
+            if (Math.abs(restaurantLat) > 90 || Math.abs(restaurantLng) > 180) {
+                this.logger.error(`❌ Invalid restaurant coordinates: lat=${restaurantLat}, lng=${restaurantLng}`);
+                throw new BadRequestException(`Invalid restaurant coordinates: lat=${restaurantLat}, lng=${restaurantLng}`);
+            }
+
+            this.logger.log(`✅ Coordinates validated successfully`);
+            this.logger.log(`   - User: ${userLat}, ${userLng}`);
+            this.logger.log(`   - Restaurant: ${restaurantLat}, ${restaurantLng}`);
+
+            // 🗺️ Use Mapbox to calculate ACTUAL route distance
+            const routeResult = await this.mapboxService.calculateBikeRoute(
+                restaurantLat, restaurantLng, // From restaurant
+                userLat, userLng             // To user
+            );
+
+            const deliveryDistance = routeResult.distance;
+            const mapboxEstimatedDeliveryTime = Math.round(routeResult.duration / 60); // Convert to minutes
+
+            this.logger.log(`📏 Mapbox route calculated:`);
+            this.logger.log(`   - Distance: ${deliveryDistance}km`);
+            this.logger.log(`   - Duration: ${mapboxEstimatedDeliveryTime} minutes`);
+            this.logger.log(`   - Max allowed: ${constraints.max_delivery_distance}km`);
+
+            // Validate distance against constraints
+            if (!(await this.systemConstraintsService.isDistanceWithinLimits(deliveryDistance))) {
+                this.logger.error(`❌ Distance validation failed: ${deliveryDistance}km > ${constraints.max_delivery_distance}km`);
+                throw new BadRequestException(`Delivery distance of ${deliveryDistance}km exceeds the maximum of ${constraints.max_delivery_distance}km.`);
+            }
+
+            // Continue with the rest of the order creation using Mapbox-calculated values
             const { foodDetails } = await this.validateAndCalculateOrderDetails(data.orderDetails);
 
             const orderCalculation = await this.calculateOrderWithConstraints({
                 addressId: data.addressId,
                 restaurantId: data.restaurantId,
-                items: data.orderDetails.map(item => ({ foodId: item.foodId, quantity: Number(item.quantity), toppings: item.selectedToppings, discountPercent: item.discountPercent })),
+                items: data.orderDetails.map(item => ({ 
+                    foodId: item.foodId, 
+                    quantity: Number(item.quantity), 
+                    toppings: item.selectedToppings, 
+                    discountPercent: item.discountPercent 
+                })),
                 promotionCode: data.promotionCode,
-                deliveryDistance
+                deliveryDistance,
+                estimatedDeliveryTime: mapboxEstimatedDeliveryTime // Pass the Mapbox calculated time
             });
 
             if (data.promotionCode && orderCalculation.promotionError) {
@@ -253,10 +390,10 @@ export class OrderService {
             order.note = data.note || '';
             order.address = address;
             order.date = new Date().toISOString();
-            order.deliveryDistance = deliveryDistance;
+            order.deliveryDistance = deliveryDistance; // Use Mapbox distance
             order.shippingFee = orderCalculation.shippingFee;
-            order.estimatedDeliveryTime = estimatedDeliveryTime;
-            order.deliveryType = data.deliveryType || 'asap'; // Ensure default is handled
+            order.estimatedDeliveryTime = estimatedDeliveryTime; // Use Mapbox time
+            order.deliveryType = data.deliveryType || 'asap';
             order.requestedDeliveryTime = validatedDeliveryTime?.toISOString();
             order.paymentMethod = data.paymentMethod || 'cod';
             order.status = (data.paymentMethod && data.paymentMethod !== 'cod') ? 'processing_payment' : 'pending';
@@ -545,72 +682,76 @@ export class OrderService {
         }
     }
 
-    private async calculateOrderWithConstraints(data: {
-        addressId: string,
-        restaurantId: string,
-        items: {
-          foodId: string;
-          quantity: number;
-          discountPercent?: number;
-          toppings?: { id: string; price: number }[];
-        }[],
-        promotionCode?: string,
-        deliveryDistance: number
-      }) {
-        const { deliveryDistance } = data;
-        const shippingFee = await this.systemConstraintsService.calculateShippingFee(deliveryDistance);
-        const maxDeliveryTime = await this.systemConstraintsService.getMaxDeliveryTime();
-        const estimatedDeliveryTime = Math.min(maxDeliveryTime, Math.ceil(deliveryDistance * 2) + 20);
+    // private async calculateOrderWithConstraints(data: {
+    //     addressId: string,
+    //     restaurantId: string,
+    //     items: {
+    //       foodId: string;
+    //       quantity: number;
+    //       discountPercent?: number;
+    //       toppings?: { id: string; price: number }[];
+    //     }[],
+    //     promotionCode?: string,
+    //     deliveryDistance: number,
+    //     estimatedDeliveryTime?: number // Add this parameter
+    //   }) {
+    //     const { deliveryDistance } = data;
+    //     const shippingFee = await this.systemConstraintsService.calculateShippingFee(deliveryDistance);
+    //     const maxDeliveryTime = await this.systemConstraintsService.getMaxDeliveryTime();
+        
+    //     // Use provided estimatedDeliveryTime or calculate fallback
+    //     const estimatedDeliveryTime = data.estimatedDeliveryTime || 
+    //         Math.min(maxDeliveryTime, Math.ceil(deliveryDistance * 2) + 20);
       
-        const shipperCommissionRate = 0.8;
-        const shipperEarnings = Math.round(shippingFee * shipperCommissionRate);
-        const platformFee = shippingFee - shipperEarnings;
+    //     const shipperCommissionRate = 0.8;
+    //     const shipperEarnings = Math.round(shippingFee * shipperCommissionRate);
+    //     const platformFee = shippingFee - shipperEarnings;
       
-        let foodTotal = 0;
-        for (const item of data.items) {
-            const food = await this.foodRepository.findOne({ where: { id: item.foodId } });
-            if (!food) continue;
+    //     let foodTotal = 0;
+    //     for (const item of data.items) {
+    //         const food = await this.foodRepository.findOne({ where: { id: item.foodId } });
+    //         if (!food) continue;
           
-            const discountPercent = item.discountPercent || food.discountPercent || 0;
-            const discountedPrice = Number(food.price) - (Number(food.price) * discountPercent) / 100;
+    //         const discountPercent = item.discountPercent || food.discountPercent || 0;
+    //         const discountedPrice = Number(food.price) - (Number(food.price) * discountPercent) / 100;
           
-            const toppingTotal = (item.toppings || []).reduce((sum, t) => sum + Number(t.price), 0);
+    //         const toppingTotal = (item.toppings || []).reduce((sum, t) => sum + Number(t.price), 0);
           
-            foodTotal += (discountedPrice + toppingTotal) * item.quantity;
-          }
+    //         foodTotal += (discountedPrice + toppingTotal) * item.quantity;
+    //       }
       
-        let appliedPromotion: Promotion | null = null;
-        let promotionDiscount = 0;
-        let promotionError: string | null = null;
-        const subtotal = foodTotal + shippingFee;
+    //     let appliedPromotion: Promotion | null = null;
+    //     let promotionDiscount = 0;
+    //     let promotionError: string | null = null;
+    //     const subtotal = foodTotal + shippingFee;
       
-        if (data.promotionCode) {
-          const validation = await this.promotionService.validatePromotion(data.promotionCode, subtotal);
-          if (validation.valid && validation.promotion) {
-            appliedPromotion = validation.promotion;
-            promotionDiscount = validation.calculatedDiscount || 0;
-          } else {
-            promotionError = validation.reason || 'Invalid promotion code.';
-          }
-        }
+    //     if (data.promotionCode) {
+    //       const validation = await this.promotionService.validatePromotion(data.promotionCode, subtotal);
+    //       if (validation.valid && validation.promotion) {
+    //         appliedPromotion = validation.promotion;
+    //         promotionDiscount = validation.calculatedDiscount || 0;
+    //       } else {
+    //         promotionError = validation.reason || 'Invalid promotion code.';
+    //       }
+    //     }
       
-        const total = Math.max(0, subtotal - promotionDiscount);
-        console.log(`>>>>>>>>>>Final Total: ${total}`);
-        return {
-          foodTotal,
-          shippingFee,
-          shipperEarnings,
-          shipperCommissionRate,
-          platformFee,
-          distance: Number(deliveryDistance.toFixed(2)),
-          subtotal,
-          promotionDiscount,
-          total,
-          estimatedDeliveryTime,
-          appliedPromotion,
-          promotionError
-        };
-      }
+    //     const total = Math.max(0, subtotal - promotionDiscount);
+    //     console.log(`>>>>>>>>>>Final Total: ${total}`);
+    //     return {
+    //       foodTotal,
+    //       shippingFee,
+    //       shipperEarnings,
+    //       shipperCommissionRate,
+    //       platformFee,
+    //       distance: Number(deliveryDistance.toFixed(2)),
+    //       subtotal,
+    //       promotionDiscount,
+    //       total,
+    //       estimatedDeliveryTime,
+    //       appliedPromotion,
+    //       promotionError
+    //     };
+    //   }
       
 
     // This method is now a wrapper for the new constrained calculation
@@ -625,27 +766,53 @@ export class OrderService {
           }[],
         promotionCode?: string
     }) {
+        this.logger.log(`🧮 === CALCULATE ORDER WITH MAPBOX ===`);
+        
         const address = await this.addressRepository.findOne({ where: { id: data.addressId } });
-        const restaurant = await this.restaurantRepository.findOne({ where: { id: data.restaurantId }, relations: ['address'] });
-        if (!address || !restaurant || !restaurant.address) throw new Error('Invalid address or restaurant');
+        const restaurant = await this.restaurantRepository.findOne({ 
+            where: { id: data.restaurantId }, 
+            relations: ['address'] 
+        });
+        
+        if (!address || !restaurant || !restaurant.address) {
+            throw new Error('Invalid address or restaurant');
+        }
 
-        const deliveryDistance = haversineDistance(
-            Number(address.latitude), Number(address.longitude),
-            Number(restaurant.address.latitude), Number(restaurant.address.longitude)
+        const userLat = Number(address.latitude);
+        const userLng = Number(address.longitude);
+        const restaurantLat = Number(restaurant.address.latitude);
+        const restaurantLng = Number(restaurant.address.longitude);
+
+        // 🗺️ Use Mapbox for actual route calculation
+        const routeResult = await this.mapboxService.calculateBikeRoute(
+            restaurantLat, restaurantLng,
+            userLat, userLng
         );
 
-        return this.calculateOrderWithConstraints({ ...data, deliveryDistance });
+        const deliveryDistance = routeResult.distance;
+        const estimatedDeliveryTime = Math.round(routeResult.duration / 60);
+
+        this.logger.log(`📏 Mapbox calculation:`);
+        this.logger.log(`   - Distance: ${deliveryDistance}km`);
+        this.logger.log(`   - Duration: ${estimatedDeliveryTime} minutes`);
+
+        return this.calculateOrderWithConstraints({ 
+            ...data, 
+            deliveryDistance,
+            estimatedDeliveryTime
+        });
     }
 
+    // Update calculateOrderWithCustomAddress to use Mapbox
     async calculateOrderWithCustomAddress(
         address: {
-          street: string;
-          ward: string;
-          district: string;
-          city: string;
-          latitude: number;
-          longitude: number;
-          label?: string;
+            street: string;
+            ward: string;
+            district: string;
+            city: string;
+            latitude: number;
+            longitude: number;
+            label?: string;
         },
         restaurantId: string,
         items: {
@@ -653,101 +820,174 @@ export class OrderService {
             quantity: number;
             discountPercent?: number;
             toppings?: { id: string; price: number }[];
-          }[],
+        }[],
         promotionCode?: string
-      ) {
-        // 1. Fetch restaurant with address
+    ) {
+        // Fetch restaurant with address
         const restaurant = await this.restaurantRepository.findOne({
-          where: { id: restaurantId },
-          relations: ['address'],
+            where: { id: restaurantId },
+            relations: ['address'],
         });
-      
+
         if (!restaurant || !restaurant.address) {
-          throw new Error('Invalid restaurant');
+            throw new Error('Invalid restaurant');
         }
-      
-        // 2. Calculate distance
-        const distance = haversineDistance(
-          Number(address.latitude),
-          Number(address.longitude),
-          Number(restaurant.address.latitude),
-          Number(restaurant.address.longitude)
+
+        // 🗺️ Use Mapbox for actual route calculation
+        const routeResult = await this.mapboxService.calculateBikeRoute(
+            Number(restaurant.address.latitude),
+            Number(restaurant.address.longitude),
+            Number(address.latitude),
+            Number(address.longitude)
         );
-      
-        // 3. Calculate shipping fee
-        const shippingFee = distance <= 2 ? 15000 : 15000 + Math.ceil(distance - 2) * 5000;
-      
-        // 4. Calculate food total
+
+        const distance = routeResult.distance;
+        const estimatedDeliveryTime = Math.round(routeResult.duration / 60);
+
+        this.logger.log(`📏 Custom address route: ${distance}km, ${estimatedDeliveryTime} minutes`);
+
+        // Use system constraints to calculate shipping fee
+        const shippingFee = await this.systemConstraintsService.calculateShippingFee(distance);
+
+        // ... rest of the calculation logic using the Mapbox values
+
         let foodTotal = 0;
         for (const item of items) {
-          const food = await this.foodRepository.findOne({ where: { id: item.foodId } });
-          if (!food) continue;
-        
-          const basePrice = Number(food.price);
-          const discountPercent = item.discountPercent ?? 0;
-          const discountedPrice = basePrice - (basePrice * discountPercent) / 100;
-          const toppingTotal = item.toppings?.reduce((sum, t) => sum + Number(t.price), 0) || 0;
-        
-          foodTotal += (discountedPrice + toppingTotal) * item.quantity;
+            const food = await this.foodRepository.findOne({ where: { id: item.foodId } });
+            if (!food) continue;
+
+            const basePrice = Number(food.price);
+            const discountPercent = item.discountPercent ?? 0;
+            const discountedPrice = basePrice - (basePrice * discountPercent) / 100;
+            const toppingTotal = item.toppings?.reduce((sum, t) => sum + Number(t.price), 0) || 0;
+
+            foodTotal += (discountedPrice + toppingTotal) * item.quantity;
         }
-        
-      
+
         let promotionDiscount = 0;
         let appliedPromotion: Promotion | null = null;
         let promotionError: string | null = null;
-      
-        // 5. Apply promotion if provided
+
+        // Apply promotion logic...
         if (promotionCode) {
-          try {
-            const validation = await this.promotionService.validatePromotion(
-              promotionCode,
-              foodTotal + shippingFee
-            );
-      
-            if (validation.valid && validation.promotion) {
-              appliedPromotion = validation.promotion;
-      
-              if (appliedPromotion.type === PromotionType.FOOD_DISCOUNT) {
-                promotionDiscount = this.promotionService.calculateDiscount(appliedPromotion, foodTotal);
-              } else if (appliedPromotion.type === PromotionType.SHIPPING_DISCOUNT) {
-                promotionDiscount = Math.min(
-                  this.promotionService.calculateDiscount(appliedPromotion, shippingFee),
-                  shippingFee
+            try {
+                const validation = await this.promotionService.validatePromotion(
+                    promotionCode,
+                    foodTotal + shippingFee
                 );
-              }
-            } else {
-              promotionError = validation.reason || 'Invalid promotion code';
+
+                if (validation.valid && validation.promotion) {
+                    appliedPromotion = validation.promotion;
+                    // Calculate discount based on promotion type
+                    if (appliedPromotion.type === PromotionType.FOOD_DISCOUNT) {
+                        promotionDiscount = this.promotionService.calculateDiscount(appliedPromotion, foodTotal);
+                    } else if (appliedPromotion.type === PromotionType.SHIPPING_DISCOUNT) {
+                        promotionDiscount = Math.min(
+                            this.promotionService.calculateDiscount(appliedPromotion, shippingFee),
+                            shippingFee
+                        );
+                    }
+                } else {
+                    promotionError = validation.reason || 'Invalid promotion code';
+                }
+            } catch (error) {
+                promotionError = 'Failed to validate promotion code';
+                this.logger.error(`Promotion validation error: ${error.message}`);
             }
-          } catch (error) {
-            promotionError = 'Failed to validate promotion code';
-            this.logger.error(`Promotion validation error: ${error.message}`);
-          }
         }
-      
-        // 6. Calculate total
+
         const subtotal = foodTotal + shippingFee;
         const total = Math.max(0, subtotal - promotionDiscount);
-      
+
         return {
-          foodTotal,
-          shippingFee,
-          distance: Number(distance.toFixed(2)),
-          subtotal,
-          promotionDiscount,
-          total,
-          appliedPromotion: appliedPromotion
-            ? {
+            foodTotal,
+            shippingFee,
+            distance,
+            estimatedDeliveryTime,
+            subtotal,
+            promotionDiscount,
+            total,
+            appliedPromotion: appliedPromotion ? {
                 id: appliedPromotion.id,
                 code: appliedPromotion.code,
                 description: appliedPromotion.description,
                 type: appliedPromotion.type,
                 discountAmount: promotionDiscount,
-              }
-            : null,
-          promotionError,
+            } : null,
+            promotionError,
         };
-      }
+    }
+
+    // Update calculateOrderWithConstraints to accept estimatedDeliveryTime
+    private async calculateOrderWithConstraints(data: {
+        addressId: string,
+        restaurantId: string,
+        items: {
+            foodId: string;
+            quantity: number;
+            discountPercent?: number;
+            toppings?: { id: string; price: number }[];
+        }[],
+        promotionCode?: string,
+        deliveryDistance: number,
+        estimatedDeliveryTime?: number // Add this parameter
+    }) {
+        const { deliveryDistance } = data;
+        const shippingFee = await this.systemConstraintsService.calculateShippingFee(deliveryDistance);
+        const maxDeliveryTime = await this.systemConstraintsService.getMaxDeliveryTime();
+        
+        // Use provided estimatedDeliveryTime or calculate fallback
+        const estimatedDeliveryTime = data.estimatedDeliveryTime || 
+            Math.min(maxDeliveryTime, Math.ceil(deliveryDistance * 2) + 20);
       
+        const shipperCommissionRate = 0.8;
+        const shipperEarnings = Math.round(shippingFee * shipperCommissionRate);
+        const platformFee = shippingFee - shipperEarnings;
+      
+        let foodTotal = 0;
+        for (const item of data.items) {
+            const food = await this.foodRepository.findOne({ where: { id: item.foodId } });
+            if (!food) continue;
+
+            const discountPercent = item.discountPercent || food.discountPercent || 0;
+            const discountedPrice = Number(food.price) - (Number(food.price) * discountPercent) / 100;
+            const toppingTotal = (item.toppings || []).reduce((sum, t) => sum + Number(t.price), 0);
+
+            foodTotal += (discountedPrice + toppingTotal) * item.quantity;
+        }
+
+        let appliedPromotion: Promotion | null = null;
+        let promotionDiscount = 0;
+        let promotionError: string | null = null;
+        const subtotal = foodTotal + shippingFee;
+
+        if (data.promotionCode) {
+            const validation = await this.promotionService.validatePromotion(data.promotionCode, subtotal);
+            if (validation.valid && validation.promotion) {
+                appliedPromotion = validation.promotion;
+                promotionDiscount = validation.calculatedDiscount || 0;
+            } else {
+                promotionError = validation.reason || 'Invalid promotion code.';
+            }
+        }
+
+        const total = Math.max(0, subtotal - promotionDiscount);
+
+        return {
+            foodTotal,
+            shippingFee,
+            shipperEarnings,
+            shipperCommissionRate,
+            platformFee,
+            distance: Number(deliveryDistance.toFixed(2)),
+            subtotal,
+            promotionDiscount,
+            total,
+            estimatedDeliveryTime,
+            appliedPromotion,
+            promotionError
+        };
+    }
 
     async deleteOrder(id: string) {
         // First make sure the order exists
@@ -1162,4 +1402,23 @@ private cleanSensitiveData(order: Order): void {
         delete (order.promotionCode as any).updatedAt;
     }
 }
+
+// Add this method to clean up old temporary addresses
+    @Cron(CronExpression.EVERY_HOUR)
+    async cleanupTemporaryAddresses() {
+        const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        
+        try {
+            const result = await this.addressRepository.delete({
+                isTemporary: true,
+                createdAt: LessThan(oneDayAgo)
+            });
+            
+            if (result.affected && result.affected > 0) {
+                this.logger.log(`🗑️ Cleaned up ${result.affected} temporary addresses older than 24 hours`);
+            }
+        } catch (error) {
+            this.logger.error(`❌ Failed to cleanup temporary addresses: ${error.message}`);
+        }
+    }
 }

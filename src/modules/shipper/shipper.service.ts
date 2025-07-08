@@ -325,6 +325,8 @@ export class ShipperService {
       relations: ['order', 'order.restaurant', 'order.user', 'order.address', 'order.orderDetails', 'order.orderDetails.food', 'shipper'],
     });
 
+    this.logger.log(`Fetching order ${orderId} for shipper ${shipperId}`);
+
     if (!shippingDetail) {
       throw new NotFoundException('Shipping detail not found for this order and shipper');
     }
@@ -334,19 +336,24 @@ export class ShipperService {
     if (!order) {
       throw new NotFoundException('Order not found');
     }
+    this.logger.log(`Order ${orderId} found for shipper ${shipperId}`);
 
     // Verify the shipper is assigned to this order
     if (shippingDetail.shipper.id !== shipperId) {
       throw new BadRequestException('You are not assigned to this order');
     }
 
+    this.logger.log(`Order ${orderId} successfully retrieved for shipper ${shipperId}`);
     // Update order status to 'delivering' when shipper picks up the order
     order.status = 'delivering';
     await this.orderRepository.save(order);
 
+    this.logger.log(`Order ${orderId} status updated to delivering for shipper ${shipperId}`);
     // Update order service status
-    await this.orderService.updateOrderStatus(orderId, 'delivering');
+    //await this.orderService.updateOrderStatus(orderId, 'delivering');
 
+
+    this.logger.log(`📦 Shipper ${shipperId} retrieved order ${orderId}, status updated to delivering`);
     // Publish the status update
     await pubSub.publish('orderStatusUpdated', {
       orderStatusUpdated: order

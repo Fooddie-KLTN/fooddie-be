@@ -27,6 +27,7 @@ import { ShippingDetail } from 'src/entities/shippingDetail.entity';
 import { SystemConstraint } from 'src/entities/systemConstaints.entity';
 import { SystemConstraintsService } from 'src/services/system-constraints.service';
 import { Topping } from 'src/entities/topping.entity';
+import { MapboxService } from 'src/services/mapbox.service';
 
 
 @Module({
@@ -44,7 +45,7 @@ import { Topping } from 'src/entities/topping.entity';
     ],
     
     controllers: [OrderController],
-    providers: [OrderService, UsersService, OrderResolver, PromotionService, GoogleCloudStorageService, SystemConstraintsService],
+    providers: [OrderService, UsersService, OrderResolver, PromotionService, GoogleCloudStorageService, SystemConstraintsService , MapboxService],
     exports: [OrderService],
 })
 export class OrderModule {}

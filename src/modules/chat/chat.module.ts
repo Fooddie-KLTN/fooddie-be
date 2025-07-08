@@ -31,6 +31,7 @@ import { GeocodingService } from 'src/services/geocoding.service';
 import { SystemConstraintsService } from 'src/services/system-constraints.service';
 import { SystemConstraint } from 'src/entities/systemConstaints.entity';
 import { Topping } from 'src/entities/topping.entity';
+import { MapboxService } from 'src/services/mapbox.service';
 
 
 @Module({
@@ -40,6 +41,6 @@ import { Topping } from 'src/entities/topping.entity';
 ], 
   controllers: [ChatController],
   providers: [ChatService, SystemConstraintsService,
-    JwtModule, FoodService, OrderService, GoogleCloudStorageService, PromotionService, PendingAssignmentService, QueueService, JwtService, AddressService, RestaurantService, GeocodingService],
+    JwtModule, FoodService, OrderService, GoogleCloudStorageService, PromotionService, PendingAssignmentService, QueueService, JwtService, AddressService, RestaurantService, GeocodingService, MapboxService],
 })
 export class ChatModule {}

@@ -1,6 +1,6 @@
 /* eslint-disable prettier/prettier */
 // src/users/entities/user.entity.ts
-import { Entity, PrimaryGeneratedColumn, Column, OneToMany, OneToOne, ManyToOne } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, OneToMany, OneToOne, ManyToOne, CreateDateColumn } from 'typeorm';
 import { Restaurant } from './restaurant.entity';
 import { User } from './user.entity';
 import { ObjectType, Field, ID } from '@nestjs/graphql';
@@ -51,4 +51,12 @@ export class Address {
   @Field({ nullable: true })
   @Column({ nullable: true })
   label: string;
+
+  // Add this field to your Address entity
+  @Column({ default: false })
+  isTemporary: boolean;
+
+  @Field()
+  @CreateDateColumn()
+  createdAt: Date;
 }
