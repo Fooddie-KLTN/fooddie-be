@@ -428,9 +428,26 @@ export class OrderService {
     }
 
     async getAllOrders() {
-        return await this.orderRepository.find({
-            relations: ['user', 'restaurant', 'orderDetails', 'orderDetails.food', 'shippingDetail', 'promotionCode', 'address']
+        const orders = await this.orderRepository.find({
+            relations: [
+                'user', 
+                'restaurant', 
+                'orderDetails', 
+                'orderDetails.food', 
+                'shippingDetail', 
+                'shippingDetail.shipper', // Add this line to include shipper info
+                'promotionCode', 
+                'address'
+            ]
         });
+
+        // Clean sensitive data from all orders
+        const cleanedOrders = orders.map(order => {
+            this.cleanSensitiveData(order);
+            return order;
+        });
+
+        return cleanedOrders;
     }
 
     async getOrderById(id: string, includeReviewInfo: boolean = false): Promise<Order> {
@@ -570,6 +587,8 @@ export class OrderService {
             .leftJoinAndSelect('order.orderDetails', 'orderDetails')
             .leftJoinAndSelect('orderDetails.food', 'food')
             .leftJoinAndSelect('food.category', 'category')
+            .leftJoinAndSelect('order.shippingDetail', 'shippingDetail') // Add this line
+            .leftJoinAndSelect('shippingDetail.shipper', 'shipper') // Add this line to include shipper info
             .where('order.restaurant.id = :restaurantId', { restaurantId })
             .orderBy('order.createdAt', 'DESC');
 
@@ -582,8 +601,14 @@ export class OrderService {
             .take(pageSize)
             .getManyAndCount();
 
+        // Clean sensitive data from the results
+        const cleanedItems = items.map(order => {
+            this.cleanSensitiveData(order);
+            return order;
+        });
+
         return {
-            items,
+            items: cleanedItems,
             totalItems,
             page,
             pageSize,
