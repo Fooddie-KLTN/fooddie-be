@@ -1225,6 +1225,32 @@ export class OrderService {
         };
     }
     
+    async getMinimalOrderHistoryForQuickReorder(userId: string, limit = 3) {
+        const query = this.orderRepository.createQueryBuilder('order')
+          .leftJoinAndSelect('order.orderDetails', 'orderDetail')
+          .leftJoinAndSelect('orderDetail.food', 'food')
+          .leftJoinAndSelect('food.restaurant', 'restaurant')
+          .where('order.user_id = :userId', { userId })
+          .orderBy('order.createdAt', 'DESC')
+          .take(limit);
+      
+        const orders = await query.getMany();
+      
+        const quickOrders = orders.map(order => ({
+          orderId: order.id,
+          restaurantId: order.orderDetails?.[0]?.food?.restaurant?.id,
+          totalAmount: order.total,
+          orderDetails: order.orderDetails.map(detail => ({
+            foodName: detail.food?.name,
+            quantity: detail.quantity,
+            price: detail.price,
+          })),
+        }));
+      
+        return quickOrders;
+      }
+      
+    
     async getOrderHistory(userId: string, page: number = 1, pageSize: number = 10) {
         // Tạo query để lấy các đơn hàng của người dùng
         const query = this.orderRepository.createQueryBuilder('order')

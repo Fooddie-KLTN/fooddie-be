@@ -6,6 +6,7 @@ import { OrderService } from '../order/order.service';
 import { AddressService } from '../address/address.service';
 import { RestaurantService } from '../restaurant/restaurant.service';
 import { pubSub } from 'src/pubsub';
+import { CreateOrderDetailDto } from '../order/dto/create-order.dto';
 
 @Injectable()
 export class ChatService {
@@ -84,6 +85,108 @@ export class ChatService {
           metadata: resetMetadata,
         };
       }
+
+      // 1. Khi người dùng gõ "đặt lại" hoặc "đơn gần nhất"
+      if (userMessage.toLowerCase().includes('đặt lại') || userMessage.toLowerCase().includes('đơn gần nhất')) {
+        const quickOrders = await this.orderService.getMinimalOrderHistoryForQuickReorder(userId, 3);
+
+        if (!quickOrders || quickOrders.length === 0) {
+          return {
+            reply: 'Bạn chưa có đơn hàng nào gần đây để đặt lại.',
+            action: 'noRecentOrder',
+            metadata,
+          };
+        }
+
+        const quickOrdersPreview = quickOrders.map((order, index) => {
+          const summary = order.orderDetails.map(detail => `${detail.quantity} ${detail.foodName}`).join(', ');
+          return `${index + 1}. ${summary} (Tổng: ${order.totalAmount}₫)`;
+        });
+
+        metadata.quickOrderOptions = quickOrders;
+        metadata.isQuickReorder = true;
+
+        return {
+          reply: `Bạn muốn đặt lại đơn nào? Vui lòng chọn số:\n${quickOrdersPreview.join('\n')}`,
+          action: 'chooseQuickOrder',
+          metadata,
+        };
+      }
+
+      
+      // ✅ Xử lý khi người dùng chọn số đơn
+      // 2. Khi người dùng chọn số đơn cần đặt lại
+      if (metadata.isQuickReorder) {
+        const chosenIndex = parseInt(userMessage) - 1;
+
+        if (!isNaN(chosenIndex) && metadata.quickOrderOptions?.[chosenIndex]) {
+          const selectedOrder = metadata.quickOrderOptions[chosenIndex];
+
+          if (!selectedOrder.restaurantId) {
+            return {
+              reply: 'Không xác định được nhà hàng của đơn hàng này. Không thể đặt lại.',
+              action: 'invalidRestaurant',
+              metadata: { isQuickReorder: false },
+            };
+          }
+
+          const fallbackAddressId = (await this.addressService.getAddresseByUser(userId))?.[0]?.id;
+          if (!fallbackAddressId) {
+            return {
+              reply: 'Bạn chưa có địa chỉ nào để giao hàng. Vui lòng thêm địa chỉ trước.',
+              action: 'noAddress',
+              metadata: { isQuickReorder: false },
+            };
+          }
+
+          const enrichedOrderDetails: CreateOrderDetailDto[] = [];
+
+          for (const item of selectedOrder.orderDetails) {
+            const food = await this.foodService.findExactFoodByName(item.foodName, selectedOrder.restaurantId);
+            if (!food) {
+              return {
+                reply: `⚠️ Không thể tìm thấy món "${item.foodName}" trong thực đơn hiện tại.`,
+                action: 'foodNotFound',
+                metadata: { isQuickReorder: false },
+              };
+            }
+
+            enrichedOrderDetails.push({
+              foodId: food.id,
+              quantity: String(item.quantity),
+              price: String(item.price),
+              note: '',
+              discountPercent: 0,
+              selectedToppings: [],
+            });
+          }
+
+          const newOrder = await this.orderService.createOrder({
+            userId,
+            restaurantId: selectedOrder.restaurantId,
+            addressId: fallbackAddressId,
+            orderDetails: enrichedOrderDetails,
+            paymentMethod: 'cod',
+          });
+
+          await pubSub.publish('orderCreated', { orderCreated: newOrder });
+
+          return {
+            reply: `✅ Đơn hàng của bạn đã được đặt lại thành công!\nXem tại: http://localhost:3000/order/${newOrder.id}`,
+            action: 'quickOrderCreated',
+            metadata: { isQuickReorder: false, orderId: newOrder.id },
+          };
+        } else {
+          return {
+            reply: 'Lựa chọn không hợp lệ. Vui lòng chọn số đơn muốn đặt lại.',
+            action: 'retryQuickOrder',
+            metadata,
+          };
+        }
+      }
+
+      
+      
 
       // Kiểm tra yêu cầu "đặt món" hoặc "đặt đơn"
       const isOrderRequest = userMessage.toLowerCase().includes('đặt món') || userMessage.toLowerCase().includes('đặt đơn');

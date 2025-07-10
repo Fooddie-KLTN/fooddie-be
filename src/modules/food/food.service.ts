@@ -209,6 +209,7 @@ export class FoodService {
             totalPages: Math.ceil(totalItems / pageSize),
         };
     }
+    
     /**
      * Search foods for store/admin with additional filtering options
      */
@@ -1269,6 +1270,18 @@ export class FoodService {
         food.status = status;
         return await this.foodRepository.save(food);
     }
+
+    async findExactFoodByName(name: string, restaurantId?: string): Promise<Food | null> {
+        const query = this.foodRepository.createQueryBuilder('food')
+          .leftJoinAndSelect('food.restaurant', 'restaurant')
+          .where('LOWER(unaccent(food.name)) = LOWER(unaccent(:name))', { name });
+      
+        if (restaurantId) {
+          query.andWhere('restaurant.id = :restaurantId', { restaurantId });
+        }
+      
+        return query.getOne();
+      }
 
     async findByName(
         name?: string,
