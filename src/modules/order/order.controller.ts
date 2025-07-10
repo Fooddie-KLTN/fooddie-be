@@ -37,6 +37,7 @@ export class OrderController {
         note: detail.note || '',
         selectedToppings: detail.selectedToppings || [],
         discountPercent: detail.discountPercent ?? 0,
+        deliveryType: detail.deliveryType || 'asap', // Default to 'delivery' if not provided
       }))
       : [];
 

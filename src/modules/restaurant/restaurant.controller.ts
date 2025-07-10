@@ -117,7 +117,7 @@ export class RestaurantController {
     );
   }
 
-  @Get()
+  @Get('all')
   async findAll(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('pageSize', new DefaultValuePipe(10), ParseIntPipe) pageSize: number,
