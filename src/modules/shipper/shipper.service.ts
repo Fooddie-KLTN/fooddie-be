@@ -934,6 +934,18 @@ private calculateTrend(earningsData: number[]): string {
       throw new NotFoundException('Shipper not found');
     }
 
+    // 🔥 NEW: Reset the pending assignment isSentToShipper flag to false
+    try {
+      await this.pendingShipperAssignmentRepository.update(
+        { order: { id: orderId } },
+        { isSentToShipper: false }
+      );
+      
+      this.logger.log(`Reset isSentToShipper flag to false for order ${orderId} after rejection by shipper ${shipperId}`);
+    } catch (error) {
+      this.logger.error(`Failed to reset isSentToShipper flag for order ${orderId}: ${error.message}`);
+    }
+
     // Update shipper statistics
     shipper.activeDeliveries = Math.max((shipper.activeDeliveries || 1) - 1, 0);
     shipper.failedDeliveries = (shipper.failedDeliveries || 0) + 1;
