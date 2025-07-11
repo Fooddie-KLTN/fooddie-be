@@ -795,7 +795,7 @@ export class OrderService {
         
         const address = await this.addressRepository.findOne({ where: { id: data.addressId } });
         const restaurant = await this.restaurantRepository.findOne({ 
-            where: { id: data.restaurantId }, 
+            where: { id: data.restaurantId },
             relations: ['address'] 
         });
         
@@ -1159,12 +1159,17 @@ export class OrderService {
         // Save the updated order
         const updatedOrder = await this.orderRepository.save(order);
 
-        log(`Payment confirmed for order ${orderId}`);
+        // 🔥 PUBLISH orderCreated EVENT when payment is confirmed
+        await pubSub.publish('orderCreated', {
+            orderCreated: updatedOrder
+        });
 
-        // You could add additional logic here, like:
-        // - Sending confirmation email
-        // - Updating inventory
-        // - Recording the transaction
+        // Also publish orderStatusUpdated for consistency
+        await pubSub.publish('orderStatusUpdated', {
+            orderStatusUpdated: updatedOrder
+        });
+
+        log(`Payment confirmed for order ${orderId} - orderCreated event published`);
 
         return updatedOrder;
     }
