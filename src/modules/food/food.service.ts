@@ -247,12 +247,13 @@ export class FoodService {
             .leftJoinAndSelect('food.restaurant', 'restaurant')
             .leftJoinAndSelect('food.category', 'category')
     
-    // Add search condition
+    // Add search condition - FIXED
     if (query && query.trim()) {
-        queryBuilder.where('food.name ILIKE :query OR food.description ILIKE :query', {
-            query: `%${query.trim()}%`
-        });
-        console.log('Added search filter for:', query.trim());
+        queryBuilder.where(
+            "(unaccent(food.name) ILIKE unaccent(:query) OR unaccent(food.description) ILIKE unaccent(:query))",
+            { query: `%${query.trim()}%` }
+        );
+        console.log('Added search filter (accent-insensitive):', query.trim());
     }
 
     // Add restaurant filter if provided
@@ -862,13 +863,7 @@ export class FoodService {
         lat?: number,
         lng?: number,
         radius = 5
-    ): Promise<{
-        items: any[];
-        totalItems: number;
-        page: number;
-        pageSize: number;
-        totalPages: number;
-    }> {
+    ): Promise<any> {
         console.log('=== searchFoods Debug ===');
         console.log('Input parameters:', {
             query,
@@ -883,11 +878,11 @@ export class FoodService {
             .leftJoinAndSelect('food.restaurant', 'restaurant')
             .leftJoinAndSelect('food.category', 'category');
 
-        // Add search condition - if no query provided, return all foods
+        // Add search condition - FIXED
         if (query && query.trim()) {
             queryBuilder.where(
-                "(unaccent(LOWER(food.name)) LIKE unaccent(:name) OR unaccent(LOWER(food.description)) LIKE unaccent(:name))",
-                { name: `%${query.toLowerCase()}%` }
+                "(unaccent(food.name) ILIKE unaccent(:query) OR unaccent(food.description) ILIKE unaccent(:query))",
+                { query: `%${query.trim()}%` }
             );
             console.log('Added search filter (accent-insensitive):', query);
         } else {
@@ -1307,8 +1302,8 @@ export class FoodService {
       
         if (name && name.trim()) {
           queryBuilder.where(
-            "(unaccent(LOWER(food.name)) LIKE unaccent(:name) OR unaccent(LOWER(food.description)) LIKE unaccent(:name))",
-            { name: `%${name.toLowerCase()}%` }
+            "(unaccent(LOWER(food.name)) LIKE unaccent(LOWER(:name)) OR unaccent(LOWER(food.description)) LIKE unaccent(LOWER(:name)))",
+            { name: `%${name.trim()}%` }
           );
         }
       

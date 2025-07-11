@@ -63,7 +63,7 @@ export class ChatService {
           price: f.price,
           description: f.description,
           image: f.image || 'https://via.placeholder.com/80x80',
-          link: `http://localhost:3000/food/${f.id}`,
+          link: `https://fooddie-fe.onrender.com/food/${f.id}`,
           restaurantId: f.restaurantId,
         }))
       );
@@ -172,7 +172,7 @@ export class ChatService {
           await pubSub.publish('orderCreated', { orderCreated: newOrder });
 
           return {
-            reply: `✅ Đơn hàng của bạn đã được đặt lại thành công!\nXem tại: http://localhost:3000/order/${newOrder.id}`,
+            reply: `✅ Đơn hàng của bạn đã được đặt lại thành công!\nXem tại: https://fooddie-fe.onrender.com//order/${newOrder.id}`,
             action: 'quickOrderCreated',
             metadata: { isQuickReorder: false, orderId: newOrder.id },
           };
@@ -378,7 +378,7 @@ export class ChatService {
         metadata.orderItems = [];
 
         return {
-          reply: `Đơn hàng của bạn đã được tạo thành công. Bạn có thể xem chi tiết đơn hàng tại: http://localhost:3000/order/${orderResponse.id}. Tổng tiền: ${orderResponse.total}. Cảm ơn bạn đã sử dụng dịch vụ của Foodie <3.`,
+          reply: `Đơn hàng của bạn đã được tạo thành công. Bạn có thể xem chi tiết đơn hàng tại: https://fooddie-fe.onrender.com/order/${orderResponse.id}. Tổng tiền: ${orderResponse.total}. Cảm ơn bạn đã sử dụng dịch vụ của Foodie <3.`,
           action: 'placeOrder',
           metadata: { orderId: orderResponse.id, total: orderResponse.total, ...metadata },
         };
